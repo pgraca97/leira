@@ -1,0 +1,7 @@
+{
+  "name": "@garden/tsconfig",
+  "private": true,
+  "files": [
+    "*.json"
+  ]
+}

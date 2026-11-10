@@ -1,0 +1,9 @@
+packages:
+  - apps/*
+  - packages/*
+
+# pnpm blocks dependency install scripts unless they are allowed here.
+# These two download a platform binary: the bundler and the Workers runtime.
+allowBuilds:
+  esbuild: true
+  workerd: true
