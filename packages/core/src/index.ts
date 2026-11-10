@@ -9,6 +9,13 @@ export {
   snap,
   snapRect,
 } from "./geometry"
+export {
+  defaultInGround,
+  hitTest,
+  type PlanItemRef,
+  planBounds,
+  plantingFill,
+} from "./plan"
 export { getPlant, PLANTS } from "./plants"
 export {
   BED_KINDS,
@@ -39,3 +46,4 @@ export {
   type WeatherNow,
   WeatherNowSchema,
 } from "./schema"
+export { type AreaFill, fillArea, fillPoints, SFG_CELL_CM } from "./spacing"
