@@ -1,0 +1,4 @@
+{
+  "extends": "@garden/tsconfig/base.json",
+  "include": ["src"]
+}
