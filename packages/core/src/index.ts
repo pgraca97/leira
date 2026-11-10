@@ -18,6 +18,11 @@ export {
 } from "./plan"
 export { getPlant, PLANTS } from "./plants"
 export {
+  findRotationConflicts,
+  type RotationConflict,
+  type RotationOptions,
+} from "./rotation"
+export {
   BED_KINDS,
   type Bed,
   type BedKind,
