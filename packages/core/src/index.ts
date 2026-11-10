@@ -11,6 +11,8 @@ export {
 } from "./geometry"
 export {
   defaultInGround,
+  fitRectToPlan,
+  footprintAt,
   hitTest,
   type PlanItemRef,
   planBounds,

@@ -1,11 +1,47 @@
 import { addDays, type IsoDate } from "./dates"
-import { containsPoint, type Point, type Rect } from "./geometry"
+import {
+  clampRect,
+  containsPoint,
+  intersection,
+  type Point,
+  type Rect,
+  snap,
+  snapRect,
+} from "./geometry"
 import type { GardenPlan, Plant, Planting } from "./schema"
 import { type AreaFill, fillArea } from "./spacing"
 
 /** The whole garden as a rectangle anchored at the origin. */
 export function planBounds(plan: GardenPlan): Rect {
   return { x: 0, y: 0, w: plan.widthCm, h: plan.heightCm }
+}
+
+/**
+ * Turns a freely drawn rectangle into one the plan can hold: clipped to the
+ * garden and snapped to the grid. Returns null when it lies outside the garden.
+ */
+export function fitRectToPlan(plan: GardenPlan, rect: Rect): Rect | null {
+  const bounds = planBounds(plan)
+  const inside = intersection(rect, bounds)
+  if (!inside) return null
+  // Snapping can push an edge past the garden when its size is not a whole
+  // number of cells, so clamp once more.
+  return clampRect(snapRect(inside, plan.cellCm), bounds)
+}
+
+/**
+ * The ground one plant takes when placed on its own: a grid-aligned square
+ * around `center`, as wide as the crop's in-row spacing rounded up to whole cells.
+ */
+export function footprintAt(plan: GardenPlan, plant: Plant, center: Point): Rect {
+  const cell = plan.cellCm
+  const side = Math.max(cell, Math.ceil(plant.spacing.inRowCm / cell) * cell)
+  return {
+    x: snap(center.x - side / 2, cell),
+    y: snap(center.y - side / 2, cell),
+    w: side,
+    h: side,
+  }
 }
 
 /** Something on the plan that can be pointed at. */

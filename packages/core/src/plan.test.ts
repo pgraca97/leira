@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest"
-import { defaultInGround, hitTest, planBounds, plantingFill } from "./plan"
+import {
+  defaultInGround,
+  fitRectToPlan,
+  footprintAt,
+  hitTest,
+  planBounds,
+  plantingFill,
+} from "./plan"
 import { getPlant } from "./plants"
 import { emptyPlan, type GardenPlan } from "./schema"
 
@@ -23,6 +30,62 @@ const plan: GardenPlan = {
 describe("planBounds", () => {
   it("covers the whole garden from the origin", () => {
     expect(planBounds(plan)).toEqual({ x: 0, y: 0, w: 600, h: 400 })
+  })
+})
+
+describe("fitRectToPlan", () => {
+  it("snaps a rectangle inside the garden to the grid", () => {
+    expect(fitRectToPlan(plan, { x: 12, y: 18, w: 95, h: 41 })).toEqual({
+      x: 10,
+      y: 20,
+      w: 100,
+      h: 40,
+    })
+  })
+
+  it("clips a rectangle that runs over the edge", () => {
+    expect(fitRectToPlan(plan, { x: 550, y: -40, w: 200, h: 100 })).toEqual({
+      x: 550,
+      y: 0,
+      w: 50,
+      h: 60,
+    })
+  })
+
+  it("returns null for a rectangle outside the garden", () => {
+    expect(fitRectToPlan(plan, { x: 700, y: 50, w: 100, h: 100 })).toBeNull()
+  })
+
+  it("keeps a sliver at the edge at least one cell wide, still inside", () => {
+    expect(fitRectToPlan(plan, { x: 598, y: 100, w: 30, h: 30 })).toEqual({
+      x: 590,
+      y: 100,
+      w: 10,
+      h: 30,
+    })
+  })
+
+  it("stays inside a garden that is not a whole number of cells", () => {
+    const odd = { ...plan, widthCm: 605 }
+    const fitted = fitRectToPlan(odd, { x: 500, y: 0, w: 105, h: 50 })!
+    expect(fitted.x + fitted.w).toBeLessThanOrEqual(605)
+  })
+})
+
+describe("footprintAt", () => {
+  it("centres a square the size of the in-row spacing on the point", () => {
+    const tomato = getPlant("tomato")!
+    expect(footprintAt(plan, tomato, { x: 203, y: 148 })).toEqual({ x: 180, y: 120, w: 50, h: 50 })
+  })
+
+  it("rounds the side up to whole cells", () => {
+    const lettuce = getPlant("lettuce")!
+    expect(footprintAt(plan, lettuce, { x: 100, y: 100 })).toMatchObject({ w: 30, h: 30 })
+  })
+
+  it("never goes below one cell", () => {
+    const carrot = getPlant("carrot")!
+    expect(footprintAt(plan, carrot, { x: 100, y: 100 })).toMatchObject({ w: 10, h: 10 })
   })
 })
 
