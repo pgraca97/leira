@@ -1,0 +1,9 @@
+# Local values for the Worker. Copy this file to .dev.vars (git-ignored) and fill it in.
+# Never commit real keys, and never give these a VITE_ prefix: that would ship them to the browser.
+
+# https://home.openweathermap.org/api_keys
+OPENWEATHER_API_KEY=
+
+# The local Supabase stack. Run `pnpm supabase status` at the repo root for the key.
+SUPABASE_URL=http://127.0.0.1:54321
+SUPABASE_PUBLISHABLE_KEY=

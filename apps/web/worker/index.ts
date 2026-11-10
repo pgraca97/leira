@@ -1,9 +1,8 @@
-import { Hono } from "hono"
+import { createApp } from "./app"
+import { verifySupabaseToken } from "./auth"
+import { openWeather } from "./weather/openweather"
 
-const app = new Hono<{ Bindings: Env }>()
-
-app.get("/api/health", (c) => c.json({ ok: true }))
-
-app.notFound((c) => c.json({ error: "not_found" }, 404))
-
-export default app
+export default createApp({
+  verifyToken: verifySupabaseToken,
+  weatherProvider: (env) => (env.OPENWEATHER_API_KEY ? openWeather(env.OPENWEATHER_API_KEY) : null),
+})

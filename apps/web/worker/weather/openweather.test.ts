@@ -1,0 +1,119 @@
+import { WeatherNowSchema } from "@garden/core"
+import { describe, expect, it, vi } from "vitest"
+import { conditionFromCode, openWeather } from "./openweather"
+import { WeatherProviderError } from "./provider"
+
+const API_KEY = "test-key-do-not-leak"
+
+/** A trimmed copy of a real "current weather" response. */
+const LISBON = {
+  coord: { lon: -9.1, lat: 38.7 },
+  weather: [{ id: 800, main: "Clear", description: "clear sky", icon: "01d" }],
+  main: {
+    temp: 18.3,
+    feels_like: 17.9,
+    temp_min: 16.5,
+    temp_max: 19.6,
+    pressure: 1018,
+    humidity: 65,
+  },
+  visibility: 10000,
+  wind: { speed: 4.6, deg: 340 },
+  clouds: { all: 0 },
+  dt: 1794312000,
+  sys: { country: "PT", sunrise: 1794294000, sunset: 1794331000 },
+  timezone: 0,
+  id: 2267057,
+  name: "Lisbon",
+  cod: 200,
+}
+
+function respondWith(body: unknown, status = 200) {
+  return vi.fn<typeof fetch>(async () => Response.json(body, { status }))
+}
+
+describe("openWeather", () => {
+  it("maps a reading to the app's weather shape", async () => {
+    const weather = await openWeather(API_KEY, respondWith(LISBON)).current(38.7, -9.1)
+    expect(weather).toEqual({
+      tempC: 18.3,
+      feelsLikeC: 17.9,
+      humidityPct: 65,
+      windMs: 4.6,
+      condition: "clear",
+      isDay: true,
+      placeName: "Lisbon",
+      observedAt: "2026-11-10T12:00:00.000Z",
+    })
+    expect(WeatherNowSchema.safeParse(weather).success).toBe(true)
+  })
+
+  it("asks for metric units at the given position", async () => {
+    const fetchFn = respondWith(LISBON)
+    await openWeather(API_KEY, fetchFn).current(38.7, -9.1)
+    const url = new URL(String(fetchFn.mock.calls[0]![0]))
+    expect(url.origin + url.pathname).toBe("https://api.openweathermap.org/data/2.5/weather")
+    expect(Object.fromEntries(url.searchParams)).toEqual({
+      lat: "38.7",
+      lon: "-9.1",
+      units: "metric",
+      appid: API_KEY,
+    })
+  })
+
+  it("reads night from the icon and treats a blank place name as unknown", async () => {
+    const night = { ...LISBON, weather: [{ id: 802, icon: "03n" }], name: "" }
+    const weather = await openWeather(API_KEY, respondWith(night)).current(0, 0)
+    expect(weather).toMatchObject({ condition: "clouds", isDay: false, placeName: null })
+  })
+
+  it("fails on an error status without leaking the key", async () => {
+    const fetchFn = respondWith({ cod: 401, message: `Invalid API key ${API_KEY}` }, 401)
+    const failure = await openWeather(API_KEY, fetchFn)
+      .current(38.7, -9.1)
+      .catch((error: unknown) => error)
+    expect(failure).toBeInstanceOf(WeatherProviderError)
+    expect(String(failure)).toContain("401")
+    expect(String(failure)).not.toContain(API_KEY)
+  })
+
+  it("fails on a network error without leaking the key", async () => {
+    const fetchFn = vi.fn<typeof fetch>(async (input) => {
+      throw new TypeError(`fetch failed: ${String(input)}`)
+    })
+    const failure = await openWeather(API_KEY, fetchFn)
+      .current(38.7, -9.1)
+      .catch((error: unknown) => error)
+    expect(failure).toBeInstanceOf(WeatherProviderError)
+    expect(String(failure)).not.toContain(API_KEY)
+    expect((failure as Error).cause).toBeUndefined()
+  })
+
+  it.each([
+    ["a body that is not JSON", new Response("<html>bad gateway</html>")],
+    ["a body with fields missing", Response.json({ weather: [], main: {} })],
+  ])("fails on %s", async (_case, response) => {
+    const fetchFn = vi.fn<typeof fetch>(async () => response)
+    await expect(openWeather(API_KEY, fetchFn).current(38.7, -9.1)).rejects.toThrow(
+      WeatherProviderError
+    )
+  })
+})
+
+describe("conditionFromCode", () => {
+  it.each([
+    [200, "thunderstorm"],
+    [232, "thunderstorm"],
+    [301, "drizzle"],
+    [500, "rain"],
+    [531, "rain"],
+    [600, "snow"],
+    [701, "fog"],
+    [741, "fog"],
+    [800, "clear"],
+    [801, "clouds"],
+    [804, "clouds"],
+  ] as const)("maps %i to %s", (code, condition) => {
+    expect(conditionFromCode(code)).toBe(condition)
+  })
+})
