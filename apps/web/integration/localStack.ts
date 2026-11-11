@@ -43,3 +43,52 @@ export async function signInVisitor(
   }
   return { client, userId: data.user.id, accessToken: data.session.access_token }
 }
+
+/** The local stack catches every email it sends in Mailpit instead of delivering it. */
+const MAILPIT_URL = "http://127.0.0.1:54324"
+
+/**
+ * Waits for the newest email sent to an address and returns the first link in
+ * it: the confirmation or sign-in link the user would click.
+ */
+export async function emailedLink(address: string): Promise<string> {
+  for (let attempt = 0; attempt < 40; attempt++) {
+    const search = await fetch(
+      `${MAILPIT_URL}/api/v1/search?query=${encodeURIComponent(`to:${address}`)}`
+    )
+    const { messages } = (await search.json()) as { messages: { ID: string }[] }
+    const newest = messages[0]
+    if (newest) {
+      const message = await fetch(`${MAILPIT_URL}/api/v1/message/${newest.ID}`)
+      const { Text } = (await message.json()) as { Text: string }
+      const link = Text.match(/https?:\/\/\S+\/auth\/v1\/verify\S+/)?.[0]
+      if (link) {
+        // Taken out of the inbox, so the next call waits for the next email
+        // instead of finding this one again.
+        await fetch(`${MAILPIT_URL}/api/v1/messages`, {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ IDs: [newest.ID] }),
+        })
+        return link.replace(/[)\]>.]+$/, "")
+      }
+    }
+    await new Promise((resolve) => setTimeout(resolve, 250))
+  }
+  throw new Error(`No email with a link arrived for ${address}`)
+}
+
+/**
+ * Follows an emailed link the way a browser would, up to the redirect back
+ * to the app, and returns the session it carries in the address.
+ */
+export async function followEmailedLink(
+  link: string
+): Promise<{ redirectedTo: string; accessToken: string | null }> {
+  const response = await fetch(link, { redirect: "manual" })
+  const location = response.headers.get("location")
+  if (!location) throw new Error(`The link did not redirect (status ${response.status})`)
+  const target = new URL(location)
+  const fragment = new URLSearchParams(target.hash.slice(1))
+  return { redirectedTo: target.origin, accessToken: fragment.get("access_token") }
+}
