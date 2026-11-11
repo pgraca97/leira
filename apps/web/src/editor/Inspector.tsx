@@ -1,6 +1,15 @@
-import { findRotationConflicts, getPlant, plantingFill } from "@garden/core"
-import type { ReactNode } from "react"
+import {
+  BED_KINDS,
+  type BedKind,
+  findRotationConflicts,
+  getPlant,
+  PLANTING_LAYOUTS,
+  type PlantingLayout,
+  plantingFill,
+} from "@garden/core"
+import { type ReactNode, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { CommitField } from "../components/CommitField"
 import { dangerButtonClass, inputClass, toggleButtonClass } from "../components/ui"
 import { currentLanguage } from "../i18n"
 import { editorStore, selectedBed, selectedPlanting } from "./store"
@@ -18,7 +27,9 @@ export function Inspector({ children }: { children?: ReactNode }) {
   const { t } = useTranslation()
   const plan = useEditor((state) => state.plan)
   const selection = useEditor((state) => state.selection)
-  const { select, removeSelection, setPlantingDates } = editorStore.getState()
+  const { select, removeSelection, setPlantingDates, setPlantingLayout, updateBed, setPlanSize } =
+    editorStore.getState()
+  const [sizeRefused, setSizeRefused] = useState(false)
   const language = currentLanguage()
 
   const plantings = plan.plantings.map((planting) => {
@@ -39,19 +50,53 @@ export function Inspector({ children }: { children?: ReactNode }) {
   const bed = selectedBed({ plan, selection })
   const planted = plantings.find((item) => item.planting === selectedPlanting({ plan, selection }))
   const selectedRect = bed?.rect ?? planted?.planting.rect
-  const metres = new Intl.NumberFormat(language, { maximumFractionDigits: 2 })
+  const metres = new Intl.NumberFormat(language, { maximumFractionDigits: 2, useGrouping: false })
+
+  /** Stores a garden side typed in metres ("8", "8.5" or "8,5"), keeping the other side. */
+  const resize = (side: "widthCm" | "heightCm", typed: string): boolean => {
+    const centimetres = Math.round(Number(typed.trim().replace(",", ".")) * 100)
+    const resized =
+      typed.trim() !== "" &&
+      Number.isFinite(centimetres) &&
+      (centimetres === plan[side] ||
+        setPlanSize(
+          side === "widthCm" ? centimetres : plan.widthCm,
+          side === "heightCm" ? centimetres : plan.heightCm
+        ))
+    setSizeRefused(!resized)
+    return resized
+  }
 
   return (
     <aside className="flex max-h-72 flex-col gap-4 overflow-y-auto border-t border-stone-200 bg-white p-3 lg:max-h-none lg:border-t-0 lg:border-l">
       <header>
         <h2 className="font-semibold text-stone-900">{t("inspector.title")}</h2>
-        <p className="text-sm text-stone-600">
-          {t("inspector.size", {
-            width: metres.format(plan.widthCm / 100),
-            height: metres.format(plan.heightCm / 100),
-          })}
-          {totalPlants > 0 && ` · ${t("inspector.totalPlants", { count: totalPlants })}`}
-        </p>
+        <div className="mt-1 flex gap-2">
+          <CommitField
+            label={t("inspector.widthM")}
+            className="w-20"
+            inputMode="decimal"
+            value={metres.format(plan.widthCm / 100)}
+            onCommit={(typed) => resize("widthCm", typed)}
+          />
+          <CommitField
+            label={t("inspector.lengthM")}
+            className="w-20"
+            inputMode="decimal"
+            value={metres.format(plan.heightCm / 100)}
+            onCommit={(typed) => resize("heightCm", typed)}
+          />
+        </div>
+        {sizeRefused && (
+          <p role="alert" className="mt-1 text-sm text-red-800">
+            {t("inspector.sizeRefused")}
+          </p>
+        )}
+        {totalPlants > 0 && (
+          <p className="mt-1 text-sm text-stone-600">
+            {t("inspector.totalPlants", { count: totalPlants })}
+          </p>
+        )}
       </header>
 
       {plan.beds.length === 0 && plan.plantings.length === 0 && (
@@ -69,22 +114,67 @@ export function Inspector({ children }: { children?: ReactNode }) {
           <p className="font-medium text-stone-900">
             {planted
               ? t("inspector.plantingSummary", { name: planted.name, count: planted.count })
-              : t("inspector.bedName", {
+              : bed?.name ||
+                t("inspector.bedName", {
                   number: plan.beds.indexOf(bed as NonNullable<typeof bed>) + 1,
                 })}
           </p>
           <p className="text-sm text-stone-600">
             {t("inspector.dimensions", { width: selectedRect.w, height: selectedRect.h })}
           </p>
+          <p className="text-sm text-stone-600">
+            {t("inspector.position", { x: selectedRect.x, y: selectedRect.y })}
+          </p>
+          {bed && (
+            <div className="mt-2 flex flex-wrap gap-2">
+              <CommitField
+                label={t("inspector.name")}
+                className="w-36"
+                maxLength={60}
+                value={bed.name}
+                onCommit={(name) => updateBed(bed.id, { name })}
+              />
+              <label className="flex flex-col text-xs text-stone-600">
+                {t("inspector.kindLabel")}
+                <select
+                  className={inputClass}
+                  value={bed.kind}
+                  onChange={(event) => updateBed(bed.id, { kind: event.target.value as BedKind })}
+                >
+                  {BED_KINDS.map((kind) => (
+                    <option key={kind} value={kind}>
+                      {t(`inspector.kind.${kind}`)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          )}
           {planted?.plant && (
             <p className="text-sm text-stone-600">
-              {t(`inspector.layout.${planted.planting.layout}`)}
-              {" · "}
               {t("inspector.spacing", {
                 inRow: planted.plant.spacing.inRowCm,
                 row: planted.plant.spacing.rowCm,
               })}
             </p>
+          )}
+          {planted && (
+            <label className="mt-2 flex flex-col items-start text-xs text-stone-600">
+              {t("inspector.layoutLabel")}
+              <select
+                className={inputClass}
+                value={planted.planting.layout}
+                onChange={(event) =>
+                  setPlantingLayout(planted.planting.id, event.target.value as PlantingLayout)
+                }
+              >
+                {PLANTING_LAYOUTS.map((layout) => (
+                  <option key={layout} value={layout}>
+                    {t(`inspector.layout.${layout}`)}
+                  </option>
+                ))}
+              </select>
+            </label>
           )}
           {planted && (
             <div className="mt-2 flex flex-wrap gap-2">

@@ -34,6 +34,45 @@ test("a garden survives a reload", async ({ page }) => {
   await expect(page.getByRole("link", { name: "Allotment 12" })).toBeVisible()
 })
 
+test("a bed can be moved and resized, and stays that way", async ({ page }) => {
+  await page.goto("/")
+  await page.getByRole("button", { name: "New garden" }).click()
+  await page.getByRole("button", { name: "Bed", exact: true }).click()
+  // The 6 m by 4 m garden fills the canvas width apart from a margin, so these
+  // fractions land on the garden whatever the exact zoom.
+  await dragOnCanvas(page, [0.4, 0.4], [0.5, 0.5])
+
+  const selected = page.getByRole("region", { name: "Selected" })
+  const position = selected.getByText(/cm from the left/)
+  const size = selected.getByText(/^\d+ × \d+ cm$/)
+  const positionBefore = await position.textContent()
+  const sizeBefore = await size.textContent()
+
+  // Drag the bed by its middle: it moves and keeps its size.
+  await dragOnCanvas(page, [0.45, 0.45], [0.6, 0.55])
+  await expect(position).not.toHaveText(positionBefore ?? "")
+  await expect(size).toHaveText(sizeBefore ?? "")
+  const positionMoved = await position.textContent()
+
+  // Drag its bottom-right handle: it grows and its top-left corner stays put.
+  await dragOnCanvas(page, [0.65, 0.6], [0.7, 0.7])
+  await expect(size).not.toHaveText(sizeBefore ?? "")
+  await expect(position).toHaveText(positionMoved ?? "")
+  const sizeResized = await size.textContent()
+
+  // One undo per drag.
+  await page.getByRole("button", { name: "Undo" }).click()
+  await expect(size).toHaveText(sizeBefore ?? "")
+  await page.getByRole("button", { name: "Redo" }).click()
+  await expect(size).toHaveText(sizeResized ?? "")
+
+  await expect(page.getByText("Saved", { exact: true })).toBeVisible()
+  await page.reload()
+  await page.getByRole("button", { name: /^Bed 1/ }).click()
+  await expect(position).toHaveText(positionMoved ?? "")
+  await expect(size).toHaveText(sizeResized ?? "")
+})
+
 test("a visitor only sees their own gardens", async ({ browser }) => {
   const first = await browser.newContext()
   const firstPage = await first.newPage()

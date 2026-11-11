@@ -1,19 +1,28 @@
 import {
   type Bed,
+  type BedKind,
   fillArea,
   fillPoints,
   fitRectToPlan,
   footprintAt,
+  type GardenPlan,
   getPlant,
+  handlePoints,
   hitTest,
+  itemRect,
+  moveItem,
+  type PlanItemRef,
   type Planting,
   type Point,
   plantingFill,
   type Rect,
+  type ResizeHandle,
   rectFromPoints,
+  resizeItem,
 } from "@garden/core"
 import Phaser from "phaser"
 import { type EditorState, editorStore, type Tool } from "../store"
+import { cursorFor, pointerTarget } from "./pointerTarget"
 
 /** Registry key under which the host page publishes `window.devicePixelRatio`. */
 export const PIXEL_RATIO_KEY = "pixelRatio"
@@ -25,10 +34,19 @@ export const COLOR = {
   groundEdge: 0x57534e,
   grid: 0x1c1917,
   bed: 0x8a5a3c,
-  bedEdge: 0x5b3a26,
   unknownPlant: 0x78716c,
   selection: 0x2563eb,
+  handle: 0xffffff,
 } as const
+
+/** How each kind of bed is painted: soil, a pot, glass, gravel, a shed. */
+const BED_STYLE: Record<BedKind, { fill: number; alpha: number; edge: number }> = {
+  bed: { fill: COLOR.bed, alpha: 1, edge: 0x5b3a26 },
+  container: { fill: 0xc2703d, alpha: 1, edge: 0x8f4a22 },
+  greenhouse: { fill: 0xcfe8ef, alpha: 0.7, edge: 0x5b8a99 },
+  path: { fill: 0xcbbf9f, alpha: 1, edge: 0x9c9070 },
+  structure: { fill: 0x78716c, alpha: 1, edge: 0x44403c },
+}
 
 const DEPTH = { ground: 0, grid: 1, beds: 10, plantings: 20, outlines: 30, overlay: 40 } as const
 
@@ -48,14 +66,30 @@ const MIN_CELL_PX = 6
 const MAX_DOTS = 600
 /** Radius of a plant dot, as a share of the distance to its nearest neighbour. */
 const DOT_RADIUS_RATIO = 0.38
+/** Half the side of a resize handle as drawn, in screen pixels. */
+const HANDLE_HALF_PX = 4
+/** How far from a handle's centre a press still grabs it, in screen pixels. */
+const HANDLE_REACH_PX = 8
+
+/** Where a press started on screen, and whether it has travelled far enough to be a drag. */
+interface Press {
+  downX: number
+  downY: number
+  moved: boolean
+}
 
 type Gesture =
-  | { kind: "pan"; downX: number; downY: number; lastX: number; lastY: number; moved: boolean }
-  | { kind: "draw"; downX: number; downY: number; start: Point; end: Point; moved: boolean }
+  | (Press & { kind: "pan"; lastX: number; lastY: number })
+  | (Press & { kind: "draw"; start: Point; end: Point })
+  | (Press & { kind: "move"; ref: PlanItemRef; start: Point; end: Point })
+  | (Press & { kind: "resize"; ref: PlanItemRef; handle: ResizeHandle; end: Point })
+
+type EditGesture = Extract<Gesture, { kind: "move" | "resize" }>
 
 interface BedView {
   source: Bed
   graphics: Phaser.GameObjects.Graphics
+  label: Phaser.GameObjects.Text
 }
 
 interface PlantingView {
@@ -137,7 +171,8 @@ export class GardenScene extends Phaser.Scene {
         next.plan.widthCm !== previous.plan.widthCm || next.plan.heightCm !== previous.plan.heightCm
       this.syncPlan(next)
       if (resized) this.fitToView()
-    } else if (next.selection !== previous.selection) {
+    } else if (next.selection !== previous.selection || next.tool !== previous.tool) {
+      // The tool matters too: resize handles only show with the select tool.
       this.drawOutlines(next)
     }
     if (next.tool !== previous.tool) this.applyTool(next.tool)
@@ -156,18 +191,25 @@ export class GardenScene extends Phaser.Scene {
       bedIds.add(bed.id)
       let view = this.bedViews.get(bed.id)
       if (!view) {
-        view = { source: bed, graphics: this.add.graphics() }
+        view = {
+          source: bed,
+          graphics: this.add.graphics(),
+          label: this.add.text(0, 0, "", this.labelStyle()).setOrigin(0, 1),
+        }
         this.bedViews.set(bed.id, view)
-        this.drawBed(view.graphics, bed)
+        this.drawBed(view, bed)
       } else if (view.source !== bed) {
         view.source = bed
-        this.drawBed(view.graphics, bed)
+        this.drawBed(view, bed)
       }
-      view.graphics.setDepth(DEPTH.beds + stackOffset(index))
+      const depth = DEPTH.beds + stackOffset(index)
+      view.graphics.setDepth(depth)
+      view.label.setDepth(depth)
     })
     for (const [id, view] of this.bedViews) {
       if (bedIds.has(id)) continue
       view.graphics.destroy()
+      view.label.destroy()
       this.bedViews.delete(id)
     }
 
@@ -205,15 +247,17 @@ export class GardenScene extends Phaser.Scene {
     this.layoutLabels()
   }
 
-  private drawBed(graphics: Phaser.GameObjects.Graphics, bed: Bed): void {
+  private drawBed(view: BedView, bed: Bed): void {
     const { x, y, w, h } = bed.rect
+    const style = BED_STYLE[bed.kind]
     // The edge is drawn inside the rectangle, like the frame of a raised bed.
     const edge = Math.min(3, w / 4, h / 4)
-    graphics.clear()
-    graphics.fillStyle(COLOR.bed, 1)
+    const graphics = view.graphics.clear()
+    graphics.fillStyle(style.fill, style.alpha)
     graphics.fillRect(x, y, w, h)
-    graphics.lineStyle(edge, COLOR.bedEdge, 1)
+    graphics.lineStyle(edge, style.edge, 1)
     graphics.strokeRect(x + edge / 2, y + edge / 2, w - edge, h - edge)
+    view.label.setText(bed.name)
   }
 
   private drawPlanting(
@@ -258,13 +302,20 @@ export class GardenScene extends Phaser.Scene {
       strokeRect(this.outlines, planting.rect)
     }
 
-    const { selection } = state
-    if (!selection) return
-    const items = selection.kind === "bed" ? state.plan.beds : state.plan.plantings
-    const selected = items.find((item) => item.id === selection.id)
-    if (!selected) return
+    const rect = state.selection && itemRect(state.plan, state.selection)
+    if (!rect) return
     this.outlines.lineStyle(3 * pixel, COLOR.selection, 1)
-    strokeRect(this.outlines, grow(selected.rect, 1.5 * pixel))
+    strokeRect(this.outlines, grow(rect, 1.5 * pixel))
+
+    // Handles are an offer to resize, which only the select tool can take up.
+    if (state.tool.kind !== "select") return
+    const half = HANDLE_HALF_PX * pixel
+    this.outlines.fillStyle(COLOR.handle, 1)
+    this.outlines.lineStyle(1.5 * pixel, COLOR.selection, 1)
+    for (const { point } of handlePoints(rect, this.handleReach())) {
+      this.outlines.fillRect(point.x - half, point.y - half, 2 * half, 2 * half)
+      this.outlines.strokeRect(point.x - half, point.y - half, 2 * half, 2 * half)
+    }
   }
 
   private drawGrid(): void {
@@ -297,10 +348,22 @@ export class GardenScene extends Phaser.Scene {
       view.label.setPosition(rect.x + 4 * pixel, rect.y + 3 * pixel)
       view.label.setVisible(view.label.displayWidth + 8 * pixel <= rect.w)
     }
+    // A bed's name sits in its bottom-left corner, clear of the crop labels at the top.
+    for (const view of this.bedViews.values()) {
+      const { rect } = view.source
+      view.label.setScale(1 / camera.zoom)
+      view.label.setPosition(rect.x + 4 * pixel, rect.y + rect.h - 3 * pixel)
+      view.label.setVisible(
+        view.source.name !== "" &&
+          view.label.displayWidth + 8 * pixel <= rect.w &&
+          view.label.displayHeight + 6 * pixel <= rect.h
+      )
+    }
   }
 
   private applyTool(tool: Tool): void {
-    if (this.gesture?.kind === "draw") this.cancelDraw()
+    // Whatever was half-drawn or half-dragged with the old tool is dropped.
+    if (this.gesture && this.gesture.kind !== "pan") this.cancelGesture()
     this.input.setDefaultCursor(tool.kind === "select" ? "grab" : "crosshair")
   }
 
@@ -312,18 +375,38 @@ export class GardenScene extends Phaser.Scene {
     const { tool } = editorStore.getState()
     const press = { downX: pointer.x, downY: pointer.y, moved: false }
 
-    if (pointer.button === 0 && tool.kind !== "select") {
-      const start = this.worldPoint(pointer)
-      this.gesture = { kind: "draw", ...press, start, end: start }
+    const point = this.worldPoint(pointer)
+    const pan = (): Gesture => ({ kind: "pan", ...press, lastX: pointer.x, lastY: pointer.y })
+
+    if (pointer.button !== 0) {
+      // Middle and right button pan with any tool.
+      this.gesture = pan()
+    } else if (tool.kind !== "select") {
+      this.gesture = { kind: "draw", ...press, start: point, end: point }
     } else {
-      // Left button with the select tool, or middle and right button with any tool.
-      this.gesture = { kind: "pan", ...press, lastX: pointer.x, lastY: pointer.y }
+      const target = pointerTarget(editorStore.getState(), point, this.handleReach())
+      if (target.kind === "resize") {
+        this.gesture = {
+          kind: "resize",
+          ...press,
+          ref: target.ref,
+          handle: target.handle,
+          end: point,
+        }
+      } else if (target.kind === "move") {
+        this.gesture = { kind: "move", ...press, ref: target.ref, start: point, end: point }
+      } else {
+        this.gesture = pan()
+      }
     }
   }
 
   private onPointerMove(pointer: Phaser.Input.Pointer): void {
     const gesture = this.gesture
-    if (!gesture) return
+    if (!gesture) {
+      this.showHoverCursor(pointer)
+      return
+    }
     if (!gesture.moved) {
       const travelled = Math.hypot(pointer.x - gesture.downX, pointer.y - gesture.downY)
       if (travelled < DRAG_THRESHOLD_PX * this.pixelRatio) return
@@ -339,10 +422,21 @@ export class GardenScene extends Phaser.Scene {
       gesture.lastY = pointer.y
       this.viewTouched = true
       this.onViewChanged()
-    } else {
+    } else if (gesture.kind === "draw") {
       gesture.end = this.worldPoint(pointer)
       this.drawDraft(gesture)
+    } else {
+      gesture.end = this.worldPoint(pointer)
+      this.drawEditPreview(gesture)
     }
+  }
+
+  /** With the select tool, the cursor says what a press here would do. */
+  private showHoverCursor(pointer: Phaser.Input.Pointer): void {
+    const state = editorStore.getState()
+    if (state.tool.kind !== "select") return
+    const target = pointerTarget(state, this.worldPoint(pointer), this.handleReach())
+    this.input.setDefaultCursor(cursorFor(target))
   }
 
   private onPointerUp(pointer: Phaser.Input.Pointer): void {
@@ -357,10 +451,20 @@ export class GardenScene extends Phaser.Scene {
       if (!gesture.moved && pointer.button === 0 && state.tool.kind === "select") {
         state.select(hitTest(state.plan, this.worldPoint(pointer)))
       }
+      this.showHoverCursor(pointer)
       return
     }
 
     this.clearDraft()
+    if (gesture.kind === "move" || gesture.kind === "resize") {
+      // The drag is stored once, on release, so it is a single undo step and a single save.
+      if (!gesture.moved) state.select(hitTest(state.plan, this.worldPoint(pointer)))
+      else if (gesture.kind === "move") state.moveItem(gesture.ref, ...dragDistance(gesture))
+      else state.resizeItem(gesture.ref, gesture.handle, gesture.end)
+      this.showHoverCursor(pointer)
+      return
+    }
+
     if (state.tool.kind === "bed") {
       if (gesture.moved) state.addBed(draggedRect(gesture))
     } else if (state.tool.kind === "plant") {
@@ -410,15 +514,44 @@ export class GardenScene extends Phaser.Scene {
     this.overlay.lineStyle(2 * pixel, color, 1)
     strokeRect(this.overlay, rect)
 
-    const metres = new Intl.NumberFormat(locale, {
-      minimumFractionDigits: 1,
-      maximumFractionDigits: 1,
-    })
-    const text = plant
-      ? `× ${fillArea(rect, plant.spacing, "row").count}`
-      : `${metres.format(rect.w / 100)} × ${metres.format(rect.h / 100)} m`
+    const text = plant ? `× ${fillArea(rect, plant.spacing, "row").count}` : sizeLabel(rect, locale)
     this.draftLabel
       .setText(text)
+      .setScale(1 / this.cameras.main.zoom)
+      .setPosition(rect.x + rect.w + 6 * pixel, rect.y + rect.h + 6 * pixel)
+      .setVisible(true)
+  }
+
+  /** Shows where releasing the pointer now would leave the item being moved or resized. */
+  private drawEditPreview(gesture: EditGesture): void {
+    const { plan, locale } = editorStore.getState()
+    const preview = editedPlan(plan, gesture)
+    const pixel = this.worldPerPixel()
+    this.overlay.clear()
+
+    // A moved bed takes its crops along, so more than one item can be on the move.
+    const ghost = (before: Bed | Planting, after: Bed | Planting | undefined, color: number) => {
+      if (!after || after.rect === before.rect) return
+      this.overlay.fillStyle(color, 0.35)
+      this.overlay.fillRect(after.rect.x, after.rect.y, after.rect.w, after.rect.h)
+      this.overlay.lineStyle(2 * pixel, COLOR.selection, 1)
+      strokeRect(this.overlay, after.rect)
+    }
+    plan.beds.forEach((bed, index) => {
+      ghost(bed, preview.beds[index], BED_STYLE[bed.kind].fill)
+    })
+    plan.plantings.forEach((planting, index) => {
+      const plant = getPlant(planting.plantId)
+      ghost(planting, preview.plantings[index], plant ? hexColor(plant.color) : COLOR.unknownPlant)
+    })
+
+    const rect = itemRect(preview, gesture.ref)
+    if (!rect || gesture.kind !== "resize") {
+      this.draftLabel.setVisible(false)
+      return
+    }
+    this.draftLabel
+      .setText(sizeLabel(rect, locale))
       .setScale(1 / this.cameras.main.zoom)
       .setPosition(rect.x + rect.w + 6 * pixel, rect.y + rect.h + 6 * pixel)
       .setVisible(true)
@@ -429,7 +562,7 @@ export class GardenScene extends Phaser.Scene {
     this.draftLabel.setVisible(false)
   }
 
-  private cancelDraw(): void {
+  private cancelGesture(): void {
     this.gesture = null
     this.clearDraft()
   }
@@ -443,6 +576,7 @@ export class GardenScene extends Phaser.Scene {
       this.pixelRatio = ratio
       this.draftLabel.setStyle(this.labelStyle())
       for (const view of this.plantingViews.values()) view.label.setStyle(this.labelStyle())
+      for (const view of this.bedViews.values()) view.label.setStyle(this.labelStyle())
     }
 
     if (this.viewTouched) {
@@ -487,7 +621,10 @@ export class GardenScene extends Phaser.Scene {
     this.drawGrid()
     this.drawOutlines(editorStore.getState())
     this.layoutLabels()
-    if (this.gesture?.kind === "draw" && this.gesture.moved) this.drawDraft(this.gesture)
+    const gesture = this.gesture
+    if (!gesture?.moved) return
+    if (gesture.kind === "draw") this.drawDraft(gesture)
+    else if (gesture.kind !== "pan") this.drawEditPreview(gesture)
   }
 
   /**
@@ -506,6 +643,11 @@ export class GardenScene extends Phaser.Scene {
   /** Centimetres covered by one CSS pixel at the current zoom. */
   private worldPerPixel(): number {
     return this.pixelRatio / this.cameras.main.zoom
+  }
+
+  /** How far from a resize handle's centre a press still grabs it, in centimetres. */
+  private handleReach(): number {
+    return HANDLE_REACH_PX * this.worldPerPixel()
   }
 
   private readPixelRatio(): number {
@@ -540,6 +682,27 @@ function strokeRect(graphics: Phaser.GameObjects.Graphics, rect: Rect): void {
 
 function grow(rect: Rect, by: number): Rect {
   return { x: rect.x - by, y: rect.y - by, w: rect.w + 2 * by, h: rect.h + 2 * by }
+}
+
+/** How far a move gesture has dragged its item, in centimetres. */
+function dragDistance(gesture: { start: Point; end: Point }): [dx: number, dy: number] {
+  return [gesture.end.x - gesture.start.x, gesture.end.y - gesture.start.y]
+}
+
+/** The plan as it would be if the gesture ended now. */
+function editedPlan(plan: GardenPlan, gesture: EditGesture): GardenPlan {
+  return gesture.kind === "move"
+    ? moveItem(plan, gesture.ref, ...dragDistance(gesture))
+    : resizeItem(plan, gesture.ref, gesture.handle, gesture.end)
+}
+
+/** A rectangle's size in metres, e.g. "1.2 × 0.8 m". */
+function sizeLabel(rect: Rect, locale: string): string {
+  const metres = new Intl.NumberFormat(locale, {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  })
+  return `${metres.format(rect.w / 100)} × ${metres.format(rect.h / 100)} m`
 }
 
 /** The dragged area. Never empty, so a perfectly straight drag still makes a row. */

@@ -56,7 +56,7 @@ export const pt: Translation = {
     bed: "Canteiro",
     plants: "Plantas",
     hintSelect:
-      "Arrasta para te moveres e usa a roda para o zoom. Clica num elemento para o selecionar.",
+      "Arrasta para te moveres e usa a roda para o zoom. Clica num elemento para o selecionar; depois arrasta-o para o mover ou arrasta uma pega para o redimensionar.",
     hintBed: "Arrasta sobre a horta para desenhar um canteiro.",
     hintPlant: "Clica para pôr uma planta, ou arrasta para encher uma área.",
     undo: "Anular",
@@ -115,7 +115,6 @@ export const pt: Translation = {
   },
   inspector: {
     title: "A tua horta",
-    size: "{{width}} × {{height}} m",
     empty: "Ainda não há nada aqui. Escolhe a ferramenta Canteiro e arrasta sobre a horta.",
     beds: "Canteiros",
     plantings: "Plantações",
@@ -125,6 +124,21 @@ export const pt: Translation = {
     totalPlants_other: "{{count}} plantas no total",
     selected: "Selecionado",
     dimensions: "{{width}} × {{height}} cm",
+    position: "{{x}} cm da esquerda, {{y}} cm do topo",
+    widthM: "Largura (m)",
+    lengthM: "Comprimento (m)",
+    sizeRefused:
+      "A horta tem de ter entre 1 e 100 m de cada lado, e espaço para tudo o que lá está.",
+    name: "Nome",
+    kindLabel: "Tipo",
+    kind: {
+      bed: "Canteiro",
+      container: "Vaso",
+      greenhouse: "Estufa",
+      path: "Caminho",
+      structure: "Estrutura",
+    },
+    layoutLabel: "Disposição",
     spacing: "{{inRow}} cm entre plantas na linha, {{row}} cm entre linhas",
     layout: {
       single: "Planta única",

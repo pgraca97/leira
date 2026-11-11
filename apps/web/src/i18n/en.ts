@@ -51,7 +51,8 @@ export const en = {
     select: "Select",
     bed: "Bed",
     plants: "Plants",
-    hintSelect: "Drag to move around and scroll to zoom. Click an item to select it.",
+    hintSelect:
+      "Drag to move around and scroll to zoom. Click an item to select it, then drag it to move it or drag a handle to resize it.",
     hintBed: "Drag on the garden to draw a bed.",
     hintPlant: "Click to place one plant, or drag to fill an area.",
     undo: "Undo",
@@ -110,7 +111,6 @@ export const en = {
   },
   inspector: {
     title: "Your garden",
-    size: "{{width}} × {{height}} m",
     empty: "Nothing here yet. Pick the bed tool and drag on the garden.",
     beds: "Beds",
     plantings: "Plantings",
@@ -120,6 +120,21 @@ export const en = {
     totalPlants_other: "{{count}} plants in total",
     selected: "Selected",
     dimensions: "{{width}} × {{height}} cm",
+    position: "{{x}} cm from the left, {{y}} cm from the top",
+    widthM: "Width (m)",
+    lengthM: "Length (m)",
+    sizeRefused:
+      "The garden must be between 1 and 100 m on each side, and large enough for everything on it.",
+    name: "Name",
+    kindLabel: "Kind",
+    kind: {
+      bed: "Bed",
+      container: "Container",
+      greenhouse: "Greenhouse",
+      path: "Path",
+      structure: "Structure",
+    },
+    layoutLabel: "Layout",
     spacing: "{{inRow}} cm apart in the row, {{row}} cm between rows",
     layout: {
       single: "Single plant",
