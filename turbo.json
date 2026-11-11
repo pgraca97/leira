@@ -10,7 +10,11 @@
     "typecheck": {
       "dependsOn": ["^typecheck"]
     },
-    "test": {},
+    "test": {
+      // A package's tests also exercise the packages it imports, so a change
+      // there must rerun them rather than replay a cached pass.
+      "dependsOn": ["^test"]
+    },
     "test:integration": {
       "cache": false
     },
