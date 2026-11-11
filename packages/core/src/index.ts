@@ -1,3 +1,9 @@
+export {
+  type CompanionOptions,
+  type CompanionPair,
+  findCompanions,
+  relationBetween,
+} from "./companions"
 export { addDays, addMonths, daysBetween, type IsoDate, toIsoDate, yearOf } from "./dates"
 export {
   duplicateItem,
@@ -18,6 +24,7 @@ export {
   type Point,
   type Rect,
   rectFromPoints,
+  rectGap,
   snap,
   snapRect,
 } from "./geometry"

@@ -70,3 +70,13 @@ export function containsPoint(rect: Rect, point: Point): boolean {
     point.x >= rect.x && point.x < rect.x + rect.w && point.y >= rect.y && point.y < rect.y + rect.h
   )
 }
+
+/**
+ * The clear distance between two rectangles: zero when they touch or overlap,
+ * and measured corner to corner when they sit diagonally.
+ */
+export function rectGap(a: Rect, b: Rect): number {
+  const dx = Math.max(0, a.x - (b.x + b.w), b.x - (a.x + a.w))
+  const dy = Math.max(0, a.y - (b.y + b.h), b.y - (a.y + a.h))
+  return Math.hypot(dx, dy)
+}
