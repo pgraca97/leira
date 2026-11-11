@@ -1,5 +1,17 @@
 export { addDays, type IsoDate, toIsoDate, yearOf } from "./dates"
 export {
+  duplicateItem,
+  handleAt,
+  handlePoints,
+  itemRect,
+  moveItem,
+  RESIZE_HANDLES,
+  type ResizeHandle,
+  resizeItem,
+  resizePlan,
+  visibleHandles,
+} from "./edit"
+export {
   clampRect,
   containsPoint,
   intersection,
