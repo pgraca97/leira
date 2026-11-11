@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import "./test/setup"
 import "./i18n"
-import { emptyPlan } from "@garden/core"
+import { emptyPlan, type WeatherNow } from "@garden/core"
 import { createMemoryHistory } from "@tanstack/react-router"
 import { render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
@@ -166,5 +166,106 @@ describe("a garden's page", () => {
     open("/gardens/99999999-9999-4999-8999-999999999999")
     expect(await screen.findByText(/does not exist/)).toBeVisible()
     expect(screen.getByRole("link", { name: "All gardens" })).toHaveAttribute("href", "/")
+  })
+})
+
+describe("the garden's weather", () => {
+  const PORTO = { lat: 41.15, lon: -8.61 }
+  const READING: WeatherNow = {
+    tempC: 18.3,
+    feelsLikeC: 17.2,
+    humidityPct: 65,
+    windMs: 5,
+    condition: "rain",
+    isDay: true,
+    placeName: "Porto",
+    observedAt: "2026-11-11T12:00:00.000Z",
+  }
+
+  function stubGeolocation(outcome: { latitude: number; longitude: number } | "denied") {
+    const getCurrentPosition = (
+      success: (position: { coords: { latitude: number; longitude: number } }) => void,
+      failure: (error: { code: number }) => void
+    ) => {
+      if (outcome === "denied") failure({ code: 1 })
+      else success({ coords: outcome })
+    }
+    Object.defineProperty(navigator, "geolocation", {
+      configurable: true,
+      value: { getCurrentPosition },
+    })
+  }
+
+  beforeEach(() => {
+    backend.weatherResult = READING
+  })
+
+  it("shows the current weather where the garden is", async () => {
+    backend = fakeBackend([{ ...TOMATOES, location: PORTO }])
+    backend.weatherResult = READING
+    open(`/gardens/${TOMATOES.id}`)
+
+    const weather = await screen.findByRole("region", { name: "Weather" })
+    expect(await within(weather).findByText("18 °C")).toBeVisible()
+    expect(within(weather).getByText(/Rain/)).toBeVisible()
+    expect(within(weather).getByText(/Porto/)).toBeVisible()
+    expect(within(weather).getByText(/18 km\/h/)).toBeVisible()
+    expect(backend.weatherCalls).toEqual([PORTO])
+  })
+
+  it("asks for a location before showing any weather", async () => {
+    open(`/gardens/${TOMATOES.id}`)
+    const weather = await screen.findByRole("region", { name: "Weather" })
+    expect(within(weather).getByText(/Set where the garden is/)).toBeVisible()
+    expect(backend.weatherCalls).toEqual([])
+  })
+
+  it("saves the device's position, rounded to about a kilometre", async () => {
+    stubGeolocation({ latitude: 41.14961, longitude: -8.61099 })
+    open(`/gardens/${TOMATOES.id}`)
+    await userEvent.click(await screen.findByRole("button", { name: "Use my location" }))
+
+    await waitFor(() => expect(backend.rows.get(TOMATOES.id)?.location).toEqual(PORTO))
+    expect(await screen.findByText("18 °C")).toBeVisible()
+  })
+
+  it("falls back to typed coordinates when the position is refused", async () => {
+    stubGeolocation("denied")
+    open(`/gardens/${TOMATOES.id}`)
+    await userEvent.click(await screen.findByRole("button", { name: "Use my location" }))
+    expect(await screen.findByText(/could not be read/)).toBeVisible()
+
+    await userEvent.type(screen.getByRole("textbox", { name: "Latitude" }), "41.15")
+    await userEvent.type(screen.getByRole("textbox", { name: "Longitude" }), "-8,61")
+    await userEvent.click(screen.getByRole("button", { name: "Set location" }))
+    await waitFor(() => expect(backend.rows.get(TOMATOES.id)?.location).toEqual(PORTO))
+  })
+
+  it("refuses coordinates that are not on the globe", async () => {
+    open(`/gardens/${TOMATOES.id}`)
+    await userEvent.type(await screen.findByRole("textbox", { name: "Latitude" }), "141")
+    await userEvent.type(screen.getByRole("textbox", { name: "Longitude" }), "8")
+    await userEvent.click(screen.getByRole("button", { name: "Set location" }))
+
+    expect(await screen.findByText(/between -90 and 90/)).toBeVisible()
+    expect(backend.weatherCalls).toEqual([])
+  })
+
+  it("removes the location", async () => {
+    backend = fakeBackend([{ ...TOMATOES, location: PORTO }])
+    backend.weatherResult = READING
+    open(`/gardens/${TOMATOES.id}`)
+    await userEvent.click(await screen.findByRole("button", { name: "Remove location" }))
+
+    await waitFor(() => expect(backend.rows.get(TOMATOES.id)?.location).toBeNull())
+    expect(screen.getByRole("button", { name: "Use my location" })).toBeVisible()
+  })
+
+  it("says so when the weather is unavailable", async () => {
+    backend = fakeBackend([{ ...TOMATOES, location: PORTO }])
+    backend.weatherResult = new Error("502")
+    open(`/gardens/${TOMATOES.id}`)
+    const weather = await screen.findByRole("region", { name: "Weather" })
+    expect(await within(weather).findByText(/not available right now/)).toBeVisible()
   })
 })

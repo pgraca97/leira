@@ -15,6 +15,7 @@ import {
   GardenFormatError,
   GardenNotFoundError,
 } from "../lib/gardens"
+import { WeatherPanel } from "../weather/WeatherPanel"
 
 /** One garden: loads it, then hands it to the editor. */
 export function GardenPage({ gardenId }: { gardenId: string }) {
@@ -77,7 +78,7 @@ function BackLink() {
 
 function LoadedGarden({ garden, onReload }: { garden: Garden; onReload(): void }) {
   const gardenDocument = useGardenDocument(garden)
-  const { name, setName, saveStatus, retrySave } = gardenDocument
+  const { name, setName, location, setLocation, saveStatus, retrySave } = gardenDocument
 
   useEffect(() => {
     document.title = name
@@ -91,7 +92,7 @@ function LoadedGarden({ garden, onReload }: { garden: Garden; onReload(): void }
         <SaveIndicator status={saveStatus} onRetry={retrySave} onReload={onReload} />
       </AppHeader>
       <div className="min-h-0 flex-1">
-        <Editor />
+        <Editor aside={<WeatherPanel location={location} onLocationChange={setLocation} />} />
       </div>
     </div>
   )

@@ -1,4 +1,4 @@
-import { useEffect } from "react"
+import { type ReactNode, useEffect } from "react"
 import { useTranslation } from "react-i18next"
 import { buttonClass } from "../components/ui"
 import { currentLanguage } from "../i18n"
@@ -9,8 +9,11 @@ import { editorStore, redo, undo } from "./store"
 import { useHistory } from "./useEditor"
 import { useEditorShortcuts } from "./useEditorShortcuts"
 
-/** The garden editor: palette, canvas and inspector around the shared editor store. */
-export function Editor() {
+/**
+ * The garden editor: palette, canvas and inspector around the shared editor store.
+ * `aside` is shown in the inspector column, for what belongs to the garden rather than the plan.
+ */
+export function Editor({ aside }: { aside?: ReactNode }) {
   const { t, i18n } = useTranslation()
   const { canUndo, canRedo } = useHistory()
   useEditorShortcuts()
@@ -35,7 +38,7 @@ export function Editor() {
           </button>
         </div>
       </main>
-      <Inspector />
+      <Inspector>{aside}</Inspector>
     </div>
   )
 }

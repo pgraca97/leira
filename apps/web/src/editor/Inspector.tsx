@@ -1,4 +1,5 @@
 import { getPlant, plantingFill } from "@garden/core"
+import type { ReactNode } from "react"
 import { useTranslation } from "react-i18next"
 import { dangerButtonClass, toggleButtonClass } from "../components/ui"
 import { currentLanguage } from "../i18n"
@@ -8,8 +9,9 @@ import { useEditor } from "./useEditor"
 /**
  * Lists what is on the plan and describes the selected item. It is also the
  * way to read and select the plan's contents without using the canvas.
+ * `children` go below the lists.
  */
-export function Inspector() {
+export function Inspector({ children }: { children?: ReactNode }) {
   const { t } = useTranslation()
   const plan = useEditor((state) => state.plan)
   const selection = useEditor((state) => state.selection)
@@ -142,6 +144,8 @@ export function Inspector() {
           </ul>
         </section>
       )}
+
+      {children}
     </aside>
   )
 }
