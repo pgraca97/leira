@@ -79,6 +79,14 @@ export const pt: Translation = {
     remove: "Remover localização",
     loading: "A carregar o tempo…",
     failed: "O tempo não está disponível de momento.",
+    nextDays: "Próximos dias",
+    lowHigh: "{{low}}° / {{high}}°",
+    forecastFailed: "A previsão não está disponível de momento.",
+    warnings: "Avisos do tempo",
+    risk: {
+      frost: "Geada a {{date}} ({{temp}}): protege {{name}}.",
+      heat: "Calor a {{date}} ({{temp}}): dá sombra e rega {{name}}.",
+    },
     degrees: "{{value}} °C",
     details: "Sensação de {{feelsLike}} · humidade {{humidity}}% · vento {{wind}} km/h",
     condition: {

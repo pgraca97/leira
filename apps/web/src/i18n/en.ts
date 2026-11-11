@@ -75,6 +75,14 @@ export const en = {
     remove: "Remove location",
     loading: "Loading the weather…",
     failed: "The weather is not available right now.",
+    nextDays: "Next days",
+    lowHigh: "{{low}}° / {{high}}°",
+    forecastFailed: "The forecast is not available right now.",
+    warnings: "Weather warnings",
+    risk: {
+      frost: "Frost on {{date}} ({{temp}}): protect {{name}}.",
+      heat: "Heat on {{date}} ({{temp}}): shade and water {{name}}.",
+    },
     degrees: "{{value}} °C",
     details: "Feels like {{feelsLike}} · humidity {{humidity}}% · wind {{wind}} km/h",
     condition: {

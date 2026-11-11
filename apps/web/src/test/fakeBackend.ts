@@ -1,4 +1,4 @@
-import type { WeatherNow } from "@garden/core"
+import type { Forecast, WeatherNow } from "@garden/core"
 import type { Backend } from "../lib/backend"
 import {
   type Garden,
@@ -15,6 +15,8 @@ export interface FakeBackend extends Backend {
   /** What `weather` answers: a reading, or an error to throw. */
   weatherResult: WeatherNow | Error
   weatherCalls: { lat: number; lon: number }[]
+  /** What `forecast` answers: the coming days, or an error to throw. */
+  forecastResult: Forecast | Error
 }
 
 /** A backend that keeps gardens in memory and follows the real one's rules. */
@@ -70,6 +72,11 @@ export function fakeBackend(seed: Garden[] = []): FakeBackend {
     },
     weatherResult: new Error("no weather set"),
     weatherCalls: [],
+    forecastResult: new Error("no forecast set"),
+    async forecast() {
+      if (backend.forecastResult instanceof Error) throw backend.forecastResult
+      return backend.forecastResult
+    },
     async weather(lat, lon) {
       backend.weatherCalls.push({ lat, lon })
       if (backend.weatherResult instanceof Error) throw backend.weatherResult

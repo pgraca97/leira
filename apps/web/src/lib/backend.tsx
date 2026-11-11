@@ -1,4 +1,4 @@
-import type { WeatherNow } from "@garden/core"
+import type { Forecast, WeatherNow } from "@garden/core"
 import { createContext, useContext } from "react"
 import type { GardensApi } from "./gardens"
 
@@ -7,6 +7,8 @@ export interface Backend {
   gardens: GardensApi
   /** Current weather at a position. Rejects when it is unavailable. */
   weather(lat: number, lon: number): Promise<WeatherNow>
+  /** The coming days at a position, today first. Rejects when it is unavailable. */
+  forecast(lat: number, lon: number): Promise<Forecast>
 }
 
 export const BackendContext = createContext<Backend | null>(null)

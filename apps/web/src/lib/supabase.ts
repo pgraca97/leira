@@ -1,4 +1,4 @@
-import { WeatherNowSchema } from "@garden/core"
+import { ForecastSchema, WeatherNowSchema } from "@garden/core"
 import { createClient, type SupabaseClient } from "@supabase/supabase-js"
 import { z } from "zod"
 import type { Backend } from "./backend"
@@ -39,15 +39,19 @@ export async function connectBackend(): Promise<Backend> {
   const client = createClient(config.supabaseUrl, config.supabasePublishableKey)
   await accessToken(client)
 
+  /** Calls one of the Worker's weather routes as the signed-in visitor. */
+  async function weatherRoute<T>(path: string, lat: number, lon: number, schema: z.ZodType<T>) {
+    const query = new URLSearchParams({ lat: String(lat), lon: String(lon) })
+    const response = await fetch(`${path}?${query}`, {
+      headers: { Authorization: `Bearer ${await accessToken(client)}` },
+    })
+    if (!response.ok) throw new Error(`${path} failed: ${response.status}`)
+    return schema.parse(await response.json())
+  }
+
   return {
     gardens: gardensApi(client),
-    async weather(lat, lon) {
-      const query = new URLSearchParams({ lat: String(lat), lon: String(lon) })
-      const response = await fetch(`/api/weather?${query}`, {
-        headers: { Authorization: `Bearer ${await accessToken(client)}` },
-      })
-      if (!response.ok) throw new Error(`Weather request failed: ${response.status}`)
-      return WeatherNowSchema.parse(await response.json())
-    },
+    weather: (lat, lon) => weatherRoute("/api/weather", lat, lon, WeatherNowSchema),
+    forecast: (lat, lon) => weatherRoute("/api/forecast", lat, lon, ForecastSchema),
   }
 }

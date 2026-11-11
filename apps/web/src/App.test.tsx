@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import "./test/setup"
 import "./i18n"
-import { emptyPlan, type WeatherNow } from "@garden/core"
+import { emptyPlan, type Forecast, type WeatherNow } from "@garden/core"
 import { createMemoryHistory } from "@tanstack/react-router"
 import { render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
@@ -267,6 +267,76 @@ describe("the garden's weather", () => {
     open(`/gardens/${TOMATOES.id}`)
     const weather = await screen.findByRole("region", { name: "Weather" })
     expect(await within(weather).findByText(/not available right now/)).toBeVisible()
+  })
+})
+
+describe("the garden's forecast", () => {
+  const PORTO = { lat: 41.15, lon: -8.61 }
+  const READING: WeatherNow = {
+    tempC: 9,
+    feelsLikeC: 7,
+    humidityPct: 80,
+    windMs: 2,
+    condition: "clear",
+    isDay: true,
+    placeName: "Porto",
+    observedAt: "2026-04-09T12:00:00.000Z",
+  }
+  const FORECAST: Forecast = [
+    { date: "2026-04-09", minC: 6, maxC: 15, condition: "clear" },
+    { date: "2026-04-10", minC: 1, maxC: 12, condition: "rain" },
+    { date: "2026-04-11", minC: -1, maxC: 9, condition: "snow" },
+  ]
+  const TOMATO_ID = "44444444-4444-4444-8444-444444444444"
+  const plan = {
+    ...emptyPlan(),
+    plantings: [
+      {
+        id: TOMATO_ID,
+        plantId: "tomato",
+        rect: { x: 0, y: 0, w: 100, h: 100 },
+        layout: "block" as const,
+        inGround: { from: "2026-04-01", to: "2026-09-30" },
+      },
+    ],
+  }
+
+  function openGarden(forecast: Forecast | Error, garden: Partial<Garden> = {}) {
+    backend = fakeBackend([{ ...TOMATOES, location: PORTO, plan, ...garden }])
+    backend.weatherResult = READING
+    backend.forecastResult = forecast
+    open(`/gardens/${TOMATOES.id}`)
+  }
+
+  it("lists the lows and highs of the coming days", async () => {
+    openGarden(FORECAST)
+    const days = await screen.findByRole("list", { name: "Next days" })
+    expect(
+      within(days)
+        .getAllByRole("listitem")
+        .map((day) => day.textContent)
+    ).toEqual(["Thu6° / 15°Clear", "Fri1° / 12°Rain", "Sat-1° / 9°Snow"])
+  })
+
+  it("warns of frost on a tender crop, on the first night at risk", async () => {
+    openGarden(FORECAST)
+    const warning = await screen.findByRole("button", { name: /Frost/ })
+    expect(warning).toHaveTextContent("Frost on Apr 10 (1 °C): protect Tomato.")
+
+    await userEvent.click(warning)
+    expect(editorStore.getState().selection).toEqual({ kind: "planting", id: TOMATO_ID })
+  })
+
+  it("stays quiet when the forecast threatens nothing in the ground", async () => {
+    openGarden(FORECAST, { plan: emptyPlan() })
+    await screen.findByRole("list", { name: "Next days" })
+    expect(screen.queryByRole("button", { name: /Frost/ })).toBeNull()
+  })
+
+  it("still shows the current weather when the forecast is unavailable", async () => {
+    openGarden(new Error("502"))
+    expect(await screen.findByText("9 °C")).toBeVisible()
+    expect(await screen.findByText(/forecast is not available/)).toBeVisible()
   })
 })
 

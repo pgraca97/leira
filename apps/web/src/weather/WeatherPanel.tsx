@@ -1,8 +1,18 @@
-import { type GardenLocation, roundCoordinate, type WeatherNow } from "@garden/core"
+import {
+  type Forecast,
+  findWeatherRisks,
+  type GardenLocation,
+  getPlant,
+  type IsoDate,
+  roundCoordinate,
+  type WeatherNow,
+} from "@garden/core"
 import { useQuery } from "@tanstack/react-query"
 import { type FormEvent, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { buttonClass, inputClass } from "../components/ui"
+import { buttonClass, inputClass, toggleButtonClass } from "../components/ui"
+import { editorStore } from "../editor/store"
+import { useEditor } from "../editor/useEditor"
 import { currentLanguage } from "../i18n"
 import { useBackend } from "../lib/backend"
 
@@ -51,10 +61,93 @@ function CurrentWeather({ location, onRemove }: { location: GardenLocation; onRe
           {t("weather.loading")}
         </p>
       )}
+      <ComingDays location={location} />
       <button type="button" className={buttonClass} onClick={onRemove}>
         {t("weather.remove")}
       </button>
     </div>
+  )
+}
+
+/** The forecast for the coming days, and what it means for the crops in the ground. */
+function ComingDays({ location }: { location: GardenLocation }) {
+  const { t } = useTranslation()
+  const backend = useBackend()
+  const forecast = useQuery({
+    queryKey: ["forecast", location.lat, location.lon],
+    queryFn: () => backend.forecast(location.lat, location.lon),
+    // The server refreshes a zone's forecast every three hours at most.
+    staleTime: 30 * 60 * 1000,
+  })
+
+  if (forecast.isError)
+    return <p className="text-sm text-stone-600">{t("weather.forecastFailed")}</p>
+  if (!forecast.data) return null
+  return (
+    <>
+      <WeatherWarnings forecast={forecast.data} />
+      <ForecastDays forecast={forecast.data} />
+    </>
+  )
+}
+
+/** Dates carry no zone, so they are formatted in UTC to stay on the same day everywhere. */
+function dateFormatter(options: Intl.DateTimeFormatOptions): (date: IsoDate) => string {
+  const format = new Intl.DateTimeFormat(currentLanguage(), { ...options, timeZone: "UTC" })
+  return (date) => format.format(new Date(`${date}T00:00:00Z`))
+}
+
+function WeatherWarnings({ forecast }: { forecast: Forecast }) {
+  const { t } = useTranslation()
+  const plan = useEditor((state) => state.plan)
+  const selection = useEditor((state) => state.selection)
+  const day = dateFormatter({ day: "numeric", month: "short" })
+  const whole = new Intl.NumberFormat(currentLanguage(), { maximumFractionDigits: 0 })
+  const risks = findWeatherRisks(plan, getPlant, forecast)
+  if (risks.length === 0) return null
+
+  return (
+    <ul aria-label={t("weather.warnings")} className="flex w-full flex-col gap-1">
+      {risks.map((risk) => (
+        <li key={`${risk.plantingId}:${risk.kind}`}>
+          <button
+            type="button"
+            className={`${toggleButtonClass} bg-amber-50 text-amber-900`}
+            aria-pressed={selection?.kind === "planting" && selection.id === risk.plantingId}
+            onClick={() => editorStore.getState().select({ kind: "planting", id: risk.plantingId })}
+          >
+            {t(`weather.risk.${risk.kind}`, {
+              date: day(risk.date),
+              temp: t("weather.degrees", { value: whole.format(risk.tempC) }),
+              name: getPlant(risk.plantId)?.name[currentLanguage()] ?? risk.plantId,
+            })}
+          </button>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+function ForecastDays({ forecast }: { forecast: Forecast }) {
+  const { t } = useTranslation()
+  const weekday = dateFormatter({ weekday: "short" })
+  const fullDate = dateFormatter({ dateStyle: "full" })
+  const whole = new Intl.NumberFormat(currentLanguage(), { maximumFractionDigits: 0 })
+
+  return (
+    <ul aria-label={t("weather.nextDays")} className="w-full text-sm text-stone-600">
+      {forecast.map((day) => (
+        <li key={day.date} className="flex items-baseline gap-2 py-0.5">
+          <span className="w-9 font-medium text-stone-800" title={fullDate(day.date)}>
+            {weekday(day.date)}
+          </span>
+          <span className="w-20 tabular-nums">
+            {t("weather.lowHigh", { low: whole.format(day.minC), high: whole.format(day.maxC) })}
+          </span>
+          <span>{t(`weather.condition.${day.condition}`)}</span>
+        </li>
+      ))}
+    </ul>
   )
 }
 
