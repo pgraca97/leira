@@ -1,4 +1,4 @@
-import { roundCoordinate, type WeatherNow, WeatherNowSchema } from "@garden/core"
+import { ForecastSchema, roundCoordinate, WeatherNowSchema } from "@garden/core"
 import { Hono } from "hono"
 import { createMiddleware } from "hono/factory"
 import { z } from "zod"
@@ -14,10 +14,12 @@ export interface AppDeps {
 
 type AppEnv = { Bindings: Env }
 
-/** How long a weather reading is reused for everyone in the same zone. */
+/** A reading of the current weather goes stale within the hour. */
 const WEATHER_TTL_SECONDS = 3600
-/** How long the browser may reuse a response without asking again. */
 const WEATHER_BROWSER_MAX_AGE_SECONDS = 600
+/** The provider publishes its forecast in three-hour steps, so that is how long one lasts. */
+const FORECAST_TTL_SECONDS = 3 * 3600
+const FORECAST_BROWSER_MAX_AGE_SECONDS = 1800
 /** Zones are 0.1 degrees wide, about 11 km: weather does not vary much within one. */
 const ZONE_DECIMALS = 1
 
@@ -61,41 +63,71 @@ export function createApp(deps: AppDeps) {
   })
 
   /**
-   * Current weather for a position. Only signed-in users may call it, and
-   * readings are cached per zone, so the provider's quota is spent once per
-   * zone per hour however many people ask.
+   * A route that answers with weather data for a position. Only signed-in
+   * users may call it, and answers are cached per zone, so the provider's
+   * quota is spent once per zone per `ttlSeconds` however many people ask.
    */
-  app.get("/api/weather", requireUser, async (c) => {
-    const query = WeatherQuerySchema.safeParse(c.req.query())
-    if (!query.success) return c.json({ error: "invalid_coordinates" }, 400)
+  function zoneRoute<T>(options: {
+    path: string
+    /** Start of the cache key. Bump its version when the stored shape changes. */
+    cachePrefix: string
+    schema: z.ZodType<T>
+    /** How long an answer is reused for everyone in the same zone. */
+    ttlSeconds: number
+    /** How long the browser may reuse a response without asking again. */
+    browserMaxAgeSeconds: number
+    load(provider: WeatherProvider, lat: number, lon: number): Promise<T>
+  }) {
+    app.get(options.path, requireUser, async (c) => {
+      const query = WeatherQuerySchema.safeParse(c.req.query())
+      if (!query.success) return c.json({ error: "invalid_coordinates" }, 400)
 
-    const lat = roundCoordinate(query.data.lat, ZONE_DECIMALS)
-    const lon = roundCoordinate(query.data.lon, ZONE_DECIMALS)
-    const cacheKey = `weather:now:v1:${lat.toFixed(ZONE_DECIMALS)}:${lon.toFixed(ZONE_DECIMALS)}`
+      const lat = roundCoordinate(query.data.lat, ZONE_DECIMALS)
+      const lon = roundCoordinate(query.data.lon, ZONE_DECIMALS)
+      const cacheKey = `${options.cachePrefix}:${lat.toFixed(ZONE_DECIMALS)}:${lon.toFixed(ZONE_DECIMALS)}`
 
-    const respond = (weather: WeatherNow, cache: "HIT" | "MISS") =>
-      c.json(weather, 200, {
-        "Cache-Control": `private, max-age=${WEATHER_BROWSER_MAX_AGE_SECONDS}`,
-        "X-Cache": cache,
-      })
+      const respond = (data: T, cache: "HIT" | "MISS") =>
+        c.json(data, 200, {
+          "Cache-Control": `private, max-age=${options.browserMaxAgeSeconds}`,
+          "X-Cache": cache,
+        })
 
-    const cached = WeatherNowSchema.safeParse(await readCache(c.env.CACHE, cacheKey))
-    if (cached.success) return respond(cached.data, "HIT")
+      const cached = options.schema.safeParse(await readCache(c.env.CACHE, cacheKey))
+      if (cached.success) return respond(cached.data, "HIT")
 
-    const provider = deps.weatherProvider(c.env)
-    if (!provider) return c.json({ error: "weather_not_configured" }, 503)
+      const provider = deps.weatherProvider(c.env)
+      if (!provider) return c.json({ error: "weather_not_configured" }, 503)
 
-    let weather: WeatherNow
-    try {
-      weather = await provider.current(lat, lon)
-    } catch (error) {
-      // Log the error's own message only: never the request, which carries the API key.
-      console.error("Weather lookup failed:", error instanceof Error ? error.message : "unknown")
-      return c.json({ error: "weather_unavailable" }, 502)
-    }
+      let data: T
+      try {
+        data = await options.load(provider, lat, lon)
+      } catch (error) {
+        // Log the error's own message only: never the request, which carries the API key.
+        console.error("Weather lookup failed:", error instanceof Error ? error.message : "unknown")
+        return c.json({ error: "weather_unavailable" }, 502)
+      }
 
-    await writeCache(c.env.CACHE, cacheKey, weather)
-    return respond(weather, "MISS")
+      await writeCache(c.env.CACHE, cacheKey, data, options.ttlSeconds)
+      return respond(data, "MISS")
+    })
+  }
+
+  zoneRoute({
+    path: "/api/weather",
+    cachePrefix: "weather:now:v1",
+    schema: WeatherNowSchema,
+    ttlSeconds: WEATHER_TTL_SECONDS,
+    browserMaxAgeSeconds: WEATHER_BROWSER_MAX_AGE_SECONDS,
+    load: (provider, lat, lon) => provider.current(lat, lon),
+  })
+
+  zoneRoute({
+    path: "/api/forecast",
+    cachePrefix: "weather:forecast:v1",
+    schema: ForecastSchema,
+    ttlSeconds: FORECAST_TTL_SECONDS,
+    browserMaxAgeSeconds: FORECAST_BROWSER_MAX_AGE_SECONDS,
+    load: (provider, lat, lon) => provider.forecast(lat, lon),
   })
 
   app.notFound((c) => c.json({ error: "not_found" }, 404))
@@ -112,10 +144,15 @@ async function readCache(cache: KVNamespace, key: string): Promise<unknown> {
   }
 }
 
-async function writeCache(cache: KVNamespace, key: string, weather: WeatherNow): Promise<void> {
+async function writeCache(
+  cache: KVNamespace,
+  key: string,
+  data: unknown,
+  ttlSeconds: number
+): Promise<void> {
   try {
-    await cache.put(key, JSON.stringify(weather), { expirationTtl: WEATHER_TTL_SECONDS })
+    await cache.put(key, JSON.stringify(data), { expirationTtl: ttlSeconds })
   } catch {
-    console.warn("Could not cache the weather reading")
+    console.warn("Could not cache the weather data")
   }
 }
