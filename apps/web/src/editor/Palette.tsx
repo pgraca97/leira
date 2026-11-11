@@ -1,4 +1,4 @@
-import { PLANTS } from "@garden/core"
+import { getPlant, PLANTS, relationBetween } from "@garden/core"
 import { useTranslation } from "react-i18next"
 import { toggleButtonClass } from "../components/ui"
 import { currentLanguage } from "../i18n"
@@ -11,6 +11,15 @@ export function Palette() {
   const tool = useEditor((state) => state.tool)
   const { setTool } = editorStore.getState()
   const language = currentLanguage()
+
+  // Advice for the plant about to be placed: who to put it next to, who to keep it from.
+  const chosen = tool.kind === "plant" ? getPlant(tool.plantId) : undefined
+  const neighbours = (relation: "good" | "bad") =>
+    chosen
+      ? PLANTS.filter((plant) => relationBetween(chosen, plant) === relation).map(
+          (plant) => plant.name[language]
+        )
+      : []
 
   const hint =
     tool.kind === "select"
@@ -77,6 +86,18 @@ export function Palette() {
       </section>
 
       <p className="text-xs text-stone-600">{hint}</p>
+      {chosen && (
+        <div className="flex flex-col gap-1 text-xs text-stone-600">
+          {neighbours("good").length > 0 && (
+            <p>{t("companions.goodWith", { names: neighbours("good").join(", ") })}</p>
+          )}
+          {neighbours("bad").length > 0 && (
+            <p className="text-amber-800">
+              {t("companions.badWith", { names: neighbours("bad").join(", ") })}
+            </p>
+          )}
+        </div>
+      )}
     </aside>
   )
 }

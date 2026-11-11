@@ -145,6 +145,13 @@ export const pt: Translation = {
     nextMonth: "Mês seguinte",
     showAll: "Mostrar tudo",
   },
+  companions: {
+    title: "Consociação",
+    bad: "{{first}} e {{second}} dão-se mal lado a lado. Afasta-os.",
+    good: "{{first}} e {{second}} dão-se bem juntos.",
+    goodWith: "Dá-se bem ao lado de: {{names}}.",
+    badWith: "Manter longe de: {{names}}.",
+  },
   inspector: {
     title: "A tua horta",
     empty: "Ainda não há nada aqui. Escolhe a ferramenta Canteiro e arrasta sobre a horta.",

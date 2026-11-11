@@ -198,3 +198,37 @@ describe("plantings on the day being shown", () => {
     expect(tomato).toHaveTextContent("not in the ground")
   })
 })
+
+describe("companion planting", () => {
+  it("warns about neighbours that grow poorly together and selects one on click", async () => {
+    show([
+      planting("beans", "green-bean", "2026-04-15", "2026-09-30"),
+      planting("onions", "onion", "2026-04-15", "2026-09-30", 100),
+    ])
+    const region = screen.getByRole("region", { name: "Companion planting" })
+    const warning = within(region).getByRole("button")
+    expect(warning).toHaveTextContent(
+      "Green bean and Onion grow poorly side by side. Move them apart."
+    )
+    await userEvent.click(warning)
+    expect(editorStore.getState().selection).toEqual({ kind: "planting", id: "beans" })
+  })
+
+  it("notes neighbours that help each other", () => {
+    show([
+      planting("tomatoes", "tomato", "2026-04-15", "2026-09-30"),
+      planting("carrots", "carrot", "2026-04-15", "2026-09-30", 100),
+    ])
+    const region = screen.getByRole("region", { name: "Companion planting" })
+    expect(within(region).getByText("Tomato and Carrot grow well together.")).toBeVisible()
+    expect(within(region).queryByRole("button")).toBeNull()
+  })
+
+  it("says nothing when no neighbours are known companions", () => {
+    show([
+      planting("beans", "green-bean", "2026-04-15", "2026-09-30"),
+      planting("onions", "onion", "2026-04-15", "2026-09-30", 400),
+    ])
+    expect(screen.queryByRole("region", { name: "Companion planting" })).toBeNull()
+  })
+})

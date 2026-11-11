@@ -141,6 +141,13 @@ export const en = {
     nextMonth: "Next month",
     showAll: "Show everything",
   },
+  companions: {
+    title: "Companion planting",
+    bad: "{{first}} and {{second}} grow poorly side by side. Move them apart.",
+    good: "{{first}} and {{second}} grow well together.",
+    goodWith: "Grows well next to: {{names}}.",
+    badWith: "Keep away from: {{names}}.",
+  },
   inspector: {
     title: "Your garden",
     empty: "Nothing here yet. Pick the bed tool and drag on the garden.",

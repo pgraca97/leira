@@ -1,6 +1,7 @@
 import {
   BED_KINDS,
   type BedKind,
+  findCompanions,
   findRotationConflicts,
   getPlant,
   isInGround,
@@ -50,6 +51,11 @@ export function Inspector({ children }: { children?: ReactNode }) {
   const nameOf = (plantingId: string) =>
     plantings.find((item) => item.planting.id === plantingId)?.name ?? ""
   const conflicts = findRotationConflicts(plan, getPlant, { years: ROTATION_YEARS })
+  const plantNameOf = (plantingId: string) => {
+    const item = plantings.find((entry) => entry.planting.id === plantingId)
+    return item?.plant?.name[language] ?? ""
+  }
+  const companions = findCompanions(plan, getPlant)
 
   const bed = selectedBed({ plan, selection })
   const planted = plantings.find((item) => item.planting === selectedPlanting({ plan, selection }))
@@ -252,6 +258,45 @@ export function Inspector({ children }: { children?: ReactNode }) {
                 </button>
               </li>
             ))}
+          </ul>
+        </section>
+      )}
+
+      {companions.length > 0 && (
+        <section aria-labelledby="inspector-companions">
+          <h3
+            id="inspector-companions"
+            className="mb-1 text-xs font-semibold tracking-wide text-stone-500 uppercase"
+          >
+            {t("companions.title")}
+          </h3>
+          <ul className="flex flex-col gap-1">
+            {companions.map((pair) => {
+              const names = {
+                first: plantNameOf(pair.plantingId),
+                second: plantNameOf(pair.otherPlantingId),
+              }
+              return (
+                <li key={`${pair.plantingId}:${pair.otherPlantingId}`}>
+                  {pair.relation === "bad" ? (
+                    <button
+                      type="button"
+                      className={`${toggleButtonClass} bg-amber-50 text-amber-900`}
+                      aria-pressed={
+                        selection?.kind === "planting" && selection.id === pair.plantingId
+                      }
+                      onClick={() => select({ kind: "planting", id: pair.plantingId })}
+                    >
+                      {t("companions.bad", names)}
+                    </button>
+                  ) : (
+                    <p className="px-3 py-1 text-sm text-emerald-800">
+                      {t("companions.good", names)}
+                    </p>
+                  )}
+                </li>
+              )
+            })}
           </ul>
         </section>
       )}
