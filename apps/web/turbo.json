@@ -1,0 +1,10 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    "typecheck": {
+      // `wrangler types` writes this file before tsc runs, so it must be restored on a cache hit.
+      "outputs": ["worker-configuration.d.ts"]
+    }
+  }
+}

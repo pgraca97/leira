@@ -8,8 +8,7 @@
       "outputs": ["dist/**"]
     },
     "typecheck": {
-      "dependsOn": ["^typecheck"],
-      "outputs": ["worker-configuration.d.ts"]
+      "dependsOn": ["^typecheck"]
     },
     "test": {},
     "test:integration": {
