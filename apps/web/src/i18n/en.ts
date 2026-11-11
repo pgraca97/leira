@@ -143,6 +143,13 @@ export const en = {
       clear: "Clear {{name}}",
     },
   },
+  export: {
+    saveImage: "Save image",
+    print: "Print",
+    imageFailed: "The image could not be saved.",
+    plant: "Plant",
+    plants: "Plants",
+  },
   dateFilter: {
     label: "Show the garden on",
     previousMonth: "Previous month",

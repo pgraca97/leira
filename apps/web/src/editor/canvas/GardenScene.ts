@@ -1,6 +1,5 @@
 import {
   type Bed,
-  type BedKind,
   fillArea,
   fillPoints,
   fitRectToPlan,
@@ -22,6 +21,7 @@ import {
   resizeItem,
 } from "@garden/core"
 import Phaser from "phaser"
+import { BED_STYLE, GROUND_STYLE } from "../bedStyles"
 import { type EditorState, editorStore, shownPlan, type Tool } from "../store"
 import { cursorFor, pointerTarget } from "./pointerTarget"
 
@@ -31,23 +31,14 @@ export const PIXEL_RATIO_KEY = "pixelRatio"
 /** Stand-in colours until the pixel art arrives. */
 export const COLOR = {
   outside: 0xd6d3d1,
-  ground: 0xd9e8c2,
-  groundEdge: 0x57534e,
-  grid: 0x1c1917,
-  bed: 0x8a5a3c,
-  unknownPlant: 0x78716c,
+  ground: hexColor(GROUND_STYLE.fill),
+  groundEdge: hexColor(GROUND_STYLE.edge),
+  grid: hexColor(GROUND_STYLE.grid),
+  bed: hexColor(BED_STYLE.bed.fill),
+  unknownPlant: hexColor(GROUND_STYLE.unknownPlant),
   selection: 0x2563eb,
   handle: 0xffffff,
 } as const
-
-/** How each kind of bed is painted: soil, a pot, glass, gravel, a shed. */
-const BED_STYLE: Record<BedKind, { fill: number; alpha: number; edge: number }> = {
-  bed: { fill: COLOR.bed, alpha: 1, edge: 0x5b3a26 },
-  container: { fill: 0xc2703d, alpha: 1, edge: 0x8f4a22 },
-  greenhouse: { fill: 0xcfe8ef, alpha: 0.7, edge: 0x5b8a99 },
-  path: { fill: 0xcbbf9f, alpha: 1, edge: 0x9c9070 },
-  structure: { fill: 0x78716c, alpha: 1, edge: 0x44403c },
-}
 
 const DEPTH = { ground: 0, grid: 1, beds: 10, plantings: 20, outlines: 30, overlay: 40 } as const
 
@@ -263,9 +254,9 @@ export class GardenScene extends Phaser.Scene {
     // The edge is drawn inside the rectangle, like the frame of a raised bed.
     const edge = Math.min(3, w / 4, h / 4)
     const graphics = view.graphics.clear()
-    graphics.fillStyle(style.fill, style.alpha)
+    graphics.fillStyle(hexColor(style.fill), style.alpha)
     graphics.fillRect(x, y, w, h)
-    graphics.lineStyle(edge, style.edge, 1)
+    graphics.lineStyle(edge, hexColor(style.edge), 1)
     graphics.strokeRect(x + edge / 2, y + edge / 2, w - edge, h - edge)
     view.label.setText(bed.name)
   }
@@ -554,7 +545,7 @@ export class GardenScene extends Phaser.Scene {
       strokeRect(this.overlay, after.rect)
     }
     plan.beds.forEach((bed, index) => {
-      ghost(bed, preview.beds[index], BED_STYLE[bed.kind].fill)
+      ghost(bed, preview.beds[index], hexColor(BED_STYLE[bed.kind].fill))
     })
     plan.plantings.forEach((planting, index) => {
       const plant = getPlant(planting.plantId)

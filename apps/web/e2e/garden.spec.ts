@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs"
 import { expect, type Page, test } from "@playwright/test"
 
 /** Drags across the canvas, in fractions of its size, the way a mouse would. */
@@ -96,6 +97,30 @@ test("a planting shows on the calendar and on the day it is in the ground", asyn
   await line.click()
   await expect(page.getByTestId("garden-canvas")).toBeVisible()
   await expect(page.getByRole("region", { name: "Selected" })).toContainText("Tomato")
+})
+
+test("the plan can be saved as an image and printed", async ({ page }) => {
+  await page.goto("/")
+  await page.getByRole("button", { name: "New garden" }).click()
+  await page.getByRole("textbox", { name: "Garden name" }).fill("Allotment 12")
+  await page.getByRole("button", { name: "Tomato" }).click()
+  await dragOnCanvas(page, [0.4, 0.4], [0.6, 0.6])
+
+  const download = page.waitForEvent("download")
+  await page.getByRole("button", { name: "Save image" }).click()
+  const file = await download
+  expect(file.suggestedFilename()).toBe("allotment-12.png")
+  const bytes = readFileSync(await file.path())
+  // Every PNG starts with these eight bytes; the size follows in the first chunk.
+  expect(bytes.subarray(0, 8).toString("hex")).toBe("89504e470d0a1a0a")
+  expect([bytes.readUInt32BE(16), bytes.readUInt32BE(20)]).toEqual([2560, 1760])
+
+  // On paper the editor gives way to the sheet.
+  await page.emulateMedia({ media: "print" })
+  await expect(page.getByTestId("print-sheet")).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Allotment 12" })).toBeVisible()
+  await expect(page.getByRole("row", { name: /Tomato/ })).toBeVisible()
+  await expect(page.getByTestId("garden-canvas")).toBeHidden()
 })
 
 test("a visitor only sees their own gardens", async ({ browser }) => {

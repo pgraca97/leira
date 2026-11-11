@@ -8,8 +8,12 @@ import userEvent from "@testing-library/user-event"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { App } from "./App"
 import { editorStore } from "./editor/store"
+import { downloadPng } from "./export/downloadImage"
 import type { Garden } from "./lib/gardens"
 import { type FakeBackend, fakeBackend } from "./test/fakeBackend"
+
+// Turning a picture into a PNG needs a real canvas too.
+vi.mock("./export/downloadImage", () => ({ downloadPng: vi.fn(async () => {}) }))
 
 // Phaser needs a real canvas, which jsdom does not have.
 vi.mock("./editor/canvas/createGardenCanvas", () => ({
@@ -267,6 +271,64 @@ describe("the garden's weather", () => {
     open(`/gardens/${TOMATOES.id}`)
     const weather = await screen.findByRole("region", { name: "Weather" })
     expect(await within(weather).findByText(/not available right now/)).toBeVisible()
+  })
+})
+
+describe("taking the plan out of the app", () => {
+  const plan = {
+    ...emptyPlan(),
+    plantings: [
+      {
+        id: "55555555-5555-4555-8555-555555555555",
+        plantId: "tomato",
+        rect: { x: 0, y: 0, w: 100, h: 100 },
+        layout: "block" as const,
+        inGround: { from: "2026-05-01", to: "2026-09-30" },
+      },
+    ],
+  }
+
+  beforeEach(() => {
+    backend = fakeBackend([{ ...TOMATOES, plan }])
+    vi.mocked(downloadPng).mockClear()
+  })
+
+  it("saves a picture of the plan, named after the garden", async () => {
+    open(`/gardens/${TOMATOES.id}`)
+    await userEvent.click(await screen.findByRole("button", { name: "Save image" }))
+
+    expect(downloadPng).toHaveBeenCalledOnce()
+    const [markup, size, fileName] = vi.mocked(downloadPng).mock.calls[0]!
+    expect(markup).toMatch(/^<svg /)
+    expect(markup).toContain("Tomato × 4")
+    // A 6 m by 4 m garden plus its margin, at a fixed number of pixels per centimetre.
+    expect(size.width / size.height).toBeCloseTo(640 / 440)
+    expect(fileName).toBe("tomato-patch.png")
+  })
+
+  it("says so when the picture could not be saved", async () => {
+    vi.mocked(downloadPng).mockRejectedValueOnce(new Error("canvas is tainted"))
+    open(`/gardens/${TOMATOES.id}`)
+    await userEvent.click(await screen.findByRole("button", { name: "Save image" }))
+    expect(await screen.findByText("The image could not be saved.")).toBeVisible()
+  })
+
+  it("prints a sheet with the plan and what is planted on it", async () => {
+    const print = vi.fn()
+    vi.stubGlobal("print", print)
+    open(`/gardens/${TOMATOES.id}`)
+    await userEvent.click(await screen.findByRole("button", { name: "Print" }))
+    expect(print).toHaveBeenCalledOnce()
+
+    const sheet = screen.getByTestId("print-sheet")
+    expect(within(sheet).getByRole("heading", { name: "Tomato patch" })).toBeInTheDocument()
+    expect(within(sheet).getByRole("img", { name: "Tomato patch" })).toBeInTheDocument()
+    const [, row] = within(sheet).getAllByRole("row")
+    expect(row).toHaveTextContent("Tomato")
+    expect(row).toHaveTextContent("4")
+    expect(row).toHaveTextContent("May 1, 2026")
+    expect(row).toHaveTextContent("Sep 30, 2026")
+    vi.unstubAllGlobals()
   })
 })
 

@@ -147,6 +147,13 @@ export const pt: Translation = {
       clear: "Retirar {{name}}",
     },
   },
+  export: {
+    saveImage: "Guardar imagem",
+    print: "Imprimir",
+    imageFailed: "Não foi possível guardar a imagem.",
+    plant: "Planta",
+    plants: "Plantas",
+  },
   dateFilter: {
     label: "Mostrar a horta em",
     previousMonth: "Mês anterior",

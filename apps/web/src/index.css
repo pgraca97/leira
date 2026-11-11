@@ -6,6 +6,15 @@ body,
   height: 100%;
 }
 
+/* On paper the page is as tall as its content, not as tall as a screen. */
+@media print {
+  html,
+  body,
+  #root {
+    height: auto;
+  }
+}
+
 body {
   @apply bg-stone-50 text-stone-900 antialiased;
 }

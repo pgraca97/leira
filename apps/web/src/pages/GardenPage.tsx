@@ -10,6 +10,8 @@ import { Editor } from "../editor/Editor"
 import { SaveIndicator } from "../editor/SaveIndicator"
 import { editorStore } from "../editor/store"
 import { useGardenDocument } from "../editor/useGardenDocument"
+import { ExportControls } from "../export/ExportControls"
+import { PrintSheet } from "../export/PrintSheet"
 import { useBackend } from "../lib/backend"
 import {
   GARDEN_NAME_MAX,
@@ -101,9 +103,10 @@ function LoadedGarden({ garden, view, onReload }: LoadedGardenProps) {
         <BackLink />
         <ViewSwitch gardenId={garden.id} />
         <NameField name={name} onRename={setName} />
+        <ExportControls gardenName={name} />
         <SaveIndicator status={saveStatus} onRetry={retrySave} onReload={onReload} />
       </AppHeader>
-      <div className="min-h-0 flex-1">
+      <div className="min-h-0 flex-1 print:hidden">
         {view === "calendar" ? (
           <Calendar
             onOpenPlanting={(id) => {
@@ -115,6 +118,7 @@ function LoadedGarden({ garden, view, onReload }: LoadedGardenProps) {
           <Editor aside={<WeatherPanel location={location} onLocationChange={setLocation} />} />
         )}
       </div>
+      <PrintSheet gardenName={name} />
     </div>
   )
 }
