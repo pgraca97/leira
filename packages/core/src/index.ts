@@ -1,4 +1,4 @@
-export { addDays, type IsoDate, toIsoDate, yearOf } from "./dates"
+export { addDays, addMonths, daysBetween, type IsoDate, toIsoDate, yearOf } from "./dates"
 export {
   duplicateItem,
   handleAt,
@@ -36,6 +36,16 @@ export {
   type RotationConflict,
   type RotationOptions,
 } from "./rotation"
+export {
+  type DateRange,
+  type GardenTask,
+  type GardenTaskKind,
+  gardenTasks,
+  isInGround,
+  type PlantingSchedule,
+  plantingSchedule,
+  plantingsInGround,
+} from "./schedule"
 export {
   BED_KINDS,
   type Bed,
