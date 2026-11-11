@@ -1,0 +1,9 @@
+{
+  "extends": "@garden/tsconfig/base.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.integration.tsbuildinfo",
+    "lib": ["ES2023", "DOM"],
+    "types": ["node", "./worker-configuration.d.ts"]
+  },
+  "include": ["integration"]
+}

@@ -9,6 +9,8 @@
     "preview": "vite preview",
     "typecheck": "wrangler types && tsc -b",
     "test": "vitest run",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "test:e2e": "playwright test",
     "cf-typegen": "wrangler types"
   },
   "dependencies": {
