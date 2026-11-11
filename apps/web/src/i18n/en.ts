@@ -109,6 +109,12 @@ export const en = {
       other: "these crops",
     },
   },
+  dateFilter: {
+    label: "Show the garden on",
+    previousMonth: "Previous month",
+    nextMonth: "Next month",
+    showAll: "Show everything",
+  },
   inspector: {
     title: "Your garden",
     empty: "Nothing here yet. Pick the bed tool and drag on the garden.",
@@ -135,6 +141,7 @@ export const en = {
       structure: "Structure",
     },
     layoutLabel: "Layout",
+    notInGround: "not in the ground",
     spacing: "{{inRow}} cm apart in the row, {{row}} cm between rows",
     layout: {
       single: "Single plant",

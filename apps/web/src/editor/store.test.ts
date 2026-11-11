@@ -1,6 +1,6 @@
 import { type Bed, emptyPlan, type Planting } from "@garden/core"
-import { beforeEach, describe, expect, it } from "vitest"
-import { editorStore, redo, undo } from "./store"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { editorStore, redo, shownPlan, undo } from "./store"
 
 const TOMATO: Planting = {
   id: "p1",
@@ -160,5 +160,64 @@ describe("setPlanSize", () => {
   it("refuses a size that leaves an item outside", () => {
     expect(state().setPlanSize(300, 400)).toBe(false)
     expect(state().plan.widthCm).toBe(600)
+  })
+})
+
+describe("the view date", () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it("starts unset, showing the whole plan", () => {
+    expect(state().viewDate).toBeNull()
+    expect(shownPlan(state())).toBe(state().plan)
+  })
+
+  it("narrows the shown plan to the crops in the ground that day", () => {
+    state().setViewDate("2026-12-25")
+    expect(shownPlan(state()).plantings).toEqual([])
+    expect(shownPlan(state()).beds).toEqual([BED])
+
+    state().setViewDate("2026-06-01")
+    expect(shownPlan(state()).plantings).toEqual([TOMATO])
+  })
+
+  it("is cleared by null or by something that is not a date", () => {
+    state().setViewDate("2026-06-01")
+    state().setViewDate(null)
+    expect(state().viewDate).toBeNull()
+
+    state().setViewDate("2026-06-01")
+    state().setViewDate("")
+    expect(state().viewDate).toBeNull()
+  })
+
+  it("is not an undo step and does not change the plan", () => {
+    const { plan } = state()
+    state().setViewDate("2026-06-01")
+    expect(state().plan).toBe(plan)
+    expect(editorStore.temporal.getState().pastStates).toHaveLength(0)
+  })
+
+  it("is forgotten when another plan is loaded", () => {
+    state().setViewDate("2026-06-01")
+    state().loadPlan(emptyPlan())
+    expect(state().viewDate).toBeNull()
+  })
+
+  it("is the day a new planting goes in the ground", () => {
+    state().setViewDate("2027-04-10")
+    state().addPlanting("lettuce", { x: 300, y: 0, w: 100, h: 100 }, "row")
+    // Lettuce is ready in 75 days at the latest.
+    expect(state().plan.plantings.at(-1)?.inGround).toEqual({
+      from: "2027-04-10",
+      to: "2027-06-24",
+    })
+  })
+
+  it("leaves a new planting starting today when no date is set", () => {
+    vi.useFakeTimers({ now: new Date(2026, 10, 11, 9, 0) })
+    state().addPlanting("lettuce", { x: 300, y: 0, w: 100, h: 100 }, "row")
+    expect(state().plan.plantings.at(-1)?.inGround.from).toBe("2026-11-11")
   })
 })

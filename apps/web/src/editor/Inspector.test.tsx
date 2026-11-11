@@ -3,7 +3,7 @@ import "../test/setup"
 import "../i18n"
 import type { PlanItemRef } from "@garden/core"
 import { type Bed, emptyPlan, type Planting } from "@garden/core"
-import { fireEvent, render, screen, within } from "@testing-library/react"
+import { act, fireEvent, render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, expect, it } from "vitest"
 import { Inspector } from "./Inspector"
@@ -180,5 +180,21 @@ describe("the garden's size", () => {
     await userEvent.type(length, "big{Enter}")
     expect(editorStore.getState().plan.heightCm).toBe(400)
     expect(screen.getByRole("alert")).toBeVisible()
+  })
+})
+
+describe("plantings on the day being shown", () => {
+  it("marks the crops that are not in the ground that day", () => {
+    show([
+      planting("spring", "lettuce", "2026-03-01", "2026-05-15"),
+      planting("summer", "tomato", "2026-05-01", "2026-09-30", 300),
+    ])
+    expect(screen.queryByText("not in the ground")).toBeNull()
+
+    act(() => editorStore.getState().setViewDate("2026-04-01"))
+    const list = screen.getByRole("region", { name: "Plantings" })
+    const [lettuce, tomato] = within(list).getAllByRole("button")
+    expect(lettuce).not.toHaveTextContent("not in the ground")
+    expect(tomato).toHaveTextContent("not in the ground")
   })
 })

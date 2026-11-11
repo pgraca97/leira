@@ -9,6 +9,7 @@ import {
   getPlant,
   handlePoints,
   hitTest,
+  isInGround,
   itemRect,
   moveItem,
   type PlanItemRef,
@@ -21,7 +22,7 @@ import {
   resizeItem,
 } from "@garden/core"
 import Phaser from "phaser"
-import { type EditorState, editorStore, type Tool } from "../store"
+import { type EditorState, editorStore, shownPlan, type Tool } from "../store"
 import { cursorFor, pointerTarget } from "./pointerTarget"
 
 /** Registry key under which the host page publishes `window.devicePixelRatio`. */
@@ -95,6 +96,8 @@ interface BedView {
 interface PlantingView {
   source: Planting
   locale: EditorState["locale"]
+  /** Not in the ground on the day being shown: drawn as a faint outline only. */
+  away: boolean
   graphics: Phaser.GameObjects.Graphics
   label: Phaser.GameObjects.Text
 }
@@ -166,7 +169,11 @@ export class GardenScene extends Phaser.Scene {
   // --- Store -> scene ------------------------------------------------------
 
   private onStateChange(next: EditorState, previous: EditorState): void {
-    if (next.plan !== previous.plan || next.locale !== previous.locale) {
+    if (
+      next.plan !== previous.plan ||
+      next.locale !== previous.locale ||
+      next.viewDate !== previous.viewDate
+    ) {
       const resized =
         next.plan.widthCm !== previous.plan.widthCm || next.plan.heightCm !== previous.plan.heightCm
       this.syncPlan(next)
@@ -180,7 +187,7 @@ export class GardenScene extends Phaser.Scene {
 
   /** Brings the views in line with the plan: adds, redraws and removes by id. */
   private syncPlan(state: EditorState): void {
-    const { plan, locale } = state
+    const { plan, locale, viewDate } = state
 
     this.ground.clear()
     this.ground.fillStyle(COLOR.ground, 1)
@@ -216,19 +223,22 @@ export class GardenScene extends Phaser.Scene {
     const plantingIds = new Set<string>()
     plan.plantings.forEach((planting, index) => {
       plantingIds.add(planting.id)
+      const away = viewDate !== null && !isInGround(planting, viewDate)
       let view = this.plantingViews.get(planting.id)
       if (!view) {
         view = {
           source: planting,
           locale,
+          away,
           graphics: this.add.graphics(),
           label: this.add.text(0, 0, "", this.labelStyle()),
         }
         this.plantingViews.set(planting.id, view)
         this.drawPlanting(view, planting, locale)
-      } else if (view.source !== planting || view.locale !== locale) {
+      } else if (view.source !== planting || view.locale !== locale || view.away !== away) {
         view.source = planting
         view.locale = locale
+        view.away = away
         this.drawPlanting(view, planting, locale)
       }
       const depth = DEPTH.plantings + stackOffset(index)
@@ -270,6 +280,9 @@ export class GardenScene extends Phaser.Scene {
     const color = plant ? hexColor(plant.color) : COLOR.unknownPlant
     const graphics = view.graphics.clear()
 
+    // Away crops keep their outline (drawn with the other outlines) and nothing else.
+    if (view.away) return
+
     if (!plant) {
       graphics.fillStyle(color, 0.3)
       graphics.fillRect(x, y, w, h)
@@ -298,7 +311,9 @@ export class GardenScene extends Phaser.Scene {
 
     for (const planting of state.plan.plantings) {
       const plant = getPlant(planting.plantId)
-      this.outlines.lineStyle(1.5 * pixel, plant ? hexColor(plant.color) : COLOR.unknownPlant, 0.9)
+      const away = state.viewDate !== null && !isInGround(planting, state.viewDate)
+      const color = plant ? hexColor(plant.color) : COLOR.unknownPlant
+      this.outlines.lineStyle((away ? 1 : 1.5) * pixel, color, away ? 0.3 : 0.9)
       strokeRect(this.outlines, planting.rect)
     }
 
@@ -346,7 +361,7 @@ export class GardenScene extends Phaser.Scene {
       const { rect } = view.source
       view.label.setScale(1 / camera.zoom)
       view.label.setPosition(rect.x + 4 * pixel, rect.y + 3 * pixel)
-      view.label.setVisible(view.label.displayWidth + 8 * pixel <= rect.w)
+      view.label.setVisible(!view.away && view.label.displayWidth + 8 * pixel <= rect.w)
     }
     // A bed's name sits in its bottom-left corner, clear of the crop labels at the top.
     for (const view of this.bedViews.values()) {
@@ -448,8 +463,9 @@ export class GardenScene extends Phaser.Scene {
     if (gesture.kind === "pan") {
       this.applyTool(state.tool)
       // A press that never became a drag is a click: select what is under it.
+      // Only what is drawn counts, so a crop that is away never takes the click.
       if (!gesture.moved && pointer.button === 0 && state.tool.kind === "select") {
-        state.select(hitTest(state.plan, this.worldPoint(pointer)))
+        state.select(hitTest(shownPlan(state), this.worldPoint(pointer)))
       }
       this.showHoverCursor(pointer)
       return
@@ -458,7 +474,7 @@ export class GardenScene extends Phaser.Scene {
     this.clearDraft()
     if (gesture.kind === "move" || gesture.kind === "resize") {
       // The drag is stored once, on release, so it is a single undo step and a single save.
-      if (!gesture.moved) state.select(hitTest(state.plan, this.worldPoint(pointer)))
+      if (!gesture.moved) state.select(hitTest(shownPlan(state), this.worldPoint(pointer)))
       else if (gesture.kind === "move") state.moveItem(gesture.ref, ...dragDistance(gesture))
       else state.resizeItem(gesture.ref, gesture.handle, gesture.end)
       this.showHoverCursor(pointer)

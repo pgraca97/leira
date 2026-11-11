@@ -3,6 +3,7 @@ import {
   type BedKind,
   findRotationConflicts,
   getPlant,
+  isInGround,
   PLANTING_LAYOUTS,
   type PlantingLayout,
   plantingFill,
@@ -27,6 +28,7 @@ export function Inspector({ children }: { children?: ReactNode }) {
   const { t } = useTranslation()
   const plan = useEditor((state) => state.plan)
   const selection = useEditor((state) => state.selection)
+  const viewDate = useEditor((state) => state.viewDate)
   const { select, removeSelection, setPlantingDates, setPlantingLayout, updateBed, setPlanSize } =
     editorStore.getState()
   const [sizeRefused, setSizeRefused] = useState(false)
@@ -39,6 +41,8 @@ export function Inspector({ children }: { children?: ReactNode }) {
       plant,
       name: plant ? plant.name[language] : planting.plantId,
       count: plant ? plantingFill(planting, plant).count : 0,
+      // Still listed, so it can be found and selected, but marked as away.
+      away: viewDate !== null && !isInGround(planting, viewDate),
     }
   })
   const totalPlants = plantings.reduce((sum, item) => sum + item.count, 0)
@@ -261,7 +265,7 @@ export function Inspector({ children }: { children?: ReactNode }) {
             {t("inspector.plantings")}
           </h3>
           <ul>
-            {plantings.map(({ planting, plant, name, count }) => (
+            {plantings.map(({ planting, plant, name, count, away }) => (
               <li key={planting.id}>
                 <button
                   type="button"
@@ -274,7 +278,12 @@ export function Inspector({ children }: { children?: ReactNode }) {
                     className="size-3 shrink-0 rounded-full bg-stone-400"
                     style={plant ? { backgroundColor: plant.color } : undefined}
                   />
-                  {t("inspector.plantingSummary", { name, count })}
+                  <span className={away ? "flex-1 opacity-60" : "flex-1"}>
+                    {t("inspector.plantingSummary", { name, count })}
+                  </span>
+                  {away && (
+                    <span className="text-xs text-stone-500">{t("inspector.notInGround")}</span>
+                  )}
                 </button>
               </li>
             ))}

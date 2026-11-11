@@ -7,12 +7,14 @@ import {
   fitRectToPlan,
   type GardenPlan,
   getPlant,
+  type IsoDate,
   moveItem,
   type PlanItemRef,
   type Planting,
   type PlantingLayout,
   PlantingSchema,
   type Point,
+  plantingsInGround,
   type Rect,
   type ResizeHandle,
   resizeItem,
@@ -32,6 +34,11 @@ export interface EditorState {
   tool: Tool
   /** Language for names drawn on the canvas. */
   locale: "pt" | "en"
+  /**
+   * The day the garden is shown on: only crops in the ground that day are
+   * drawn, and new plantings start on it. Null shows the whole plan at once.
+   */
+  viewDate: IsoDate | null
 
   /** Replaces the document, e.g. after loading it. Clears the undo history. */
   loadPlan(plan: GardenPlan): void
@@ -61,6 +68,8 @@ export interface EditorState {
   select(selection: PlanItemRef | null): void
   setTool(tool: Tool): void
   setLocale(locale: "pt" | "en"): void
+  /** Sets the day to show. Null, or anything that is not a date, shows the whole plan. */
+  setViewDate(date: IsoDate | null): void
 }
 
 const UNDO_LIMIT = 100
@@ -92,11 +101,12 @@ export const editorStore = createStore<EditorState>()(
         selection: null,
         tool: { kind: "select" },
         locale: "en",
+        viewDate: null,
 
         loadPlan: (plan) => {
           const history = editorStore.temporal.getState()
           history.pause()
-          set({ plan, selection: null, tool: { kind: "select" } })
+          set({ plan, selection: null, tool: { kind: "select" }, viewDate: null })
           history.resume()
           history.clear()
         },
@@ -125,7 +135,8 @@ export const editorStore = createStore<EditorState>()(
             plantId,
             rect: fitted,
             layout,
-            inGround: defaultInGround(plant, toIsoDate(new Date())),
+            // Planted on the day being looked at, so it shows up where the user put it.
+            inGround: defaultInGround(plant, get().viewDate ?? toIsoDate(new Date())),
           }
           set({
             plan: { ...plan, plantings: [...plan.plantings, planting] },
@@ -216,6 +227,13 @@ export const editorStore = createStore<EditorState>()(
         select: (selection) => set({ selection }),
         setTool: (tool) => set({ tool }),
         setLocale: (locale) => set({ locale }),
+        setViewDate: (date) =>
+          set({
+            viewDate:
+              date && PlantingSchema.shape.inGround.shape.from.safeParse(date).success
+                ? date
+                : null,
+          }),
       }
     },
     {
@@ -232,6 +250,11 @@ export function undo(): void {
 
 export function redo(): void {
   editorStore.temporal.getState().redo()
+}
+
+/** The plan as the canvas shows it: all of it, or only the crops in the ground on the view date. */
+export function shownPlan(state: Pick<EditorState, "plan" | "viewDate">): GardenPlan {
+  return state.viewDate ? plantingsInGround(state.plan, state.viewDate) : state.plan
 }
 
 /** The bed the selection points at, or undefined when it is gone (e.g. after an undo). */

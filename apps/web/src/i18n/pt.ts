@@ -113,6 +113,12 @@ export const pt: Translation = {
       other: "estas culturas",
     },
   },
+  dateFilter: {
+    label: "Mostrar a horta em",
+    previousMonth: "Mês anterior",
+    nextMonth: "Mês seguinte",
+    showAll: "Mostrar tudo",
+  },
   inspector: {
     title: "A tua horta",
     empty: "Ainda não há nada aqui. Escolhe a ferramenta Canteiro e arrasta sobre a horta.",
@@ -139,6 +145,7 @@ export const pt: Translation = {
       structure: "Estrutura",
     },
     layoutLabel: "Disposição",
+    notInGround: "fora da terra",
     spacing: "{{inRow}} cm entre plantas na linha, {{row}} cm entre linhas",
     layout: {
       single: "Planta única",

@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next"
 import { buttonClass } from "../components/ui"
 import { currentLanguage } from "../i18n"
 import { GardenCanvas } from "./canvas/GardenCanvas"
+import { DateFilter } from "./DateFilter"
 import { Inspector } from "./Inspector"
 import { Palette } from "./Palette"
 import { editorStore, redo, undo } from "./store"
@@ -29,13 +30,17 @@ export function Editor({ aside }: { aside?: ReactNode }) {
       <Palette />
       <main className="relative min-h-0">
         <GardenCanvas />
-        <div className="absolute top-2 left-2 flex gap-1">
-          <button type="button" className={buttonClass} disabled={!canUndo} onClick={undo}>
-            {t("editor.undo")}
-          </button>
-          <button type="button" className={buttonClass} disabled={!canRedo} onClick={redo}>
-            {t("editor.redo")}
-          </button>
+        {/* The bar itself lets presses through to the canvas; only its controls take them. */}
+        <div className="pointer-events-none absolute inset-x-2 top-2 flex flex-wrap items-start justify-between gap-2 *:pointer-events-auto">
+          <div className="flex gap-1">
+            <button type="button" className={buttonClass} disabled={!canUndo} onClick={undo}>
+              {t("editor.undo")}
+            </button>
+            <button type="button" className={buttonClass} disabled={!canRedo} onClick={redo}>
+              {t("editor.redo")}
+            </button>
+          </div>
+          <DateFilter />
         </div>
       </main>
       <Inspector>{aside}</Inspector>
