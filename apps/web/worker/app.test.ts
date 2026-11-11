@@ -50,6 +50,29 @@ beforeEach(() => {
   vi.spyOn(console, "warn").mockImplementation(() => {})
 })
 
+describe("GET /api/config", () => {
+  const env = {
+    SUPABASE_URL: "https://project.supabase.co",
+    SUPABASE_PUBLISHABLE_KEY: "sb_publishable_abc",
+    OPENWEATHER_API_KEY: "secret",
+  } as Env
+
+  it("gives the browser the public Supabase settings without a session", async () => {
+    const response = await createApp(deps).request("/api/config", {}, env)
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({
+      supabaseUrl: "https://project.supabase.co",
+      supabasePublishableKey: "sb_publishable_abc",
+    })
+  })
+
+  it("answers 503 when Supabase is not configured", async () => {
+    const response = await createApp(deps).request("/api/config", {}, {} as Env)
+    expect(response.status).toBe(503)
+    expect(await response.json()).toEqual({ error: "not_configured" })
+  })
+})
+
 describe("GET /api/health", () => {
   it("answers without a session", async () => {
     const response = await request("/api/health", {})

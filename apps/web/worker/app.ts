@@ -44,6 +44,23 @@ export function createApp(deps: AppDeps) {
   app.get("/api/health", (c) => c.json({ ok: true }))
 
   /**
+   * The public Supabase settings, so the browser reads them from the same
+   * place as the Worker and a build works in every environment. Both values
+   * are meant to be public: row level security is what protects the data.
+   */
+  app.get("/api/config", (c) => {
+    const { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } = c.env
+    if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
+      return c.json({ error: "not_configured" }, 503)
+    }
+    return c.json(
+      { supabaseUrl: SUPABASE_URL, supabasePublishableKey: SUPABASE_PUBLISHABLE_KEY },
+      200,
+      { "Cache-Control": "public, max-age=300" }
+    )
+  })
+
+  /**
    * Current weather for a position. Only signed-in users may call it, and
    * readings are cached per zone, so the provider's quota is spent once per
    * zone per hour however many people ask.
