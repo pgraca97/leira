@@ -269,3 +269,67 @@ describe("the garden's weather", () => {
     expect(await within(weather).findByText(/not available right now/)).toBeVisible()
   })
 })
+
+describe("the garden's calendar", () => {
+  const plan = {
+    ...emptyPlan(),
+    plantings: [
+      {
+        id: "33333333-3333-4333-8333-333333333333",
+        plantId: "tomato",
+        rect: { x: 0, y: 0, w: 100, h: 100 },
+        layout: "block" as const,
+        inGround: {
+          from: `${new Date().getFullYear()}-05-01`,
+          to: `${new Date().getFullYear()}-09-30`,
+        },
+      },
+    ],
+  }
+
+  beforeEach(() => {
+    backend = fakeBackend([{ ...TOMATOES, plan }])
+  })
+
+  it("switches between the plan and the calendar", async () => {
+    const history = open(`/gardens/${TOMATOES.id}`)
+    await userEvent.click(await screen.findByRole("link", { name: "Calendar" }))
+
+    expect(await screen.findByRole("button", { name: /^Tomato × 4: / })).toBeVisible()
+    expect(history.location.search).toBe("?view=calendar")
+    expect(screen.queryByTestId("garden-canvas")).toBeNull()
+
+    await userEvent.click(screen.getByRole("link", { name: "Plan" }))
+    expect(await screen.findByTestId("garden-canvas")).toBeVisible()
+    expect(history.location.search).toBe("")
+  })
+
+  it("opens straight on the calendar from its address", async () => {
+    open(`/gardens/${TOMATOES.id}?view=calendar`)
+    expect(await screen.findByRole("button", { name: /^Tomato × 4: / })).toBeVisible()
+    expect(screen.getByRole("link", { name: "Calendar" })).toHaveAttribute("aria-current", "page")
+    expect(screen.getByRole("link", { name: "Plan" })).not.toHaveAttribute("aria-current")
+  })
+
+  it("goes to the plan with the planting selected when its line is clicked", async () => {
+    open(`/gardens/${TOMATOES.id}?view=calendar`)
+    await userEvent.click(await screen.findByRole("button", { name: /^Tomato × 4: / }))
+
+    expect(await screen.findByTestId("garden-canvas")).toBeVisible()
+    expect(editorStore.getState().selection).toEqual({
+      kind: "planting",
+      id: "33333333-3333-4333-8333-333333333333",
+    })
+  })
+
+  it("keeps unsaved edits when switching views", async () => {
+    open(`/gardens/${TOMATOES.id}`)
+    await screen.findByRole("textbox", { name: "Garden name" })
+    editorStore.getState().addBed({ x: 0, y: 0, w: 100, h: 200 })
+    await userEvent.click(screen.getByRole("link", { name: "Calendar" }))
+    await userEvent.click(await screen.findByRole("link", { name: "Plan" }))
+
+    expect(editorStore.getState().plan.beds).toHaveLength(1)
+    await waitFor(() => expect(backend.rows.get(TOMATOES.id)?.plan.beds).toHaveLength(1))
+  })
+})

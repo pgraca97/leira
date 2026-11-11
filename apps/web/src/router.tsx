@@ -19,13 +19,21 @@ const gardensRoute = createRoute({
   component: GardensPage,
 })
 
+/** The ways to look at a garden. The plan is the default and has no search parameter. */
+export type GardenView = "plan" | "calendar"
+
 export const gardenRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/gardens/$gardenId",
+  // A search parameter rather than a child route: both views share the loaded
+  // garden and its autosave, which must not restart when the view changes.
+  validateSearch: (search: Record<string, unknown>): { view?: "calendar" } =>
+    search.view === "calendar" ? { view: "calendar" } : {},
   component: function GardenRoute() {
     const { gardenId } = gardenRoute.useParams()
+    const { view = "plan" } = gardenRoute.useSearch()
     // Keyed, so moving to another garden starts from a clean page.
-    return <GardenPage key={gardenId} gardenId={gardenId} />
+    return <GardenPage key={gardenId} gardenId={gardenId} view={view} />
   },
 })
 

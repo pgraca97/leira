@@ -73,6 +73,31 @@ test("a bed can be moved and resized, and stays that way", async ({ page }) => {
   await expect(size).toHaveText(sizeResized ?? "")
 })
 
+test("a planting shows on the calendar and on the day it is in the ground", async ({ page }) => {
+  await page.goto("/")
+  await page.getByRole("button", { name: "New garden" }).click()
+  await page.getByRole("button", { name: "Tomato" }).click()
+  await dragOnCanvas(page, [0.4, 0.4], [0.6, 0.6])
+  const planting = page.getByRole("region", { name: "Plantings" }).getByRole("button")
+  await expect(planting).toHaveCount(1)
+
+  // Ten years on, today's tomatoes are long gone.
+  const year = new Date().getFullYear()
+  await page.getByLabel("Show the garden on").fill(`${year + 10}-06-01`)
+  await expect(planting).toContainText("not in the ground")
+  await page.getByRole("button", { name: "Show everything" }).click()
+  await expect(planting).not.toContainText("not in the ground")
+
+  await page.getByRole("link", { name: "Calendar" }).click()
+  const line = page.getByRole("button", { name: /^Tomato × \d+: .*in the ground/ })
+  await expect(line).toBeVisible()
+  await expect(page.getByRole("list", { name: "Coming up" })).toContainText("Tomato")
+
+  await line.click()
+  await expect(page.getByTestId("garden-canvas")).toBeVisible()
+  await expect(page.getByRole("region", { name: "Selected" })).toContainText("Tomato")
+})
+
 test("a visitor only sees their own gardens", async ({ browser }) => {
   const first = await browser.newContext()
   const firstPage = await first.newPage()
