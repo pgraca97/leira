@@ -9,9 +9,20 @@ function isTyping(target: EventTarget | null): boolean {
   )
 }
 
+/** Where each arrow key nudges the selection, in grid cells. */
+const ARROWS: Record<string, readonly [x: number, y: number]> = {
+  arrowleft: [-1, 0],
+  arrowright: [1, 0],
+  arrowup: [0, -1],
+  arrowdown: [0, 1],
+}
+/** Cells an arrow key moves the selection with Shift held: a metre on the default grid. */
+const BIG_NUDGE_CELLS = 10
+
 /**
- * Keyboard shortcuts for the editor: Delete removes the selection, Escape
- * returns to the select tool, Ctrl/Cmd+Z undoes, Ctrl/Cmd+Shift+Z or Ctrl+Y redoes.
+ * Keyboard shortcuts for the editor: Delete removes the selection, the arrow
+ * keys nudge it (further with Shift), Ctrl/Cmd+D duplicates it, Escape returns
+ * to the select tool, Ctrl/Cmd+Z undoes, Ctrl/Cmd+Shift+Z or Ctrl+Y redoes.
  */
 export function useEditorShortcuts(): void {
   useEffect(() => {
@@ -28,6 +39,16 @@ export function useEditorShortcuts(): void {
       } else if (command && key === "y") {
         event.preventDefault()
         redo()
+      } else if (command && key === "d") {
+        // Always claimed, so the browser's bookmark dialog never opens over the editor.
+        event.preventDefault()
+        state.duplicateSelection()
+      } else if (ARROWS[key] && !command && !event.altKey) {
+        if (!state.selection) return
+        event.preventDefault()
+        const [x, y] = ARROWS[key]
+        const cells = event.shiftKey ? BIG_NUDGE_CELLS : 1
+        state.nudgeSelection(x * cells, y * cells)
       } else if (key === "delete" || key === "backspace") {
         if (!state.selection) return
         event.preventDefault()
