@@ -54,6 +54,8 @@ export const pt: Translation = {
     tools: "Ferramentas",
     select: "Selecionar",
     bed: "Canteiro",
+    searchPlants: "Procurar plantas",
+    noPlantMatches: "Nenhuma planta corresponde a “{{search}}”.",
     plants: "Plantas",
     hintSelect:
       "Arrasta para te moveres e usa a roda para o zoom. Clica num elemento para o selecionar; depois arrasta-o para o mover ou arrasta uma pega para o redimensionar.",

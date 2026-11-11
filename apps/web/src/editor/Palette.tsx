@@ -1,6 +1,7 @@
 import { getPlant, PLANTS, relationBetween } from "@garden/core"
+import { useState } from "react"
 import { useTranslation } from "react-i18next"
-import { toggleButtonClass } from "../components/ui"
+import { inputClass, toggleButtonClass } from "../components/ui"
 import { currentLanguage } from "../i18n"
 import { editorStore } from "./store"
 import { useEditor } from "./useEditor"
@@ -12,13 +13,28 @@ export function Palette() {
   const { setTool } = editorStore.getState()
   const language = currentLanguage()
 
+  const [search, setSearch] = useState("")
+
+  // Alphabetical in the language in use: with dozens of plants, that is how one is found.
+  const sorted = [...PLANTS].sort((a, b) =>
+    a.name[language].localeCompare(b.name[language], language)
+  )
+  // A plant matches on its name, its botanical name, or its family, the unit
+  // crop rotation works in ("nightshades" finds tomatoes and potatoes alike).
+  const wanted = foldText(search.trim())
+  const shown = sorted.filter((plant) =>
+    [plant.name[language], plant.latin, t(`rotation.family.${plant.family}`)].some((text) =>
+      foldText(text).includes(wanted)
+    )
+  )
+
   // Advice for the plant about to be placed: who to put it next to, who to keep it from.
   const chosen = tool.kind === "plant" ? getPlant(tool.plantId) : undefined
   const neighbours = (relation: "good" | "bad") =>
     chosen
-      ? PLANTS.filter((plant) => relationBetween(chosen, plant) === relation).map(
-          (plant) => plant.name[language]
-        )
+      ? sorted
+          .filter((plant) => relationBetween(chosen, plant) === relation)
+          .map((plant) => plant.name[language])
       : []
 
   const hint =
@@ -64,8 +80,22 @@ export function Palette() {
         >
           {t("editor.plants")}
         </h2>
-        <ul className="grid grid-cols-2 gap-1 sm:grid-cols-3 lg:grid-cols-1">
-          {PLANTS.map((plant) => (
+        <input
+          type="search"
+          aria-label={t("editor.searchPlants")}
+          placeholder={t("editor.searchPlants")}
+          className={`${inputClass} mb-1 w-full`}
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+        />
+        {shown.length === 0 && (
+          <p className="text-sm text-stone-600">
+            {t("editor.noPlantMatches", { search: search.trim() })}
+          </p>
+        )}
+        {/* Capped on small screens, where the palette sits above the canvas. */}
+        <ul className="grid max-h-40 grid-cols-2 gap-1 overflow-y-auto sm:grid-cols-3 lg:max-h-none lg:grid-cols-1 lg:overflow-visible">
+          {shown.map((plant) => (
             <li key={plant.id}>
               <button
                 type="button"
@@ -100,4 +130,12 @@ export function Palette() {
       )}
     </aside>
   )
+}
+
+/** Lowercase and without accents, so "feijao" finds "Feijão". */
+function foldText(text: string): string {
+  return text
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
 }

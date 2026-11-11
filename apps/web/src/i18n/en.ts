@@ -50,6 +50,8 @@ export const en = {
     tools: "Tools",
     select: "Select",
     bed: "Bed",
+    searchPlants: "Search plants",
+    noPlantMatches: "No plant matches “{{search}}”.",
     plants: "Plants",
     hintSelect:
       "Drag to move around and scroll to zoom. Click an item to select it, then drag it to move it or drag a handle to resize it.",
