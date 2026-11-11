@@ -181,3 +181,18 @@ export const WeatherNowSchema = z.object({
   observedAt: z.iso.datetime(),
 })
 export type WeatherNow = z.infer<typeof WeatherNowSchema>
+
+/** One day of forecast: the coldest and warmest it gets, and the weather that dominates. */
+export const ForecastDaySchema = z
+  .object({
+    date: isoDate,
+    minC: z.number(),
+    maxC: z.number(),
+    condition: z.enum(WEATHER_CONDITIONS),
+  })
+  .refine((day) => day.minC <= day.maxC, { error: "minC must not exceed maxC" })
+export type ForecastDay = z.infer<typeof ForecastDaySchema>
+
+/** A forecast: consecutive days, the first one being today where the garden is. */
+export const ForecastSchema = z.array(ForecastDaySchema).max(16)
+export type Forecast = z.infer<typeof ForecastSchema>

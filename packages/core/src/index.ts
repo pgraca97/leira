@@ -59,6 +59,10 @@ export {
   type BedKind,
   BedSchema,
   emptyPlan,
+  type Forecast,
+  type ForecastDay,
+  ForecastDaySchema,
+  ForecastSchema,
   FROST_TOLERANCES,
   type FrostTolerance,
   type GardenLocation,
@@ -83,3 +87,4 @@ export {
   WeatherNowSchema,
 } from "./schema"
 export { type AreaFill, fillArea, fillPoints, SFG_CELL_CM } from "./spacing"
+export { FROST_LIMIT_C, findWeatherRisks, type WeatherRisk } from "./weatherRisks"
