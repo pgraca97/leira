@@ -8,6 +8,7 @@ import {
   type PlanItemRef,
   type Planting,
   type PlantingLayout,
+  PlantingSchema,
   type Rect,
   toIsoDate,
 } from "@garden/core"
@@ -31,6 +32,8 @@ export interface EditorState {
   addBed(rect: Rect): boolean
   /** Adds a planting. Returns false for an unknown plant or ground outside the garden. */
   addPlanting(plantId: string, rect: Rect, layout: PlantingLayout): boolean
+  /** Changes when a planting is in the ground. Returns false for dates the plan cannot hold. */
+  setPlantingDates(id: string, inGround: Planting["inGround"]): boolean
   removeSelection(): void
   select(selection: PlanItemRef | null): void
   setTool(tool: Tool): void
@@ -92,6 +95,21 @@ export const editorStore = createStore<EditorState>()(
         set({
           plan: { ...plan, plantings: [...plan.plantings, planting] },
           selection: { kind: "planting", id: planting.id },
+        })
+        return true
+      },
+
+      setPlantingDates: (id, inGround) => {
+        const { plan } = get()
+        const dates = PlantingSchema.shape.inGround.safeParse(inGround)
+        if (!dates.success || !plan.plantings.some((planting) => planting.id === id)) return false
+        set({
+          plan: {
+            ...plan,
+            plantings: plan.plantings.map((planting) =>
+              planting.id === id ? { ...planting, inGround: dates.data } : planting
+            ),
+          },
         })
         return true
       },

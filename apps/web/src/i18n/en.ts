@@ -86,6 +86,28 @@ export const en = {
       snow: "Snow",
     },
   },
+  rotation: {
+    title: "Crop rotation",
+    conflict:
+      "{{name}} goes where {{previous}} grew {{when}}. Leave {{years}} years between {{family}}.",
+    sameYear: "earlier the same year",
+    yearsBefore_one: "{{count}} year before",
+    yearsBefore_other: "{{count}} years before",
+    family: {
+      amaranthaceae: "beets and spinach",
+      amaryllidaceae: "alliums",
+      apiaceae: "umbellifers",
+      asteraceae: "daisy-family crops",
+      brassicaceae: "brassicas",
+      cucurbitaceae: "cucurbits",
+      fabaceae: "legumes",
+      lamiaceae: "mint-family herbs",
+      poaceae: "grasses",
+      rosaceae: "rose-family crops",
+      solanaceae: "nightshades",
+      other: "these crops",
+    },
+  },
   inspector: {
     title: "Your garden",
     size: "{{width}} × {{height}} m",
@@ -105,6 +127,8 @@ export const en = {
       block: "Block",
       sfg: "Square foot",
     },
+    inGroundFrom: "In the ground from",
+    inGroundTo: "Until",
     delete: "Delete",
   },
 }

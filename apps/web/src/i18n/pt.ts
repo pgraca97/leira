@@ -91,6 +91,28 @@ export const pt: Translation = {
       snow: "Neve",
     },
   },
+  rotation: {
+    title: "Rotação de culturas",
+    conflict:
+      "{{name}} fica onde {{previous}} cresceu {{when}}. Deixa {{years}} anos entre {{family}}.",
+    sameYear: "no mesmo ano",
+    yearsBefore_one: "{{count}} ano antes",
+    yearsBefore_other: "{{count}} anos antes",
+    family: {
+      amaranthaceae: "beterrabas e espinafres",
+      amaryllidaceae: "aliáceas",
+      apiaceae: "umbelíferas",
+      asteraceae: "compostas",
+      brassicaceae: "brássicas",
+      cucurbitaceae: "cucurbitáceas",
+      fabaceae: "leguminosas",
+      lamiaceae: "labiadas",
+      poaceae: "gramíneas",
+      rosaceae: "rosáceas",
+      solanaceae: "solanáceas",
+      other: "estas culturas",
+    },
+  },
   inspector: {
     title: "A tua horta",
     size: "{{width}} × {{height}} m",
@@ -110,6 +132,8 @@ export const pt: Translation = {
       block: "Bloco",
       sfg: "Pé quadrado",
     },
+    inGroundFrom: "Na terra desde",
+    inGroundTo: "Até",
     delete: "Apagar",
   },
 }

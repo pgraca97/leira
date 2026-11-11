@@ -1,10 +1,13 @@
-import { getPlant, plantingFill } from "@garden/core"
+import { findRotationConflicts, getPlant, plantingFill } from "@garden/core"
 import type { ReactNode } from "react"
 import { useTranslation } from "react-i18next"
-import { dangerButtonClass, toggleButtonClass } from "../components/ui"
+import { dangerButtonClass, inputClass, toggleButtonClass } from "../components/ui"
 import { currentLanguage } from "../i18n"
 import { editorStore, selectedBed, selectedPlanting } from "./store"
 import { useEditor } from "./useEditor"
+
+/** Years a botanical family should stay away from ground it has just used. */
+const ROTATION_YEARS = 3
 
 /**
  * Lists what is on the plan and describes the selected item. It is also the
@@ -15,7 +18,7 @@ export function Inspector({ children }: { children?: ReactNode }) {
   const { t } = useTranslation()
   const plan = useEditor((state) => state.plan)
   const selection = useEditor((state) => state.selection)
-  const { select, removeSelection } = editorStore.getState()
+  const { select, removeSelection, setPlantingDates } = editorStore.getState()
   const language = currentLanguage()
 
   const plantings = plan.plantings.map((planting) => {
@@ -28,6 +31,10 @@ export function Inspector({ children }: { children?: ReactNode }) {
     }
   })
   const totalPlants = plantings.reduce((sum, item) => sum + item.count, 0)
+
+  const nameOf = (plantingId: string) =>
+    plantings.find((item) => item.planting.id === plantingId)?.name ?? ""
+  const conflicts = findRotationConflicts(plan, getPlant, { years: ROTATION_YEARS })
 
   const bed = selectedBed({ plan, selection })
   const planted = plantings.find((item) => item.planting === selectedPlanting({ plan, selection }))
@@ -79,9 +86,79 @@ export function Inspector({ children }: { children?: ReactNode }) {
               })}
             </p>
           )}
+          {planted && (
+            <div className="mt-2 flex flex-wrap gap-2">
+              <label className="flex flex-col text-xs text-stone-600">
+                {t("inspector.inGroundFrom")}
+                <input
+                  type="date"
+                  className={inputClass}
+                  value={planted.planting.inGround.from}
+                  max={planted.planting.inGround.to}
+                  onChange={(event) =>
+                    setPlantingDates(planted.planting.id, {
+                      ...planted.planting.inGround,
+                      from: event.target.value,
+                    })
+                  }
+                />
+              </label>
+              <label className="flex flex-col text-xs text-stone-600">
+                {t("inspector.inGroundTo")}
+                <input
+                  type="date"
+                  className={inputClass}
+                  value={planted.planting.inGround.to}
+                  min={planted.planting.inGround.from}
+                  onChange={(event) =>
+                    setPlantingDates(planted.planting.id, {
+                      ...planted.planting.inGround,
+                      to: event.target.value,
+                    })
+                  }
+                />
+              </label>
+            </div>
+          )}
           <button type="button" className={`${dangerButtonClass} mt-2`} onClick={removeSelection}>
             {t("inspector.delete")}
           </button>
+        </section>
+      )}
+
+      {conflicts.length > 0 && (
+        <section aria-labelledby="inspector-rotation">
+          <h3
+            id="inspector-rotation"
+            className="mb-1 text-xs font-semibold tracking-wide text-amber-800 uppercase"
+          >
+            {t("rotation.title")}
+          </h3>
+          <ul className="flex flex-col gap-1">
+            {conflicts.map((conflict) => (
+              <li key={`${conflict.plantingId}:${conflict.previousPlantingId}`}>
+                <button
+                  type="button"
+                  className={`${toggleButtonClass} bg-amber-50 text-amber-900`}
+                  aria-pressed={
+                    selection?.kind === "planting" && selection.id === conflict.plantingId
+                  }
+                  onClick={() => select({ kind: "planting", id: conflict.plantingId })}
+                >
+                  {t("rotation.conflict", {
+                    name: nameOf(conflict.plantingId),
+                    previous: nameOf(conflict.previousPlantingId),
+                    when:
+                      conflict.yearsApart === 0
+                        ? t("rotation.sameYear")
+                        : t("rotation.yearsBefore", { count: conflict.yearsApart }),
+                    years: ROTATION_YEARS,
+                    family: t(`rotation.family.${conflict.family}`),
+                  })}
+                </button>
+              </li>
+            ))}
+          </ul>
         </section>
       )}
 
