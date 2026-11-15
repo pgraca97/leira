@@ -21,9 +21,11 @@ A _leira_ is what a plot of cultivated land is called in Minho, in the north of 
   Move and resize with handles, nudge with the arrow keys, duplicate with Ctrl+D, undo and redo.
 - **45 crops** common in Portugal, with search, spacing, frost tolerance and days to harvest.
 - **Advice:** crop rotation (same family in the same place too soon), companion planting, and
-  frost and heat warnings from a 5-day forecast for the planted crops.
+  warnings from a 5-day forecast for the planted crops: frost, heat, and nights too cold for
+  seedlings that have just been planted out. The garden is located by searching for its town or
+  from the device's position.
 - **Time:** show the garden on any date, a yearly calendar per planting, and the jobs coming up in
-  the next 30 days.
+  the next 30 days. Seedlings follow the day they were actually sown, once it is recorded.
 - **Export:** save the plan as a PNG or print a sheet with the plan and a planting table.
 - **Accounts without a sign-up wall.** A guest gets a real user straight away. Signing in with
   Google or an emailed link attaches to that same user, so the gardens made as a guest are kept.
