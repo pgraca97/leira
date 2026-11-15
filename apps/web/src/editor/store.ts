@@ -64,6 +64,13 @@ export interface EditorState {
   setPlanSize(widthCm: number, heightCm: number): boolean
   /** Changes when a planting is in the ground. Returns false for dates the plan cannot hold. */
   setPlantingDates(id: string, inGround: Planting["inGround"]): boolean
+  /**
+   * Records the day a crop raised under cover was actually sown, or forgets it
+   * when given null, so the crop's usual lead time applies again. Returns
+   * false when nothing changes, or for a day that is not before the crop goes
+   * in the ground: the schedule would ignore it.
+   */
+  setPlantingSowDate(id: string, sowDate: IsoDate | null): boolean
   removeSelection(): void
   select(selection: PlanItemRef | null): void
   setTool(tool: Tool): void
@@ -202,11 +209,26 @@ export const editorStore = createStore<EditorState>()(
             plan: {
               ...plan,
               plantings: plan.plantings.map((planting) =>
-                planting.id === id ? { ...planting, inGround: dates.data } : planting
+                planting.id === id
+                  ? withSowDate({ ...planting, inGround: dates.data }, planting.sowDate ?? null)
+                  : planting
               ),
             },
           })
           return true
+        },
+
+        setPlantingSowDate: (id, sowDate) => {
+          const { plan } = get()
+          const planting = plan.plantings.find((item) => item.id === id)
+          if (!planting || (planting.sowDate ?? null) === sowDate) return false
+          const updated = withSowDate(planting, sowDate)
+          // Asked to record a day and ended up without one: the day was refused.
+          if (sowDate !== null && updated.sowDate === undefined) return false
+          return replacePlan({
+            ...plan,
+            plantings: plan.plantings.map((item) => (item.id === id ? updated : item)),
+          })
         },
 
         removeSelection: () => {
@@ -243,6 +265,18 @@ export const editorStore = createStore<EditorState>()(
     }
   )
 )
+
+/**
+ * The planting with its sowing day set to `sowDate`, or with none at all when
+ * that is null, not a date, or not before the crop goes in the ground. The key
+ * is left out rather than set to undefined, so the stored document stays clean.
+ */
+function withSowDate(planting: Planting, sowDate: IsoDate | null): Planting {
+  const { sowDate: _previous, ...rest } = planting
+  const date = PlantingSchema.shape.inGround.shape.from.safeParse(sowDate)
+  if (!date.success || date.data >= planting.inGround.from) return rest
+  return { ...rest, sowDate: date.data }
+}
 
 export function undo(): void {
   editorStore.temporal.getState().undo()

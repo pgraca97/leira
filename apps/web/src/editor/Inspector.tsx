@@ -1,4 +1,5 @@
 import {
+  addDays,
   BED_KINDS,
   type BedKind,
   findCompanions,
@@ -8,6 +9,7 @@ import {
   PLANTING_LAYOUTS,
   type PlantingLayout,
   plantingFill,
+  plantingSchedule,
 } from "@leira/core"
 import { type ReactNode, useState } from "react"
 import { useTranslation } from "react-i18next"
@@ -30,8 +32,15 @@ export function Inspector({ children }: { children?: ReactNode }) {
   const plan = useEditor((state) => state.plan)
   const selection = useEditor((state) => state.selection)
   const viewDate = useEditor((state) => state.viewDate)
-  const { select, removeSelection, setPlantingDates, setPlantingLayout, updateBed, setPlanSize } =
-    editorStore.getState()
+  const {
+    select,
+    removeSelection,
+    setPlantingDates,
+    setPlantingLayout,
+    setPlantingSowDate,
+    updateBed,
+    setPlanSize,
+  } = editorStore.getState()
   const [sizeRefused, setSizeRefused] = useState(false)
   const language = currentLanguage()
 
@@ -60,6 +69,17 @@ export function Inspector({ children }: { children?: ReactNode }) {
   const bed = selectedBed({ plan, selection })
   const planted = plantings.find((item) => item.planting === selectedPlanting({ plan, selection }))
   const selectedRect = bed?.rect ?? planted?.planting.rect
+  // A crop sown straight into the ground is sown the day it goes in, which is
+  // already a field: only seedlings raised under cover have a sowing day of their own.
+  const sownIndoors =
+    planted?.plant && (planted.plant.indoorsWeeks || planted.planting.sowDate)
+      ? {
+          recorded: planted.planting.sowDate ?? "",
+          estimate: plantingSchedule(planted.planting, planted.plant).indoors?.from,
+        }
+      : null
+  // Dates carry no zone, so they are formatted in UTC to stay on the same day everywhere.
+  const dateFormat = new Intl.DateTimeFormat(language, { dateStyle: "medium", timeZone: "UTC" })
   const metres = new Intl.NumberFormat(language, { maximumFractionDigits: 2, useGrouping: false })
 
   /** Stores a garden side typed in metres ("8", "8.5" or "8,5"), keeping the other side. */
@@ -218,6 +238,29 @@ export function Inspector({ children }: { children?: ReactNode }) {
                   }
                 />
               </label>
+            </div>
+          )}
+          {planted && sownIndoors && (
+            <div className="mt-2 flex flex-col items-start text-xs text-stone-600">
+              <label className="flex flex-col">
+                {t("inspector.sownIndoors")}
+                <input
+                  type="date"
+                  className={inputClass}
+                  value={sownIndoors.recorded}
+                  max={addDays(planted.planting.inGround.from, -1)}
+                  onChange={(event) =>
+                    setPlantingSowDate(planted.planting.id, event.target.value || null)
+                  }
+                />
+              </label>
+              {!sownIndoors.recorded && sownIndoors.estimate && (
+                <p className="mt-0.5">
+                  {t("inspector.sownEstimate", {
+                    date: dateFormat.format(new Date(`${sownIndoors.estimate}T00:00:00Z`)),
+                  })}
+                </p>
+              )}
             </div>
           )}
           <button type="button" className={`${dangerButtonClass} mt-2`} onClick={removeSelection}>

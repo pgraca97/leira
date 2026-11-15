@@ -57,6 +57,53 @@ describe("setPlantingDates", () => {
   })
 })
 
+describe("setPlantingSowDate", () => {
+  it("records the day the seeds were sown", () => {
+    expect(state().setPlantingSowDate("p1", "2026-03-10")).toBe(true)
+    expect(planting()?.sowDate).toBe("2026-03-10")
+  })
+
+  it("refuses a day that is not before the crop goes in the ground", () => {
+    expect(state().setPlantingSowDate("p1", "2026-05-01")).toBe(false)
+    expect(state().setPlantingSowDate("p1", "2026-06-01")).toBe(false)
+    expect(planting()).toEqual(TOMATO)
+  })
+
+  it("refuses something that is not a date", () => {
+    expect(state().setPlantingSowDate("p1", "soon")).toBe(false)
+  })
+
+  it("forgets the day when given none, leaving no trace in the plan", () => {
+    state().setPlantingSowDate("p1", "2026-03-10")
+    expect(state().setPlantingSowDate("p1", null)).toBe(true)
+    expect(planting()).toEqual(TOMATO)
+    expect(planting()).not.toHaveProperty("sowDate")
+  })
+
+  it("reports when nothing changed, and adds no undo step", () => {
+    expect(state().setPlantingSowDate("p1", null)).toBe(false)
+    expect(editorStore.temporal.getState().pastStates).toHaveLength(0)
+  })
+
+  it("is one undo step", () => {
+    state().setPlantingSowDate("p1", "2026-03-10")
+    undo()
+    expect(planting()).toEqual(TOMATO)
+  })
+
+  it("is forgotten when the crop moves into the ground on or before that day", () => {
+    state().setPlantingSowDate("p1", "2026-03-10")
+    state().setPlantingDates("p1", { from: "2026-03-10", to: "2026-09-30" })
+    expect(planting()).not.toHaveProperty("sowDate")
+  })
+
+  it("is kept when the crop still goes in the ground after that day", () => {
+    state().setPlantingSowDate("p1", "2026-03-10")
+    state().setPlantingDates("p1", { from: "2026-04-20", to: "2026-09-30" })
+    expect(planting()?.sowDate).toBe("2026-03-10")
+  })
+})
+
 describe("moveItem", () => {
   it("moves an item on the grid", () => {
     expect(state().moveItem({ kind: "planting", id: "p1" }, 52, 18)).toBe(true)

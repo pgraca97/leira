@@ -219,6 +219,8 @@ export const en = {
     },
     inGroundFrom: "In the ground from",
     inGroundTo: "Until",
+    sownIndoors: "Sown indoors on",
+    sownEstimate: "Estimated: {{date}}",
     delete: "Delete",
   },
 }

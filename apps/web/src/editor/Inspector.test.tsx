@@ -81,6 +81,41 @@ describe("the selected planting's dates", () => {
   })
 })
 
+describe("the day a planting was sown", () => {
+  it("is asked for a crop raised under cover, showing the usual lead time until it is known", () => {
+    show([planting("p1", "tomato", "2026-05-01", "2026-09-30")], "p1")
+    expect(screen.getByLabelText("Sown indoors on")).toHaveValue("")
+    // Tomatoes are sown six weeks before they go out.
+    expect(screen.getByText("Estimated: Mar 20, 2026")).toBeVisible()
+  })
+
+  it("is not asked for a crop sown straight into the ground", () => {
+    show([planting("p1", "potato", "2026-03-01", "2026-07-01")], "p1")
+    expect(screen.queryByLabelText("Sown indoors on")).toBeNull()
+  })
+
+  it("records the day the user picks, which replaces the estimate", () => {
+    show([planting("p1", "tomato", "2026-05-01", "2026-09-30")], "p1")
+    const field = screen.getByLabelText("Sown indoors on")
+    fireEvent.change(field, { target: { value: "2026-03-05" } })
+    expect(editorStore.getState().plan.plantings[0]?.sowDate).toBe("2026-03-05")
+    expect(field).toHaveValue("2026-03-05")
+    expect(screen.queryByText(/Estimated/)).toBeNull()
+  })
+
+  it("only offers days before the crop goes in the ground", () => {
+    show([planting("p1", "tomato", "2026-05-01", "2026-09-30")], "p1")
+    expect(screen.getByLabelText("Sown indoors on")).toHaveAttribute("max", "2026-04-30")
+  })
+
+  it("goes back to the estimate when the field is cleared", () => {
+    show([{ ...planting("p1", "tomato", "2026-05-01", "2026-09-30"), sowDate: "2026-03-05" }], "p1")
+    fireEvent.change(screen.getByLabelText("Sown indoors on"), { target: { value: "" } })
+    expect(editorStore.getState().plan.plantings[0]).not.toHaveProperty("sowDate")
+    expect(screen.getByText("Estimated: Mar 20, 2026")).toBeVisible()
+  })
+})
+
 const BED: Bed = { id: "b1", name: "Herbs", kind: "bed", rect: { x: 200, y: 100, w: 200, h: 100 } }
 const BED_REF: PlanItemRef = { kind: "bed", id: "b1" }
 

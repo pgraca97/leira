@@ -223,6 +223,8 @@ export const pt: Translation = {
     },
     inGroundFrom: "Na terra desde",
     inGroundTo: "Até",
+    sownIndoors: "Semeado em interior a",
+    sownEstimate: "Estimativa: {{date}}",
     delete: "Apagar",
   },
 }
