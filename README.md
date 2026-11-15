@@ -1,5 +1,7 @@
 # Garden Planner
 
+[![CI](https://github.com/pgraca97/garden-planner/actions/workflows/ci.yml/badge.svg)](https://github.com/pgraca97/garden-planner/actions/workflows/ci.yml)
+
 Plan a vegetable garden on a grid: draw beds, fill them with crops at the right spacing, and get
 warned about crop rotation, bad neighbours and frost where the garden is.
 
