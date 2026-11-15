@@ -18,6 +18,23 @@ export const pt: Translation = {
     connecting: "A ligar…",
     failed: "Não foi possível ligar ao servidor. Verifica a ligação e tenta de novo.",
   },
+  account: {
+    keep: "Guardar as tuas hortas",
+    panel: "Conta",
+    guest:
+      "As tuas hortas só existem neste browser. Inicia sessão para as guardares e para as abrires noutro dispositivo.",
+    google: "Continuar com o Google",
+    googleFailed: "Não foi possível chegar ao Google. Tenta outra vez.",
+    orEmail: "ou recebe um link de acesso por email",
+    email: "Email",
+    send: "Enviar link",
+    sent: "Enviámos um link para {{email}}. Abre-o para terminares de iniciar sessão.",
+    invalidEmail: "Escreve um endereço de email válido.",
+    sendFailed: "Não foi possível enviar o link. Tenta outra vez.",
+    signedInAs: "Sessão iniciada como {{email}}. As tuas hortas ficam guardadas na tua conta.",
+    signOut: "Terminar sessão",
+    signOutFailed: "Não foi possível terminar a sessão. Tenta outra vez.",
+  },
   gardens: {
     title: "As tuas hortas",
     new: "Nova horta",

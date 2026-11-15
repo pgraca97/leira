@@ -16,6 +16,23 @@ export const en = {
     connecting: "Connecting…",
     failed: "Could not connect to the server. Check your connection and try again.",
   },
+  account: {
+    keep: "Keep your gardens",
+    panel: "Account",
+    guest:
+      "Your gardens only exist in this browser. Sign in to keep them and to open them on another device.",
+    google: "Continue with Google",
+    googleFailed: "Google could not be reached. Try again.",
+    orEmail: "or get a sign-in link by email",
+    email: "Email",
+    send: "Send link",
+    sent: "We sent a link to {{email}}. Open it to finish signing in.",
+    invalidEmail: "Enter a valid email address.",
+    sendFailed: "The link could not be sent. Try again.",
+    signedInAs: "Signed in as {{email}}. Your gardens are kept in your account.",
+    signOut: "Sign out",
+    signOutFailed: "You could not be signed out. Try again.",
+  },
   gardens: {
     title: "Your gardens",
     new: "New garden",

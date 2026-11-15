@@ -1,6 +1,7 @@
 import { ForecastSchema, WeatherNowSchema } from "@garden/core"
 import { createClient, type SupabaseClient } from "@supabase/supabase-js"
 import { z } from "zod"
+import { accountApi, authErrorCode, IDENTITY_TAKEN } from "./account"
 import type { Backend } from "./backend"
 import { gardensApi } from "./gardens"
 
@@ -36,8 +37,21 @@ async function accessToken(client: SupabaseClient): Promise<string> {
 /** Connects to Supabase and makes sure there is a session before any page loads data. */
 export async function connectBackend(): Promise<Backend> {
   const config = await fetchConfig()
+  // Read before the client starts: it handles what the auth server left in
+  // the address, and the refusal must not stay there to be met again on reload.
+  const refusal = authErrorCode(new URL(window.location.href))
   const client = createClient(config.supabaseUrl, config.supabasePublishableKey)
   await accessToken(client)
+  if (refusal) window.history.replaceState(null, "", window.location.pathname)
+
+  const account = accountApi(client, window.location.origin)
+  if (refusal === IDENTITY_TAKEN) {
+    // The guest chose a Google account that is already registered here, so
+    // it cannot be attached to them: sign in to that account instead. The
+    // browser is leaving, so the app stays on "connecting" until it does.
+    await account.signInWithGoogle()
+    return new Promise<never>(() => {})
+  }
 
   /** Calls one of the Worker's weather routes as the signed-in visitor. */
   async function weatherRoute<T>(path: string, lat: number, lon: number, schema: z.ZodType<T>) {
@@ -51,6 +65,14 @@ export async function connectBackend(): Promise<Backend> {
 
   return {
     gardens: gardensApi(client),
+    account: {
+      ...account,
+      async signOut() {
+        await account.signOut()
+        // Nobody uses the app without a session: start over as a new guest.
+        await accessToken(client)
+      },
+    },
     weather: (lat, lon) => weatherRoute("/api/weather", lat, lon, WeatherNowSchema),
     forecast: (lat, lon) => weatherRoute("/api/forecast", lat, lon, ForecastSchema),
   }

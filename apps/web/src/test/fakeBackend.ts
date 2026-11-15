@@ -17,6 +17,16 @@ export interface FakeBackend extends Backend {
   weatherCalls: { lat: number; lon: number }[]
   /** What `forecast` answers: the coming days, or an error to throw. */
   forecastResult: Forecast | Error
+  /** The signed-in address, or null for a guest. */
+  email: string | null
+  /** The addresses a link was asked for, in order. */
+  linkRequests: string[]
+  /** Makes the next request for a link fail. */
+  failNextLink(): void
+  /** How many times the visitor was sent to Google. */
+  googleStarts: number
+  /** Makes the next trip to Google fail before it starts. */
+  failNextGoogle(): void
 }
 
 /** A backend that keeps gardens in memory and follows the real one's rules. */
@@ -64,7 +74,43 @@ export function fakeBackend(seed: Garden[] = []): FakeBackend {
     },
   }
 
+  let linkFailure = false
+  let googleFailure = false
+
   const backend: FakeBackend = {
+    email: null,
+    linkRequests: [],
+    failNextLink() {
+      linkFailure = true
+    },
+    googleStarts: 0,
+    failNextGoogle() {
+      googleFailure = true
+    },
+    account: {
+      async get() {
+        return { email: backend.email }
+      },
+      async requestEmailLink(email) {
+        if (linkFailure) {
+          linkFailure = false
+          throw new Error("mail server down")
+        }
+        backend.linkRequests.push(email)
+      },
+      async continueWithGoogle() {
+        if (googleFailure) {
+          googleFailure = false
+          throw new Error("provider is not enabled")
+        }
+        backend.googleStarts += 1
+      },
+      async signOut() {
+        backend.email = null
+        // The real backend starts over as a new guest, who owns no gardens.
+        rows.clear()
+      },
+    },
     rows,
     gardens,
     failNextSave(error) {

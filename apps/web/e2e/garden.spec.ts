@@ -142,6 +142,49 @@ test("a visitor only sees their own gardens", async ({ browser }) => {
   await second.close()
 })
 
+/** The local stack catches every email it sends in Mailpit. Returns the link in the newest one. */
+async function emailedLink(address: string): Promise<string> {
+  const mailpit = "http://127.0.0.1:54324/api/v1"
+  for (let attempt = 0; attempt < 40; attempt++) {
+    const search = await fetch(`${mailpit}/search?query=${encodeURIComponent(`to:${address}`)}`)
+    const { messages } = (await search.json()) as { messages: { ID: string }[] }
+    if (messages[0]) {
+      const message = await fetch(`${mailpit}/message/${messages[0].ID}`)
+      const { Text } = (await message.json()) as { Text: string }
+      const link = Text.match(/https?:\/\/\S+\/auth\/v1\/verify\S+/)?.[0]
+      if (link) return link.replace(/[)\]>.]+$/, "")
+    }
+    await new Promise((resolve) => setTimeout(resolve, 250))
+  }
+  throw new Error(`No email with a link arrived for ${address}`)
+}
+
+test("a guest keeps their gardens with an emailed link, then signs out", async ({ page }) => {
+  const address = `gardener-${crypto.randomUUID()}@example.com`
+  await page.goto("/")
+  await page.getByRole("button", { name: "New garden" }).click()
+  await page.getByRole("textbox", { name: "Garden name" }).fill("Kept for later")
+  await expect(page.getByText("Saved", { exact: true })).toBeVisible()
+
+  await page.getByRole("button", { name: "Keep your gardens" }).click()
+  await expect(page.getByRole("button", { name: "Continue with Google" })).toBeVisible()
+  await page.getByRole("textbox", { name: "Email" }).fill(address)
+  await page.getByRole("button", { name: "Send link" }).click()
+  await expect(page.getByText(`We sent a link to ${address}`)).toBeVisible()
+
+  // Opening the link comes back to the app as the same user, now with an address.
+  await page.goto(await emailedLink(address))
+  await expect(page.getByRole("button", { name: address })).toBeVisible()
+  await expect(page.getByRole("link", { name: "Kept for later" })).toBeVisible()
+  // The session it carried is not left in the address bar.
+  expect(new URL(page.url()).hash).toBe("")
+
+  await page.getByRole("button", { name: address }).click()
+  await page.getByRole("button", { name: "Sign out" }).click()
+  await expect(page.getByRole("button", { name: "Keep your gardens" })).toBeVisible()
+  await expect(page.getByText(/You have no gardens yet/)).toBeVisible()
+})
+
 test("the interface switches to Portuguese", async ({ page }) => {
   await page.goto("/")
   await page.getByRole("combobox", { name: "Language" }).selectOption("pt")

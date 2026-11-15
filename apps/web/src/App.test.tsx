@@ -274,6 +274,99 @@ describe("the garden's weather", () => {
   })
 })
 
+describe("the account", () => {
+  const openPanel = async () =>
+    userEvent.click(await screen.findByRole("button", { name: "Keep your gardens" }))
+
+  it("tells a guest how to keep their gardens and emails them a link", async () => {
+    open("/")
+    await openPanel()
+    expect(screen.getByText(/only exist in this browser/)).toBeVisible()
+
+    await userEvent.type(screen.getByRole("textbox", { name: "Email" }), "ana@example.com")
+    await userEvent.click(screen.getByRole("button", { name: "Send link" }))
+
+    expect(await screen.findByText(/We sent a link to ana@example.com/)).toBeVisible()
+    expect(backend.linkRequests).toEqual(["ana@example.com"])
+  })
+
+  it("asks for a real address before sending anything", async () => {
+    open("/")
+    await openPanel()
+    await userEvent.type(screen.getByRole("textbox", { name: "Email" }), "ana@")
+    await userEvent.click(screen.getByRole("button", { name: "Send link" }))
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Enter a valid email address.")
+    expect(backend.linkRequests).toEqual([])
+  })
+
+  it("says so when the link could not be sent, and lets the user try again", async () => {
+    backend.failNextLink()
+    open("/")
+    await openPanel()
+    await userEvent.type(screen.getByRole("textbox", { name: "Email" }), "ana@example.com")
+    await userEvent.click(screen.getByRole("button", { name: "Send link" }))
+    expect(await screen.findByRole("alert")).toHaveTextContent(/could not be sent/)
+
+    await userEvent.click(screen.getByRole("button", { name: "Send link" }))
+    expect(await screen.findByText(/We sent a link to ana@example.com/)).toBeVisible()
+  })
+
+  it("sends a guest to Google to keep their gardens", async () => {
+    open("/")
+    await openPanel()
+    await userEvent.click(screen.getByRole("button", { name: "Continue with Google" }))
+    await waitFor(() => expect(backend.googleStarts).toBe(1))
+  })
+
+  it("says so when Google could not be reached", async () => {
+    backend.failNextGoogle()
+    open("/")
+    await openPanel()
+    await userEvent.click(screen.getByRole("button", { name: "Continue with Google" }))
+    expect(await screen.findByRole("alert")).toHaveTextContent(/Google/)
+  })
+
+  it("shows who is signed in and signs them out", async () => {
+    backend.email = "ana@example.com"
+    open("/")
+    await userEvent.click(await screen.findByRole("button", { name: "ana@example.com" }))
+    await userEvent.click(screen.getByRole("button", { name: "Sign out" }))
+
+    expect(await screen.findByRole("button", { name: "Keep your gardens" })).toBeVisible()
+    expect(backend.email).toBeNull()
+  })
+
+  it("leaves the gardens behind when signing out", async () => {
+    backend.email = "ana@example.com"
+    const history = open(`/gardens/${TOMATOES.id}`)
+    await screen.findByRole("textbox", { name: "Garden name" })
+    await userEvent.click(screen.getByRole("button", { name: "ana@example.com" }))
+    await userEvent.click(screen.getByRole("button", { name: "Sign out" }))
+
+    // Signed out, the visitor is a new guest, who owns nothing yet.
+    expect(await screen.findByText(/You have no gardens yet/)).toBeVisible()
+    expect(history.location.pathname).toBe("/")
+  })
+
+  it("notices a link opened in another tab when the user comes back", async () => {
+    open("/")
+    await screen.findByRole("button", { name: "Keep your gardens" })
+
+    backend.email = "ana@example.com"
+    window.dispatchEvent(new Event("visibilitychange"))
+
+    expect(await screen.findByRole("button", { name: "ana@example.com" })).toBeVisible()
+  })
+
+  it("closes the panel on Escape", async () => {
+    open("/")
+    await openPanel()
+    await userEvent.keyboard("{Escape}")
+    expect(screen.queryByRole("textbox", { name: "Email" })).toBeNull()
+  })
+})
+
 describe("taking the plan out of the app", () => {
   const plan = {
     ...emptyPlan(),
