@@ -53,6 +53,43 @@ describe("a guest's account", () => {
   })
 })
 
+describe("keeping the gardens with Google", () => {
+  /** Where the account sent the browser, without going there. */
+  async function sentTo(start: (navigate: (url: string) => void) => Promise<void>): Promise<URL> {
+    let address = ""
+    await start((url) => {
+      address = url
+    })
+    return new URL(address)
+  }
+
+  it("sends a guest to Google through the auth server, to come back to the app", async () => {
+    const guest = await signInVisitor(settings)
+    const url = await sentTo((navigate) =>
+      accountApi(guest.client, APP_URL, navigate).continueWithGoogle()
+    )
+
+    expect(url.hostname).toBe("accounts.google.com")
+    // Google answers to the auth server, which attaches the identity to the
+    // guest it remembers in `state`, then sends the browser back to the app.
+    expect(url.searchParams.get("redirect_uri")).toBe(`${settings.url}/auth/v1/callback`)
+    expect(url.searchParams.get("state")).toBeTruthy()
+    // Still the same guest, with the same gardens, until Google answers.
+    expect(await accountApi(guest.client, APP_URL).get()).toEqual({ email: null })
+  })
+
+  it("can also sign in to the account a Google identity already has", async () => {
+    const guest = await signInVisitor(settings)
+    const url = await sentTo((navigate) =>
+      accountApi(guest.client, APP_URL, navigate).signInWithGoogle()
+    )
+
+    expect(`${url.origin}${url.pathname}`).toBe(`${settings.url}/auth/v1/authorize`)
+    expect(url.searchParams.get("provider")).toBe("google")
+    expect(url.searchParams.get("redirect_to")).toBe(APP_URL)
+  })
+})
+
 describe("coming back on another device", () => {
   it("signs a new guest in to the account that already has the email", async () => {
     // First device: a guest keeps their garden under an address.

@@ -182,7 +182,8 @@ enable_signup = true
 # Allow/disallow anonymous sign-ins to your project.
 enable_anonymous_sign_ins = true
 # Allow/disallow testing manual linking of accounts
-enable_manual_linking = false
+# On, so a guest can attach a Google account and keep their user id and gardens.
+enable_manual_linking = true
 # Passwords shorter than this value will be rejected as weak. Minimum 6, recommended 8 or more.
 minimum_password_length = 6
 # Passwords that do not meet the following requirements will be rejected as weak. Supported values
@@ -347,6 +348,16 @@ url = ""
 skip_nonce_check = false
 # If enabled, it will allow the user to successfully authenticate when the provider does not return an email address.
 email_optional = false
+
+# Locally Google is only switched on, with made-up credentials: the auth server
+# hands out the address to send the browser to, which is as far as the tests
+# go. Google itself would refuse this client. The deployed project has real
+# credentials, set in its dashboard.
+[auth.external.google]
+enabled = true
+client_id = "local-stack.apps.googleusercontent.com"
+secret = "not-a-real-secret"
+skip_nonce_check = false
 
 # Allow Solana wallet holders to sign in to your project via the Sign in with Solana (SIWS) standard.
 # You can configure "web3" rate limit in the [auth.rate_limit] section and set up [auth.captcha] if self-hosting.
