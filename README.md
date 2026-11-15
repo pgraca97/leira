@@ -5,8 +5,8 @@
 Plan a vegetable garden on a grid: draw beds, fill them with crops at the right spacing, and get
 warned about crop rotation, bad neighbours and frost where the garden is.
 
-> Work in progress. Visitors are signed in anonymously; signing in by email is written and tested
-> but has no screen yet.
+> Work in progress. You start as a guest, with no sign-up, and can keep your gardens later with
+> Google or a link sent by email.
 
 **[Live demo](https://garden-planner.paulodcgraca.workers.dev)**
 
@@ -23,6 +23,8 @@ warned about crop rotation, bad neighbours and frost where the garden is.
 - **Time:** show the garden on any date, a yearly calendar per planting, and the jobs coming up in
   the next 30 days.
 - **Export:** save the plan as a PNG or print a sheet with the plan and a planting table.
+- **Accounts without a sign-up wall.** A guest gets a real user straight away. Signing in with
+  Google or an emailed link attaches to that same user, so the gardens made as a guest are kept.
 - **Portuguese and English** interface.
 
 ## Tech stack
@@ -32,7 +34,7 @@ warned about crop rotation, bad neighbours and frost where the garden is.
 | Frontend | React 19, TanStack Router and Query, Tailwind CSS, Phaser for the canvas |
 | State    | Zustand with zundo (undo history)                                        |
 | Backend  | Cloudflare Worker with Hono, KV for the weather cache                    |
-| Data     | Supabase (Postgres with row level security, anonymous auth)              |
+| Data     | Supabase (Postgres with row level security, anonymous and Google auth)   |
 | Shared   | Zod schemas and the gardening logic in `packages/core`                   |
 | Tooling  | pnpm workspaces, Turborepo, Biome, Vitest, Playwright                    |
 
@@ -55,11 +57,11 @@ except the weather panel.
 
 ## Tests
 
-| Command                 | What it covers                                                                                                |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `pnpm check`            | Lint, typecheck, unit tests and build. The database access rules run on an in-process Postgres, so no Docker. |
-| `pnpm test:integration` | The Worker's API and the email sign-in flow against the local Supabase stack.                                 |
-| `pnpm test:e2e`         | Playwright: drawing, saving, the calendar, export, and that a visitor only sees their own gardens.            |
+| Command                 | What it covers                                                                                                                 |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `pnpm check`            | Lint, typecheck, unit tests and build. The database access rules run on an in-process Postgres, so no Docker.                  |
+| `pnpm test:integration` | The Worker's API and the email sign-in flow against the local Supabase stack.                                                  |
+| `pnpm test:e2e`         | Playwright: drawing, saving, the calendar, export, signing in by emailed link, and that a visitor only sees their own gardens. |
 
 The last two need `pnpm db:start` and a filled-in `.dev.vars`.
 
@@ -87,8 +89,9 @@ The last two need `pnpm db:start` and a filled-in `.dev.vars`.
 
 ## Deploying
 
-The app is one Cloudflare Worker. It needs a Supabase project with anonymous sign-ins enabled,
-and the three values from `.dev.vars.example` as secrets.
+The app is one Cloudflare Worker. It needs the three values from `.dev.vars.example` as secrets,
+and a Supabase project with anonymous sign-ins, manual linking and the Google provider enabled,
+an SMTP server for the emailed links, and the app's address as its site URL.
 
 ```bash
 pnpm supabase link --project-ref <project-ref>
