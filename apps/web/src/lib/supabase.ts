@@ -1,4 +1,4 @@
-import { ForecastSchema, WeatherNowSchema } from "@garden/core"
+import { ForecastSchema, WeatherNowSchema } from "@leira/core"
 import { createClient, type SupabaseClient } from "@supabase/supabase-js"
 import { z } from "zod"
 import { accountApi, authErrorCode, IDENTITY_TAKEN } from "./account"

@@ -1,4 +1,4 @@
-import type { Forecast, WeatherNow } from "@garden/core"
+import type { Forecast, WeatherNow } from "@leira/core"
 
 /**
  * A source of weather data. The routes depend on this interface, not on a

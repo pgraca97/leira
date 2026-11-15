@@ -58,7 +58,7 @@ jobs:
       - run: pnpm test:integration
 
       - name: Install the browser for Playwright
-        run: pnpm --filter @garden/web exec playwright install --with-deps chromium
+        run: pnpm --filter @leira/web exec playwright install --with-deps chromium
       - run: pnpm test:e2e
 
       - name: Keep the traces of failed browser tests

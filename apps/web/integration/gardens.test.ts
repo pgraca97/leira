@@ -1,4 +1,4 @@
-import { emptyPlan } from "@garden/core"
+import { emptyPlan } from "@leira/core"
 import { beforeAll, describe, expect, it } from "vitest"
 import {
   GardenConflictError,

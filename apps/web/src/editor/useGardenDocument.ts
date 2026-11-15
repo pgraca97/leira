@@ -1,4 +1,4 @@
-import type { GardenLocation } from "@garden/core"
+import type { GardenLocation } from "@leira/core"
 import { createContext, useCallback, useContext, useLayoutEffect, useRef, useState } from "react"
 import { useBackend } from "../lib/backend"
 import { GARDEN_NAME_MAX, type Garden, GardenConflictError } from "../lib/gardens"

@@ -5,7 +5,7 @@ import {
   type PlanItemRef,
   type Point,
   type ResizeHandle,
-} from "@garden/core"
+} from "@leira/core"
 import type { EditorState } from "../store"
 
 /** What a press with the select tool starts. */

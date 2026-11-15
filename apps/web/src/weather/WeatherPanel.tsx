@@ -6,7 +6,7 @@ import {
   type IsoDate,
   roundCoordinate,
   type WeatherNow,
-} from "@garden/core"
+} from "@leira/core"
 import { useQuery } from "@tanstack/react-query"
 import { type FormEvent, useState } from "react"
 import { useTranslation } from "react-i18next"

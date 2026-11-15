@@ -1,4 +1,4 @@
-import type { Forecast, WeatherNow } from "@garden/core"
+import type { Forecast, WeatherNow } from "@leira/core"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { type AppDeps, createApp } from "./app"
 import type { WeatherProvider } from "./weather/provider"

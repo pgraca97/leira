@@ -1,4 +1,4 @@
 {
-  "extends": "@garden/tsconfig/base.json",
+  "extends": "@leira/tsconfig/base.json",
   "include": ["src"]
 }

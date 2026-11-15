@@ -1,4 +1,4 @@
-import type { Forecast, WeatherNow } from "@garden/core"
+import type { Forecast, WeatherNow } from "@leira/core"
 import { createContext, useContext } from "react"
 import type { AccountApi } from "./account"
 import type { GardensApi } from "./gardens"

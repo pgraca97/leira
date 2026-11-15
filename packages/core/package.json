@@ -1,5 +1,5 @@
 {
-  "name": "@garden/core",
+  "name": "@leira/core",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -15,7 +15,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@garden/tsconfig": "workspace:*",
+    "@leira/tsconfig": "workspace:*",
     "typescript": "~7.0.2",
     "vitest": "^5.1.0"
   }

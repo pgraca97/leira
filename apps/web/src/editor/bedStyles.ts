@@ -1,4 +1,4 @@
-import type { BedKind } from "@garden/core"
+import type { BedKind } from "@leira/core"
 
 /** How each kind of bed is painted: soil, a pot, glass, gravel, a shed. */
 export const BED_STYLE: Record<BedKind, { fill: string; alpha: number; edge: string }> = {

@@ -8,7 +8,7 @@ import {
   PLANTING_LAYOUTS,
   type PlantingLayout,
   plantingFill,
-} from "@garden/core"
+} from "@leira/core"
 import { type ReactNode, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { CommitField } from "../components/CommitField"

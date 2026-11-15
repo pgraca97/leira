@@ -1,4 +1,4 @@
-import { addMonths } from "@garden/core"
+import { addMonths } from "@leira/core"
 import { useTranslation } from "react-i18next"
 import { buttonClass, inputClass } from "../components/ui"
 import { editorStore } from "./store"

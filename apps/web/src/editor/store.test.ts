@@ -1,4 +1,4 @@
-import { type Bed, emptyPlan, type Planting } from "@garden/core"
+import { type Bed, emptyPlan, type Planting } from "@leira/core"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { editorStore, redo, shownPlan, undo } from "./store"
 

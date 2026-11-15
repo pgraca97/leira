@@ -1,4 +1,4 @@
-import { emptyPlan } from "@garden/core"
+import { emptyPlan } from "@leira/core"
 import { describe, expect, it } from "vitest"
 import { accountApi } from "../src/lib/account"
 import { gardensApi } from "../src/lib/gardens"

@@ -20,7 +20,7 @@ import {
   resizeItem,
   resizePlan,
   toIsoDate,
-} from "@garden/core"
+} from "@leira/core"
 import { temporal } from "zundo"
 import { createStore } from "zustand/vanilla"
 

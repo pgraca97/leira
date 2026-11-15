@@ -1,4 +1,4 @@
-import { emptyPlan } from "@garden/core"
+import { emptyPlan } from "@leira/core"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link, useNavigate } from "@tanstack/react-router"
 import { useEffect } from "react"

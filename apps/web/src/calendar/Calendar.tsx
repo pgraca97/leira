@@ -11,7 +11,7 @@ import {
   plantingSchedule,
   toIsoDate,
   yearOf,
-} from "@garden/core"
+} from "@leira/core"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { buttonClass } from "../components/ui"

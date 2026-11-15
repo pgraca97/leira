@@ -1,4 +1,4 @@
-import type { Forecast, WeatherNow } from "@garden/core"
+import type { Forecast, WeatherNow } from "@leira/core"
 import type { Backend } from "../lib/backend"
 import {
   type Garden,

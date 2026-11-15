@@ -98,8 +98,8 @@ an SMTP server for the emailed links, and the app's address as its site URL.
 ```bash
 pnpm supabase link --project-ref <project-ref>
 pnpm supabase db push --remote
-pnpm --filter @garden/web build
-pnpm --filter @garden/web exec wrangler deploy --secrets-file <file>
+pnpm --filter @leira/web build
+pnpm --filter @leira/web exec wrangler deploy --secrets-file <file>
 ```
 
 The secrets file holds `NAME=value` lines and stays out of git. After the first deploy, change a

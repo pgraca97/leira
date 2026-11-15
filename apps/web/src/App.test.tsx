@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import "./test/setup"
 import "./i18n"
-import { emptyPlan, type Forecast, type WeatherNow } from "@garden/core"
+import { emptyPlan, type Forecast, type WeatherNow } from "@leira/core"
 import { createMemoryHistory } from "@tanstack/react-router"
 import { render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"

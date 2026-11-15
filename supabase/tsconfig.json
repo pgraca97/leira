@@ -1,5 +1,5 @@
 {
-  "extends": "@garden/tsconfig/base.json",
+  "extends": "@leira/tsconfig/base.json",
   "compilerOptions": {
     "types": ["node"]
   },

@@ -1,4 +1,4 @@
-import type { GardenPlan } from "@garden/core"
+import type { GardenPlan } from "@leira/core"
 import { useState } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 import { useTranslation } from "react-i18next"

@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import "../test/setup"
 import "../i18n"
-import type { PlanItemRef } from "@garden/core"
-import { type Bed, emptyPlan, type Planting } from "@garden/core"
+import type { PlanItemRef } from "@leira/core"
+import { type Bed, emptyPlan, type Planting } from "@leira/core"
 import { act, fireEvent, render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, expect, it } from "vitest"

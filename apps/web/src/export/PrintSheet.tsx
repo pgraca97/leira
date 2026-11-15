@@ -1,4 +1,4 @@
-import { getPlant, type IsoDate, plantingFill } from "@garden/core"
+import { getPlant, type IsoDate, plantingFill } from "@leira/core"
 import { useTranslation } from "react-i18next"
 import { useEditor } from "../editor/useEditor"
 import { currentLanguage } from "../i18n"

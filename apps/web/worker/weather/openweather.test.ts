@@ -1,4 +1,4 @@
-import { ForecastSchema, WeatherNowSchema } from "@garden/core"
+import { ForecastSchema, WeatherNowSchema } from "@leira/core"
 import { describe, expect, it, vi } from "vitest"
 import { conditionFromCode, openWeather } from "./openweather"
 import { WeatherProviderError } from "./provider"

@@ -1,4 +1,4 @@
-import { emptyPlan } from "@garden/core"
+import { emptyPlan } from "@leira/core"
 import { describe, expect, it } from "vitest"
 import { GardenFormatError, parseGarden, parseGardenSummary } from "./gardens"
 

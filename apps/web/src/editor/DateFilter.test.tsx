@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import "../test/setup"
 import "../i18n"
-import { emptyPlan } from "@garden/core"
+import { emptyPlan } from "@leira/core"
 import { fireEvent, render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it } from "vitest"

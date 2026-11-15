@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import "../test/setup"
-import { emptyPlan, type GardenPlan } from "@garden/core"
+import { emptyPlan, type GardenPlan } from "@leira/core"
 import { render, screen } from "@testing-library/react"
 import { describe, expect, it } from "vitest"
 import { PlanSvg } from "./PlanSvg"

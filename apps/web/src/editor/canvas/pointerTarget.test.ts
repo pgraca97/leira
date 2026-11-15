@@ -1,4 +1,4 @@
-import { emptyPlan, type GardenPlan } from "@garden/core"
+import { emptyPlan, type GardenPlan } from "@leira/core"
 import { describe, expect, it } from "vitest"
 import { cursorFor, pointerTarget } from "./pointerTarget"
 

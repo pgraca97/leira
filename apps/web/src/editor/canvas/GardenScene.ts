@@ -19,7 +19,7 @@ import {
   type ResizeHandle,
   rectFromPoints,
   resizeItem,
-} from "@garden/core"
+} from "@leira/core"
 import Phaser from "phaser"
 import { BED_STYLE, GROUND_STYLE } from "../bedStyles"
 import { type EditorState, editorStore, shownPlan, type Tool } from "../store"

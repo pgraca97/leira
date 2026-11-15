@@ -1,4 +1,4 @@
-import { ForecastSchema, roundCoordinate, WeatherNowSchema } from "@garden/core"
+import { ForecastSchema, roundCoordinate, WeatherNowSchema } from "@leira/core"
 import { Hono } from "hono"
 import { createMiddleware } from "hono/factory"
 import { z } from "zod"

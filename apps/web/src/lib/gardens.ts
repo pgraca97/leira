@@ -3,7 +3,7 @@ import {
   GardenLocationSchema,
   type GardenPlan,
   GardenPlanSchema,
-} from "@garden/core"
+} from "@leira/core"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { z } from "zod"
 

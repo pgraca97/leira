@@ -1,4 +1,4 @@
-import { type DateRange, daysBetween } from "@garden/core"
+import { type DateRange, daysBetween } from "@leira/core"
 
 /** A bar on a one-year timeline: where it starts and how wide it is, as shares of the year. */
 export interface YearSpan {

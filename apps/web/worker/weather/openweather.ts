@@ -1,4 +1,4 @@
-import type { Forecast, WeatherCondition, WeatherNow } from "@garden/core"
+import type { Forecast, WeatherCondition, WeatherNow } from "@leira/core"
 import { z } from "zod"
 import { type WeatherProvider, WeatherProviderError } from "./provider"
 

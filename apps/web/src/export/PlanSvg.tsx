@@ -1,4 +1,4 @@
-import { fillPoints, type GardenPlan, getPlant, plantingFill } from "@garden/core"
+import { fillPoints, type GardenPlan, getPlant, plantingFill } from "@leira/core"
 import { BED_STYLE, GROUND_STYLE } from "../editor/bedStyles"
 
 interface PlanSvgProps {
