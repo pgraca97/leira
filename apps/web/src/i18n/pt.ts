@@ -90,7 +90,15 @@ export const pt: Translation = {
       "Indica onde fica a horta para veres o tempo. Só é guardada uma posição aproximada.",
     useMyLocation: "Usar a minha localização",
     locating: "A procurar a tua localização…",
-    locationDenied: "Não foi possível ler a tua localização. Escreve as coordenadas.",
+    place: "Vila ou cidade",
+    search: "Procurar",
+    searching: "A procurar…",
+    placeResults: "Sítios encontrados",
+    noPlaces: "Não foi encontrado nenhum sítio chamado “{{name}}”. Confirma o nome.",
+    searchFailed:
+      "A pesquisa não está disponível agora. Usa a tua localização ou escreve as coordenadas.",
+    locationDenied:
+      "Não foi possível ler a tua localização. Procura a vila ou escreve as coordenadas.",
     latitude: "Latitude",
     longitude: "Longitude",
     setLocation: "Definir localização",

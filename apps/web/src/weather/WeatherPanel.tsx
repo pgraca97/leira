@@ -4,10 +4,11 @@ import {
   type GardenLocation,
   getPlant,
   type IsoDate,
+  type Place,
   roundCoordinate,
   type WeatherNow,
 } from "@leira/core"
-import { useQuery } from "@tanstack/react-query"
+import { useMutation, useQuery } from "@tanstack/react-query"
 import { type FormEvent, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { buttonClass, inputClass, toggleButtonClass } from "../components/ui"
@@ -53,7 +54,7 @@ function CurrentWeather({ location, onRemove }: { location: GardenLocation; onRe
   return (
     <div className="flex flex-col items-start gap-2">
       {weather.data ? (
-        <Reading weather={weather.data} />
+        <Reading weather={weather.data} placeName={location.name ?? weather.data.placeName} />
       ) : weather.isError ? (
         <p className="text-sm text-stone-600">{t("weather.failed")}</p>
       ) : (
@@ -151,7 +152,11 @@ function ForecastDays({ forecast }: { forecast: Forecast }) {
   )
 }
 
-function Reading({ weather }: { weather: WeatherNow }) {
+/**
+ * `placeName` is the name the garden's location was found under, or else the
+ * weather station's, which is often a neighbouring place.
+ */
+function Reading({ weather, placeName }: { weather: WeatherNow; placeName: string | null }) {
   const { t } = useTranslation()
   const whole = new Intl.NumberFormat(currentLanguage(), { maximumFractionDigits: 0 })
   const degrees = (celsius: number) => t("weather.degrees", { value: whole.format(celsius) })
@@ -160,7 +165,7 @@ function Reading({ weather }: { weather: WeatherNow }) {
   return (
     <div className="text-sm text-stone-600">
       <p className="text-2xl font-semibold text-stone-900">{degrees(weather.tempC)}</p>
-      <p>{weather.placeName ? `${condition} · ${weather.placeName}` : condition}</p>
+      <p>{placeName ? `${condition} · ${placeName}` : condition}</p>
       <p>
         {t("weather.details", {
           feelsLike: degrees(weather.feelsLikeC),
@@ -180,8 +185,20 @@ function parseCoordinate(text: string, limit: number): number | null {
   return Math.abs(value) <= limit ? value : null
 }
 
+/** The shortest name the server searches for. */
+const PLACE_QUERY_MIN = 2
+
+/** A place as a search result: the region only when it adds something to the name. */
+function placeLabel(place: Place): string {
+  const region = place.region === place.name ? undefined : place.region
+  return [place.name, region, place.country].filter(Boolean).join(", ")
+}
+
 function LocationForm({ onLocationChange }: Pick<WeatherPanelProps, "onLocationChange">) {
   const { t } = useTranslation()
+  const backend = useBackend()
+  const [placeName, setPlaceName] = useState("")
+  const search = useMutation({ mutationFn: (name: string) => backend.places(name) })
   const [latitude, setLatitude] = useState("")
   const [longitude, setLongitude] = useState("")
   const [locating, setLocating] = useState(false)
@@ -189,8 +206,18 @@ function LocationForm({ onLocationChange }: Pick<WeatherPanelProps, "onLocationC
 
   // Rounded before it leaves this component: the garden only ever stores an
   // approximate position, never the exact spot of someone's home.
-  const choose = (lat: number, lon: number) =>
-    onLocationChange({ lat: roundCoordinate(lat), lon: roundCoordinate(lon) })
+  const choose = (lat: number, lon: number, name?: string) =>
+    onLocationChange({
+      lat: roundCoordinate(lat),
+      lon: roundCoordinate(lon),
+      ...(name ? { name } : {}),
+    })
+
+  const wanted = placeName.trim()
+  const searchPlaces = (event: FormEvent) => {
+    event.preventDefault()
+    if (wanted.length >= PLACE_QUERY_MIN) search.mutate(wanted)
+  }
 
   const locate = () => {
     if (!("geolocation" in navigator)) {
@@ -220,6 +247,48 @@ function LocationForm({ onLocationChange }: Pick<WeatherPanelProps, "onLocationC
   return (
     <div className="flex flex-col items-start gap-2 text-sm text-stone-600">
       <p>{t("weather.noLocation")}</p>
+      <form className="flex flex-wrap items-end gap-2" onSubmit={searchPlaces}>
+        <label className="flex flex-col text-xs">
+          {t("weather.place")}
+          <input
+            type="search"
+            className={`${inputClass} w-40`}
+            maxLength={80}
+            value={placeName}
+            onChange={(event) => setPlaceName(event.target.value)}
+          />
+        </label>
+        <button
+          type="submit"
+          className={buttonClass}
+          disabled={wanted.length < PLACE_QUERY_MIN || search.isPending}
+        >
+          {t(search.isPending ? "weather.searching" : "weather.search")}
+        </button>
+      </form>
+      {search.isError && (
+        <p role="alert" className="text-red-800">
+          {t("weather.searchFailed")}
+        </p>
+      )}
+      {search.data?.length === 0 && (
+        <p role="status">{t("weather.noPlaces", { name: search.variables })}</p>
+      )}
+      {search.data && search.data.length > 0 && (
+        <ul aria-label={t("weather.placeResults")} className="flex w-full flex-col gap-1">
+          {search.data.map((place) => (
+            <li key={`${place.lat}:${place.lon}`}>
+              <button
+                type="button"
+                className={toggleButtonClass}
+                onClick={() => choose(place.lat, place.lon, place.name)}
+              >
+                {placeLabel(place)}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
       <button type="button" className={buttonClass} disabled={locating} onClick={locate}>
         {t(locating ? "weather.locating" : "weather.useMyLocation")}
       </button>

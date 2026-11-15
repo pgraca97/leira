@@ -5,6 +5,8 @@ import {
   type GardenPlan,
   GardenPlanSchema,
   PLAN_SCHEMA_VERSION,
+  PlaceSchema,
+  PlacesSchema,
   roundCoordinate,
 } from "./schema"
 
@@ -83,6 +85,25 @@ describe("GardenLocationSchema", () => {
   it("rejects coordinates off the globe", () => {
     expect(GardenLocationSchema.safeParse({ lat: 91, lon: 0 }).success).toBe(false)
     expect(GardenLocationSchema.safeParse({ lat: 0, lon: -181 }).success).toBe(false)
+  })
+})
+
+describe("PlaceSchema", () => {
+  const braga = { name: "Braga", region: "Braga", country: "PT", lat: 41.5503, lon: -8.42 }
+
+  it("accepts a place, with or without its region and country", () => {
+    expect(PlaceSchema.safeParse(braga).success).toBe(true)
+    expect(PlaceSchema.safeParse({ name: "Braga", lat: 41.5503, lon: -8.42 }).success).toBe(true)
+  })
+
+  it("rejects a place with no name or off the globe", () => {
+    expect(PlaceSchema.safeParse({ ...braga, name: "" }).success).toBe(false)
+    expect(PlaceSchema.safeParse({ ...braga, lat: 91 }).success).toBe(false)
+  })
+
+  it("holds at most five places, the most a search returns", () => {
+    expect(PlacesSchema.safeParse(Array(5).fill(braga)).success).toBe(true)
+    expect(PlacesSchema.safeParse(Array(6).fill(braga)).success).toBe(false)
   })
 })
 

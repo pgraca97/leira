@@ -1,10 +1,15 @@
-import type { Forecast, WeatherCondition, WeatherNow } from "@leira/core"
+import type { Forecast, Place, WeatherCondition, WeatherNow } from "@leira/core"
 import { z } from "zod"
 import { type WeatherProvider, WeatherProviderError } from "./provider"
 
 const CURRENT_ENDPOINT = "https://api.openweathermap.org/data/2.5/weather"
 const FORECAST_ENDPOINT = "https://api.openweathermap.org/data/2.5/forecast"
+const GEOCODING_ENDPOINT = "https://api.openweathermap.org/geo/1.0/direct"
 const TIMEOUT_MS = 8_000
+/** The most matches the geocoder returns for one name. */
+const MAX_PLACES = 5
+/** The longest name a garden's location can keep. */
+const PLACE_NAME_MAX = 120
 
 /** The parts of OpenWeather's "current weather" response this app reads. */
 const CurrentWeatherSchema = z.object({
@@ -33,20 +38,35 @@ const ForecastResponseSchema = z.object({
 })
 
 /**
- * OpenWeather's "current weather" and "5 day / 3 hour forecast" endpoints,
- * both included in the free plan.
- * https://openweathermap.org/current and https://openweathermap.org/forecast5
+ * The parts of OpenWeather's "direct geocoding" response this app reads. Which
+ * fields a match carries varies by country, so only the name and the position
+ * are required.
+ */
+const GeocodingResponseSchema = z.array(
+  z.object({
+    name: z.string().min(1),
+    lat: z.number(),
+    lon: z.number(),
+    country: z.string().optional(),
+    state: z.string().optional(),
+  })
+)
+
+/**
+ * OpenWeather's "current weather", "5 day / 3 hour forecast" and "geocoding"
+ * endpoints, all included in the free plan.
+ * https://openweathermap.org/current, https://openweathermap.org/forecast5
+ * and https://openweathermap.org/api/geocoding-api
  */
 export function openWeather(apiKey: string, fetchFn: typeof fetch = fetch): WeatherProvider {
-  /** Calls an endpoint for a position and checks the answer against `schema`. */
-  async function request<T>(endpoint: string, lat: number, lon: number, schema: z.ZodType<T>) {
+  /** Calls an endpoint and checks the answer against `schema`. The key is added here. */
+  async function request<T>(
+    endpoint: string,
+    params: Record<string, string>,
+    schema: z.ZodType<T>
+  ) {
     const url = new URL(endpoint)
-    url.search = new URLSearchParams({
-      lat: String(lat),
-      lon: String(lon),
-      units: "metric",
-      appid: apiKey,
-    }).toString()
+    url.search = new URLSearchParams({ ...params, appid: apiKey }).toString()
 
     let response: Response
     try {
@@ -67,14 +87,35 @@ export function openWeather(apiKey: string, fetchFn: typeof fetch = fetch): Weat
     return parsed.data
   }
 
+  const at = (lat: number, lon: number) => ({
+    lat: String(lat),
+    lon: String(lon),
+    units: "metric",
+  })
+
   return {
     async current(lat, lon) {
-      return toWeatherNow(await request(CURRENT_ENDPOINT, lat, lon, CurrentWeatherSchema))
+      return toWeatherNow(await request(CURRENT_ENDPOINT, at(lat, lon), CurrentWeatherSchema))
     },
     async forecast(lat, lon) {
-      return toForecast(await request(FORECAST_ENDPOINT, lat, lon, ForecastResponseSchema))
+      return toForecast(await request(FORECAST_ENDPOINT, at(lat, lon), ForecastResponseSchema))
+    },
+    async places(query) {
+      const params = { q: query, limit: String(MAX_PLACES) }
+      return toPlaces(await request(GEOCODING_ENDPOINT, params, GeocodingResponseSchema))
     },
   }
+}
+
+function toPlaces(data: z.infer<typeof GeocodingResponseSchema>): Place[] {
+  return data.slice(0, MAX_PLACES).map((match) => ({
+    name: match.name.slice(0, PLACE_NAME_MAX),
+    // Left out, not set to undefined, so an absent field stays absent in JSON and in the cache.
+    ...(match.state ? { region: match.state.slice(0, PLACE_NAME_MAX) } : {}),
+    ...(match.country ? { country: match.country } : {}),
+    lat: match.lat,
+    lon: match.lon,
+  }))
 }
 
 /**

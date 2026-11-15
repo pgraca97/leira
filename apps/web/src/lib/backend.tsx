@@ -1,4 +1,4 @@
-import type { Forecast, WeatherNow } from "@leira/core"
+import type { Forecast, Place, WeatherNow } from "@leira/core"
 import { createContext, useContext } from "react"
 import type { AccountApi } from "./account"
 import type { GardensApi } from "./gardens"
@@ -11,6 +11,8 @@ export interface Backend {
   weather(lat: number, lon: number): Promise<WeatherNow>
   /** The coming days at a position, today first. Rejects when it is unavailable. */
   forecast(lat: number, lon: number): Promise<Forecast>
+  /** The places a name may refer to, best match first. Empty when nothing matches. */
+  places(query: string): Promise<Place[]>
 }
 
 export const BackendContext = createContext<Backend | null>(null)

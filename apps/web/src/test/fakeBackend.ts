@@ -1,4 +1,4 @@
-import type { Forecast, WeatherNow } from "@leira/core"
+import type { Forecast, Place, WeatherNow } from "@leira/core"
 import type { Backend } from "../lib/backend"
 import {
   type Garden,
@@ -17,6 +17,10 @@ export interface FakeBackend extends Backend {
   weatherCalls: { lat: number; lon: number }[]
   /** What `forecast` answers: the coming days, or an error to throw. */
   forecastResult: Forecast | Error
+  /** What `places` answers: the matches, or an error to throw. */
+  placesResult: Place[] | Error
+  /** The names searched for, in order. */
+  placeQueries: string[]
   /** The signed-in address, or null for a guest. */
   email: string | null
   /** The addresses a link was asked for, in order. */
@@ -122,6 +126,13 @@ export function fakeBackend(seed: Garden[] = []): FakeBackend {
     async forecast() {
       if (backend.forecastResult instanceof Error) throw backend.forecastResult
       return backend.forecastResult
+    },
+    placesResult: new Error("no places set"),
+    placeQueries: [],
+    async places(query) {
+      backend.placeQueries.push(query)
+      if (backend.placesResult instanceof Error) throw backend.placesResult
+      return backend.placesResult
     },
     async weather(lat, lon) {
       backend.weatherCalls.push({ lat, lon })

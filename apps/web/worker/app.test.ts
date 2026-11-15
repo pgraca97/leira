@@ -1,4 +1,4 @@
-import type { Forecast, WeatherNow } from "@leira/core"
+import type { Forecast, Place, WeatherNow } from "@leira/core"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { type AppDeps, createApp } from "./app"
 import type { WeatherProvider } from "./weather/provider"
@@ -23,6 +23,11 @@ const FORECAST: Forecast = [
   { date: "2026-11-11", minC: 4, maxC: 15, condition: "rain" },
 ]
 
+const PLACES: Place[] = [
+  { name: "Braga", region: "Braga", country: "PT", lat: 41.5510583, lon: -8.4280045 },
+  { name: "Braga", country: "BR", lat: -29.3, lon: -53.7 },
+]
+
 /** The two KV methods the app uses, backed by a Map. */
 function fakeKv() {
   const store = new Map<string, string>()
@@ -38,6 +43,7 @@ function fakeKv() {
 let cache: ReturnType<typeof fakeKv>
 let current: ReturnType<typeof vi.fn<WeatherProvider["current"]>>
 let forecast: ReturnType<typeof vi.fn<WeatherProvider["forecast"]>>
+let places: ReturnType<typeof vi.fn<WeatherProvider["places"]>>
 let deps: AppDeps
 
 function request(path: string, headers: Record<string, string> = SIGNED_IN) {
@@ -49,9 +55,10 @@ beforeEach(() => {
   cache = fakeKv()
   current = vi.fn<WeatherProvider["current"]>(async () => READING)
   forecast = vi.fn<WeatherProvider["forecast"]>(async () => FORECAST)
+  places = vi.fn<WeatherProvider["places"]>(async () => PLACES)
   deps = {
     verifyToken: async (_env, token) => (token === VALID_TOKEN ? "user-1" : null),
-    weatherProvider: () => ({ current, forecast }),
+    weatherProvider: () => ({ current, forecast, places }),
   }
   vi.spyOn(console, "error").mockImplementation(() => {})
   vi.spyOn(console, "warn").mockImplementation(() => {})
@@ -266,6 +273,82 @@ describe("GET /api/forecast", () => {
   it("answers 502 when the provider fails, without caching the failure", async () => {
     forecast.mockRejectedValue(new WeatherProviderError("OpenWeather responded with status 500"))
     const response = await request("/api/forecast?lat=38.72&lon=-9.14")
+    expect(response.status).toBe(502)
+    expect(await response.json()).toEqual({ error: "weather_unavailable" })
+    expect(cache.kv.put).not.toHaveBeenCalled()
+  })
+})
+
+describe("GET /api/places", () => {
+  it("rejects a request without a session before touching the provider", async () => {
+    const response = await request("/api/places?q=Braga", {})
+    expect(response.status).toBe(401)
+    expect(await response.json()).toEqual({ error: "unauthorized" })
+    expect(places).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ["a missing name", "/api/places"],
+    ["a single letter", "/api/places?q=B"],
+    ["only spaces", "/api/places?q=%20%20%20"],
+    ["a name longer than any place", `/api/places?q=${"a".repeat(81)}`],
+  ])("rejects %s", async (_case, path) => {
+    const response = await request(path)
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual({ error: "invalid_query" })
+    expect(places).not.toHaveBeenCalled()
+  })
+
+  it("returns the matching places and marks them as fresh", async () => {
+    const response = await request("/api/places?q=Braga")
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual(PLACES)
+    expect(response.headers.get("X-Cache")).toBe("MISS")
+    expect(response.headers.get("Cache-Control")).toBe("private, max-age=86400")
+    expect(places).toHaveBeenCalledExactlyOnceWith("Braga")
+  })
+
+  it("caches a search for thirty days, whatever its case and spacing", async () => {
+    await request("/api/places?q=%20Vila%20%20Nova%20DE%20Gaia%20")
+    expect(places).toHaveBeenCalledExactlyOnceWith("Vila Nova DE Gaia")
+    expect(cache.kv.put).toHaveBeenCalledWith(
+      "places:v1:vila nova de gaia",
+      JSON.stringify(PLACES),
+      { expirationTtl: 2_592_000 }
+    )
+  })
+
+  it("serves the same search again from the cache", async () => {
+    await request("/api/places?q=Braga")
+    const response = await request("/api/places?q=%20BRAGA")
+    expect(await response.json()).toEqual(PLACES)
+    expect(response.headers.get("X-Cache")).toBe("HIT")
+    expect(places).toHaveBeenCalledTimes(1)
+  })
+
+  it("answers with an empty list when nothing matches", async () => {
+    places.mockResolvedValue([])
+    const response = await request("/api/places?q=Xyzzy")
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual([])
+  })
+
+  it("ignores a cache entry that no longer matches the schema", async () => {
+    cache.store.set("places:v1:braga", JSON.stringify([{ town: "Braga" }]))
+    const response = await request("/api/places?q=Braga")
+    expect(response.headers.get("X-Cache")).toBe("MISS")
+  })
+
+  it("answers 503 when no provider is configured", async () => {
+    deps.weatherProvider = () => null
+    const response = await request("/api/places?q=Braga")
+    expect(response.status).toBe(503)
+    expect(await response.json()).toEqual({ error: "weather_not_configured" })
+  })
+
+  it("answers 502 when the provider fails, without caching the failure", async () => {
+    places.mockRejectedValue(new WeatherProviderError("OpenWeather responded with status 500"))
+    const response = await request("/api/places?q=Braga")
     expect(response.status).toBe(502)
     expect(await response.json()).toEqual({ error: "weather_unavailable" })
     expect(cache.kv.put).not.toHaveBeenCalled()

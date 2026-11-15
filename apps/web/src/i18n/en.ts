@@ -86,7 +86,15 @@ export const en = {
       "Set where the garden is to see its weather. Only an approximate position is saved.",
     useMyLocation: "Use my location",
     locating: "Finding your location…",
-    locationDenied: "Your location could not be read. Type the coordinates instead.",
+    place: "Town or city",
+    search: "Search",
+    searching: "Searching…",
+    placeResults: "Places found",
+    noPlaces: "No place called “{{name}}” was found. Check the spelling.",
+    searchFailed:
+      "The search is not available right now. Use your location or type the coordinates.",
+    locationDenied:
+      "Your location could not be read. Search for the town or type the coordinates instead.",
     latitude: "Latitude",
     longitude: "Longitude",
     setLocation: "Set location",

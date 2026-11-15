@@ -1,4 +1,5 @@
-import { ForecastSchema, roundCoordinate, WeatherNowSchema } from "@leira/core"
+import { ForecastSchema, PlacesSchema, roundCoordinate, WeatherNowSchema } from "@leira/core"
+import type { Context } from "hono"
 import { Hono } from "hono"
 import { createMiddleware } from "hono/factory"
 import { z } from "zod"
@@ -22,6 +23,9 @@ const FORECAST_TTL_SECONDS = 3 * 3600
 const FORECAST_BROWSER_MAX_AGE_SECONDS = 1800
 /** Zones are 0.1 degrees wide, about 11 km: weather does not vary much within one. */
 const ZONE_DECIMALS = 1
+/** A town does not move, so a search for its name is good for a month. */
+const PLACES_TTL_SECONDS = 30 * 24 * 3600
+const PLACES_BROWSER_MAX_AGE_SECONDS = 24 * 3600
 
 const decimal = z
   .string()
@@ -31,6 +35,14 @@ const decimal = z
 const WeatherQuerySchema = z.object({
   lat: decimal.pipe(z.number().min(-90).max(90)),
   lon: decimal.pipe(z.number().min(-180).max(180)),
+})
+
+/** A place name as typed: trimmed, with runs of spaces collapsed, 2 to 80 characters. */
+const PlaceQuerySchema = z.object({
+  q: z
+    .string()
+    .transform((text) => text.trim().replace(/\s+/g, " "))
+    .pipe(z.string().min(2).max(80)),
 })
 
 export function createApp(deps: AppDeps) {
@@ -63,18 +75,59 @@ export function createApp(deps: AppDeps) {
   })
 
   /**
+   * Answers from the cache when it can, and from the provider otherwise,
+   * keeping what the provider said for `ttlSeconds`. The provider's quota is
+   * then spent once per key however many people ask.
+   */
+  async function cached<T>(
+    c: Context<AppEnv>,
+    options: {
+      /** Bump the version in the key when the stored shape changes. */
+      cacheKey: string
+      schema: z.ZodType<T>
+      /** How long an answer is reused for everyone asking the same thing. */
+      ttlSeconds: number
+      /** How long the browser may reuse a response without asking again. */
+      browserMaxAgeSeconds: number
+      load(provider: WeatherProvider): Promise<T>
+    }
+  ) {
+    const respond = (data: T, cache: "HIT" | "MISS") =>
+      c.json(data, 200, {
+        "Cache-Control": `private, max-age=${options.browserMaxAgeSeconds}`,
+        "X-Cache": cache,
+      })
+
+    const stored = options.schema.safeParse(await readCache(c.env.CACHE, options.cacheKey))
+    if (stored.success) return respond(stored.data, "HIT")
+
+    const provider = deps.weatherProvider(c.env)
+    if (!provider) return c.json({ error: "weather_not_configured" }, 503)
+
+    let data: T
+    try {
+      data = await options.load(provider)
+    } catch (error) {
+      // Log the error's own message only: never the request, which carries the API key.
+      console.error("Weather lookup failed:", error instanceof Error ? error.message : "unknown")
+      return c.json({ error: "weather_unavailable" }, 502)
+    }
+
+    await writeCache(c.env.CACHE, options.cacheKey, data, options.ttlSeconds)
+    return respond(data, "MISS")
+  }
+
+  /**
    * A route that answers with weather data for a position. Only signed-in
-   * users may call it, and answers are cached per zone, so the provider's
-   * quota is spent once per zone per `ttlSeconds` however many people ask.
+   * users may call it, and answers are cached per zone, so nearby gardens
+   * share one call to the provider.
    */
   function zoneRoute<T>(options: {
     path: string
     /** Start of the cache key. Bump its version when the stored shape changes. */
     cachePrefix: string
     schema: z.ZodType<T>
-    /** How long an answer is reused for everyone in the same zone. */
     ttlSeconds: number
-    /** How long the browser may reuse a response without asking again. */
     browserMaxAgeSeconds: number
     load(provider: WeatherProvider, lat: number, lon: number): Promise<T>
   }) {
@@ -84,31 +137,13 @@ export function createApp(deps: AppDeps) {
 
       const lat = roundCoordinate(query.data.lat, ZONE_DECIMALS)
       const lon = roundCoordinate(query.data.lon, ZONE_DECIMALS)
-      const cacheKey = `${options.cachePrefix}:${lat.toFixed(ZONE_DECIMALS)}:${lon.toFixed(ZONE_DECIMALS)}`
-
-      const respond = (data: T, cache: "HIT" | "MISS") =>
-        c.json(data, 200, {
-          "Cache-Control": `private, max-age=${options.browserMaxAgeSeconds}`,
-          "X-Cache": cache,
-        })
-
-      const cached = options.schema.safeParse(await readCache(c.env.CACHE, cacheKey))
-      if (cached.success) return respond(cached.data, "HIT")
-
-      const provider = deps.weatherProvider(c.env)
-      if (!provider) return c.json({ error: "weather_not_configured" }, 503)
-
-      let data: T
-      try {
-        data = await options.load(provider, lat, lon)
-      } catch (error) {
-        // Log the error's own message only: never the request, which carries the API key.
-        console.error("Weather lookup failed:", error instanceof Error ? error.message : "unknown")
-        return c.json({ error: "weather_unavailable" }, 502)
-      }
-
-      await writeCache(c.env.CACHE, cacheKey, data, options.ttlSeconds)
-      return respond(data, "MISS")
+      return cached(c, {
+        cacheKey: `${options.cachePrefix}:${lat.toFixed(ZONE_DECIMALS)}:${lon.toFixed(ZONE_DECIMALS)}`,
+        schema: options.schema,
+        ttlSeconds: options.ttlSeconds,
+        browserMaxAgeSeconds: options.browserMaxAgeSeconds,
+        load: (provider) => options.load(provider, lat, lon),
+      })
     })
   }
 
@@ -128,6 +163,26 @@ export function createApp(deps: AppDeps) {
     ttlSeconds: FORECAST_TTL_SECONDS,
     browserMaxAgeSeconds: FORECAST_BROWSER_MAX_AGE_SECONDS,
     load: (provider, lat, lon) => provider.forecast(lat, lon),
+  })
+
+  /**
+   * The places a typed name may refer to, so a garden can be located without
+   * coordinates. It goes through the weather provider, so it fails the way
+   * the weather routes do. The cache key ignores case: "BRAGA" and "braga"
+   * are one search.
+   */
+  app.get("/api/places", requireUser, async (c) => {
+    const query = PlaceQuerySchema.safeParse(c.req.query())
+    if (!query.success) return c.json({ error: "invalid_query" }, 400)
+
+    const name = query.data.q
+    return cached(c, {
+      cacheKey: `places:v1:${name.toLowerCase()}`,
+      schema: PlacesSchema,
+      ttlSeconds: PLACES_TTL_SECONDS,
+      browserMaxAgeSeconds: PLACES_BROWSER_MAX_AGE_SECONDS,
+      load: (provider) => provider.places(name),
+    })
   })
 
   app.notFound((c) => c.json({ error: "not_found" }, 404))

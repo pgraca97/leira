@@ -1,4 +1,4 @@
-import { ForecastSchema, WeatherNowSchema } from "@leira/core"
+import { ForecastSchema, PlacesSchema, WeatherNowSchema } from "@leira/core"
 import { createClient, type SupabaseClient } from "@supabase/supabase-js"
 import { z } from "zod"
 import { accountApi, authErrorCode, IDENTITY_TAKEN } from "./account"
@@ -53,15 +53,21 @@ export async function connectBackend(): Promise<Backend> {
     return new Promise<never>(() => {})
   }
 
-  /** Calls one of the Worker's weather routes as the signed-in visitor. */
-  async function weatherRoute<T>(path: string, lat: number, lon: number, schema: z.ZodType<T>) {
-    const query = new URLSearchParams({ lat: String(lat), lon: String(lon) })
+  /** Calls one of the Worker's routes as the signed-in visitor. */
+  async function workerRoute<T>(
+    path: string,
+    params: Record<string, string>,
+    schema: z.ZodType<T>
+  ) {
+    const query = new URLSearchParams(params)
     const response = await fetch(`${path}?${query}`, {
       headers: { Authorization: `Bearer ${await accessToken(client)}` },
     })
     if (!response.ok) throw new Error(`${path} failed: ${response.status}`)
     return schema.parse(await response.json())
   }
+
+  const at = (lat: number, lon: number) => ({ lat: String(lat), lon: String(lon) })
 
   return {
     gardens: gardensApi(client),
@@ -73,7 +79,8 @@ export async function connectBackend(): Promise<Backend> {
         await accessToken(client)
       },
     },
-    weather: (lat, lon) => weatherRoute("/api/weather", lat, lon, WeatherNowSchema),
-    forecast: (lat, lon) => weatherRoute("/api/forecast", lat, lon, ForecastSchema),
+    weather: (lat, lon) => workerRoute("/api/weather", at(lat, lon), WeatherNowSchema),
+    forecast: (lat, lon) => workerRoute("/api/forecast", at(lat, lon), ForecastSchema),
+    places: (query) => workerRoute("/api/places", { q: query }, PlacesSchema),
   }
 }

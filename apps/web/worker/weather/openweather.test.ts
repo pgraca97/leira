@@ -1,4 +1,4 @@
-import { ForecastSchema, WeatherNowSchema } from "@leira/core"
+import { ForecastSchema, PlacesSchema, WeatherNowSchema } from "@leira/core"
 import { describe, expect, it, vi } from "vitest"
 import { conditionFromCode, openWeather } from "./openweather"
 import { WeatherProviderError } from "./provider"
@@ -203,6 +203,68 @@ describe("openWeather forecast", () => {
   ])("fails on %s", async (_case, response) => {
     const fetchFn = vi.fn<typeof fetch>(async () => response)
     await expect(openWeather(API_KEY, fetchFn).forecast(38.7, -9.1)).rejects.toThrow(
+      WeatherProviderError
+    )
+  })
+})
+
+describe("openWeather place search", () => {
+  /** A trimmed copy of a real "direct geocoding" response. */
+  const BRAGA = [
+    {
+      name: "Braga",
+      local_names: { pt: "Braga", en: "Braga", ru: "Брага" },
+      lat: 41.5510583,
+      lon: -8.4280045,
+      country: "PT",
+      state: "Braga",
+    },
+    { name: "Braga", lat: -29.3, lon: -53.7, country: "BR" },
+  ]
+
+  it("maps the matches to the app's places, in the provider's order", async () => {
+    const places = await openWeather(API_KEY, respondWith(BRAGA)).places("Braga")
+    expect(places).toEqual([
+      { name: "Braga", region: "Braga", country: "PT", lat: 41.5510583, lon: -8.4280045 },
+      { name: "Braga", country: "BR", lat: -29.3, lon: -53.7 },
+    ])
+    expect(PlacesSchema.safeParse(places).success).toBe(true)
+  })
+
+  it("asks the geocoder for up to five matches of the name", async () => {
+    const fetchFn = respondWith(BRAGA)
+    await openWeather(API_KEY, fetchFn).places("Vila Nova de Gaia")
+    const url = new URL(String(fetchFn.mock.calls[0]![0]))
+    expect(url.origin + url.pathname).toBe("https://api.openweathermap.org/geo/1.0/direct")
+    expect(Object.fromEntries(url.searchParams)).toEqual({
+      q: "Vila Nova de Gaia",
+      limit: "5",
+      appid: API_KEY,
+    })
+  })
+
+  it("returns no places when nothing matches", async () => {
+    expect(await openWeather(API_KEY, respondWith([])).places("Xyzzy")).toEqual([])
+  })
+
+  it("cuts a name too long for a garden's location", async () => {
+    const long = [{ name: "a".repeat(200), lat: 1, lon: 2 }]
+    const [place] = await openWeather(API_KEY, respondWith(long)).places("aaa")
+    expect(place?.name).toHaveLength(120)
+  })
+
+  it("fails on an error status without leaking the key", async () => {
+    const fetchFn = respondWith({ cod: 401, message: `Invalid API key ${API_KEY}` }, 401)
+    const failure = await openWeather(API_KEY, fetchFn)
+      .places("Braga")
+      .catch((error: unknown) => error)
+    expect(failure).toBeInstanceOf(WeatherProviderError)
+    expect(String(failure)).toContain("401")
+    expect(String(failure)).not.toContain(API_KEY)
+  })
+
+  it("fails on a body that is not a list of places", async () => {
+    await expect(openWeather(API_KEY, respondWith({ cod: "400" })).places("Braga")).rejects.toThrow(
       WeatherProviderError
     )
   })

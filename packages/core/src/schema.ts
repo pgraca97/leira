@@ -101,6 +101,22 @@ export function roundCoordinate(value: number, decimals = 2): number {
   return Math.round(value * factor) / factor + 0
 }
 
+/** A named place a search turned up, to choose as a garden's location. */
+export const PlaceSchema = z.object({
+  /** Short enough to be kept as a location's name. */
+  name: z.string().min(1).max(120),
+  /** The district, state or province, where the provider knows it. */
+  region: z.string().min(1).max(120).optional(),
+  /** Country code, e.g. "PT". */
+  country: z.string().min(1).max(60).optional(),
+  lat: z.number().min(-90).max(90),
+  lon: z.number().min(-180).max(180),
+})
+export type Place = z.infer<typeof PlaceSchema>
+
+/** The answer to a place search: best match first, none when nothing matches. */
+export const PlacesSchema = z.array(PlaceSchema).max(5)
+
 export const PLANT_FAMILIES = [
   "amaranthaceae",
   "amaryllidaceae",

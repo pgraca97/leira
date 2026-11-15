@@ -245,6 +245,72 @@ describe("the garden's weather", () => {
     await waitFor(() => expect(backend.rows.get(TOMATOES.id)?.location).toEqual(PORTO))
   })
 
+  describe("found by the name of its town", () => {
+    const BRAGA = [
+      { name: "Braga", region: "Braga", country: "PT", lat: 41.5510583, lon: -8.4280045 },
+      { name: "Braga", region: "Rio Grande do Sul", country: "BR", lat: -29.3, lon: -53.7 },
+    ]
+
+    async function search(name: string) {
+      open(`/gardens/${TOMATOES.id}`)
+      await userEvent.type(await screen.findByRole("searchbox", { name: "Town or city" }), name)
+      await userEvent.click(screen.getByRole("button", { name: "Search" }))
+    }
+
+    it("lists the places with that name, telling them apart", async () => {
+      backend.placesResult = BRAGA
+      await search("Braga")
+      const found = await screen.findByRole("list", { name: "Places found" })
+      expect(
+        within(found)
+          .getAllByRole("button")
+          .map((place) => place.textContent)
+      ).toEqual(["Braga, PT", "Braga, Rio Grande do Sul, BR"])
+      expect(backend.placeQueries).toEqual(["Braga"])
+    })
+
+    it("saves the chosen place, rounded to about a kilometre, under its name", async () => {
+      backend.placesResult = BRAGA
+      await search("Braga")
+      await userEvent.click(await screen.findByRole("button", { name: "Braga, PT" }))
+
+      await waitFor(() =>
+        expect(backend.rows.get(TOMATOES.id)?.location).toEqual({
+          lat: 41.55,
+          lon: -8.43,
+          name: "Braga",
+        })
+      )
+      // The reading comes from the nearest weather station, which is named after its own place.
+      const weather = screen.getByRole("region", { name: "Weather" })
+      expect(await within(weather).findByText(/Braga/)).toBeVisible()
+      expect(within(weather).queryByText(/Porto/)).toBeNull()
+    })
+
+    it("says so when no place has that name", async () => {
+      backend.placesResult = []
+      await search("Xyzzy")
+      expect(await screen.findByText(/No place called “Xyzzy” was found/)).toBeVisible()
+    })
+
+    it("does not search for a single letter", async () => {
+      open(`/gardens/${TOMATOES.id}`)
+      await userEvent.type(await screen.findByRole("searchbox", { name: "Town or city" }), "B")
+      expect(screen.getByRole("button", { name: "Search" })).toBeDisabled()
+    })
+
+    it("says so when the search fails, and still takes typed coordinates", async () => {
+      backend.placesResult = new Error("502")
+      await search("Braga")
+      expect(await screen.findByText(/search is not available/)).toBeVisible()
+
+      await userEvent.type(screen.getByRole("textbox", { name: "Latitude" }), "41.15")
+      await userEvent.type(screen.getByRole("textbox", { name: "Longitude" }), "-8.61")
+      await userEvent.click(screen.getByRole("button", { name: "Set location" }))
+      await waitFor(() => expect(backend.rows.get(TOMATOES.id)?.location).toEqual(PORTO))
+    })
+  })
+
   it("refuses coordinates that are not on the globe", async () => {
     open(`/gardens/${TOMATOES.id}`)
     await userEvent.type(await screen.findByRole("textbox", { name: "Latitude" }), "141")
