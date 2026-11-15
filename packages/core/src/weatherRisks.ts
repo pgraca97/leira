@@ -1,4 +1,4 @@
-import type { IsoDate } from "./dates"
+import { addDays, type IsoDate } from "./dates"
 import { isInGround } from "./schedule"
 import type { ForecastDay, FrostTolerance, GardenPlan, Plant } from "./schema"
 
@@ -14,22 +14,35 @@ export const FROST_LIMIT_C: Record<FrostTolerance, number> = {
   hardy: -8,
 }
 
+/**
+ * Days after planting out during which a seedling raised under cover is still
+ * settling in. Until its roots take hold, a night that an established plant
+ * shrugs off sets it back.
+ */
+export const SETTLING_DAYS = 7
+
 /** A forecast day that threatens a planting. */
 export interface WeatherRisk {
   plantingId: string
   plantId: string
-  /** `frost`: the night is too cold for the crop. `heat`: the day is hotter than it tolerates. */
-  kind: "frost" | "heat"
+  /**
+   * `frost`: the night is too cold for the crop. `heat`: the day is hotter
+   * than it tolerates. `cold`: the night is too cold for a seedling that has
+   * just been, or is about to be, planted out.
+   */
+  kind: "frost" | "heat" | "cold"
   /** The first day at risk, so there is time to act. */
   date: IsoDate
-  /** That day's low for frost, or high for heat. */
+  /** That day's low for frost and cold, or high for heat. */
   tempC: number
 }
 
 /**
  * Compares a forecast with what is in the ground. Each planting gets at most
- * one frost and one heat warning, for the first day at risk. Warnings come in
- * date order. Crops the lookup does not know are skipped.
+ * one warning about cold nights and one about heat, for the first day at risk.
+ * Frost outranks a merely cold night: a crop facing both only gets the frost
+ * warning. Warnings come in date order. Crops the lookup does not know are
+ * skipped.
  */
 export function findWeatherRisks(
   plan: GardenPlan,
@@ -47,6 +60,15 @@ export function findWeatherRisks(
 
     const frost = exposed.find((day) => day.minC <= FROST_LIMIT_C[plant.frost])
     if (frost) risks.push({ ...ids, kind: "frost", date: frost.date, tempC: frost.minC })
+
+    // Only crops raised under cover are planted out as seedlings. The limit
+    // itself is still safe: it is the coldest night a transplant should face.
+    const minNightC = plant.indoorsWeeks ? plant.temps.transplantMinNightC : undefined
+    if (!frost && minNightC !== undefined) {
+      const settled = addDays(planting.inGround.from, SETTLING_DAYS)
+      const cold = exposed.find((day) => day.date <= settled && day.minC < minNightC)
+      if (cold) risks.push({ ...ids, kind: "cold", date: cold.date, tempC: cold.minC })
+    }
 
     const maxDayC = plant.temps.maxDayC
     const heat = maxDayC === undefined ? undefined : exposed.find((day) => day.maxC >= maxDayC)

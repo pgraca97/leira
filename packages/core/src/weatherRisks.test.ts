@@ -104,3 +104,48 @@ describe("findWeatherRisks", () => {
     expect(findWeatherRisks(planWith(mystery), getPlant, [day("2026-04-10", -9, 40)])).toEqual([])
   })
 })
+
+describe("cold nights for transplants", () => {
+  // A tomato seedling should not face a night under 10 °C.
+  const goingOut = planting("going-out", "tomato", "2026-05-03", "2026-09-30")
+
+  it("warns on the first cold night after a seedling is planted out", () => {
+    const forecast = [
+      day("2026-05-02", 6, 18),
+      day("2026-05-03", 11, 20),
+      day("2026-05-04", 7, 19),
+      day("2026-05-05", 5, 18),
+    ]
+    expect(findWeatherRisks(planWith(goingOut), getPlant, forecast)).toEqual([
+      { plantingId: "going-out", plantId: "tomato", kind: "cold", date: "2026-05-04", tempC: 7 },
+    ])
+  })
+
+  it("stays quiet on a night as cold as the seedling can take", () => {
+    const forecast = [day("2026-05-03", 10, 20)]
+    expect(findWeatherRisks(planWith(goingOut), getPlant, forecast)).toEqual([])
+  })
+
+  it("stops warning once the crop has had a week to settle", () => {
+    const lastDay = findWeatherRisks(planWith(goingOut), getPlant, [day("2026-05-10", 7, 19)])
+    expect(lastDay.map((risk) => risk.kind)).toEqual(["cold"])
+    const dayAfter = findWeatherRisks(planWith(goingOut), getPlant, [day("2026-05-11", 7, 19)])
+    expect(dayAfter).toEqual([])
+  })
+
+  it("says nothing for a crop sown straight into the ground", () => {
+    const sownDirect = (id: string) => {
+      const plant = getPlant(id)
+      return plant && { ...plant, indoorsWeeks: undefined }
+    }
+    const forecast = [day("2026-05-04", 7, 19)]
+    expect(findWeatherRisks(planWith(goingOut), sownDirect, forecast)).toEqual([])
+  })
+
+  it("leaves the warning to frost when the same crop faces both", () => {
+    const forecast = [day("2026-05-03", 6, 15), day("2026-05-04", 1, 12)]
+    expect(findWeatherRisks(planWith(goingOut), getPlant, forecast)).toEqual([
+      { plantingId: "going-out", plantId: "tomato", kind: "frost", date: "2026-05-04", tempC: 1 },
+    ])
+  })
+})

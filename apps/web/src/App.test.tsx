@@ -482,6 +482,21 @@ describe("the garden's forecast", () => {
     expect(editorStore.getState().selection).toEqual({ kind: "planting", id: TOMATO_ID })
   })
 
+  it("warns of a cold night for a seedling that has just been planted out", async () => {
+    const mild: Forecast = [
+      { date: "2026-04-03", minC: 11, maxC: 18, condition: "clear" },
+      { date: "2026-04-04", minC: 6, maxC: 15, condition: "clear" },
+    ]
+    openGarden(mild)
+    const warning = await screen.findByRole("button", { name: /Cold night/ })
+    expect(warning).toHaveTextContent(
+      "Cold night on Apr 4 (6 °C): wait to plant out Tomato, or cover it."
+    )
+
+    await userEvent.click(warning)
+    expect(editorStore.getState().selection).toEqual({ kind: "planting", id: TOMATO_ID })
+  })
+
   it("stays quiet when the forecast threatens nothing in the ground", async () => {
     openGarden(FORECAST, { plan: emptyPlan() })
     await screen.findByRole("list", { name: "Next days" })

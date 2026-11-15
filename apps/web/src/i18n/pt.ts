@@ -105,6 +105,7 @@ export const pt: Translation = {
     risk: {
       frost: "Geada a {{date}} ({{temp}}): protege {{name}}.",
       heat: "Calor a {{date}} ({{temp}}): dá sombra e rega {{name}}.",
+      cold: "Noite fria a {{date}} ({{temp}}): espera para transplantar {{name}}, ou protege.",
     },
     degrees: "{{value}} °C",
     details: "Sensação de {{feelsLike}} · humidade {{humidity}}% · vento {{wind}} km/h",

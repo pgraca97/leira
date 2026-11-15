@@ -87,4 +87,4 @@ export {
   WeatherNowSchema,
 } from "./schema"
 export { type AreaFill, fillArea, fillPoints, SFG_CELL_CM } from "./spacing"
-export { FROST_LIMIT_C, findWeatherRisks, type WeatherRisk } from "./weatherRisks"
+export { FROST_LIMIT_C, findWeatherRisks, SETTLING_DAYS, type WeatherRisk } from "./weatherRisks"

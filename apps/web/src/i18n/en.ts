@@ -101,6 +101,7 @@ export const en = {
     risk: {
       frost: "Frost on {{date}} ({{temp}}): protect {{name}}.",
       heat: "Heat on {{date}} ({{temp}}): shade and water {{name}}.",
+      cold: "Cold night on {{date}} ({{temp}}): wait to plant out {{name}}, or cover it.",
     },
     degrees: "{{value}} °C",
     details: "Feels like {{feelsLike}} · humidity {{humidity}}% · wind {{wind}} km/h",
