@@ -1,14 +1,16 @@
-# Garden Planner
+# Leira
 
-[![CI](https://github.com/pgraca97/garden-planner/actions/workflows/ci.yml/badge.svg)](https://github.com/pgraca97/garden-planner/actions/workflows/ci.yml)
+[![CI](https://github.com/pgraca97/leira/actions/workflows/ci.yml/badge.svg)](https://github.com/pgraca97/leira/actions/workflows/ci.yml)
 
 Plan a vegetable garden on a grid: draw beds, fill them with crops at the right spacing, and get
 warned about crop rotation, bad neighbours and frost where the garden is.
 
+A _leira_ is what a plot of cultivated land is called in Minho, in the north of Portugal.
+
 > Work in progress. You start as a guest, with no sign-up, and can keep your gardens later with
 > Google or a link sent by email.
 
-**[Live demo](https://garden-planner.paulodcgraca.workers.dev)**
+**[Live demo](https://leira.paulodcgraca.workers.dev)**
 
 ![The editor with two beds, one with 3 tomatoes and one with 12 potatoes, the crop list on the left, and the selected planting's details and the local weather on the right](docs/editor.png)
 

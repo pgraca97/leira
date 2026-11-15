@@ -1,7 +1,7 @@
 /** English strings. This object also defines the keys every other language must provide. */
 export const en = {
   app: {
-    name: "Garden Planner",
+    name: "Leira",
   },
   language: {
     label: "Language",

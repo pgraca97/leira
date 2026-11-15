@@ -1,4 +1,4 @@
-# Garden Planner
+# Leira
 
 See `README.md` for the layout, setup and commands.
 

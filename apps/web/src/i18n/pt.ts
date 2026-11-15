@@ -3,7 +3,7 @@ import type { Translation } from "./en"
 /** Português europeu. */
 export const pt: Translation = {
   app: {
-    name: "Garden Planner",
+    name: "Leira",
   },
   language: {
     label: "Idioma",
