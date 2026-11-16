@@ -121,6 +121,33 @@ describe("the gardens list", () => {
       expect(copy?.id).not.toBe(PLANTED.id)
     })
 
+    it("starts the copy with nothing recorded: no marks, harvests or notes", async () => {
+      const [planting] = PLANTED.plan.plantings
+      backend = fakeBackend([
+        {
+          ...PLANTED,
+          plan: {
+            ...PLANTED.plan,
+            notes: "The well ran dry in July.",
+            plantings: [
+              {
+                ...planting!,
+                planted: true,
+                harvests: [{ date: "2026-07-12", quantity: 1.2, unit: "kg" }],
+                notes: "Blight in August.",
+              },
+            ],
+          },
+        },
+      ])
+      open("/")
+      await userEvent.click(await screen.findByRole("button", { name: "Duplicate Tomato patch" }))
+
+      await screen.findByRole("link", { name: "Tomato patch (copy)" })
+      const copy = [...backend.rows.values()].find((row) => row.name === "Tomato patch (copy)")
+      expect(copy?.plan).toEqual(PLANTED.plan)
+    })
+
     it("says so when a garden could not be duplicated", async () => {
       backend.gardens.create = async () => {
         throw new Error("503")
@@ -888,6 +915,28 @@ describe("a shared garden", () => {
     expect(within(rows).getByText(/Tomato.*in the ground/)).toBeInTheDocument()
     expect(within(rows).queryByRole("button")).not.toBeInTheDocument()
     expect(noSession).not.toHaveBeenCalled()
+  })
+
+  it("is handed over without the owner's notes or harvest amounts", async () => {
+    const [planting] = PATCH.plan.plantings
+    const harvests = [{ date: `${year}-07-12`, quantity: 1.2, unit: "kg" as const }]
+    backend = fakeBackend([
+      {
+        ...PATCH,
+        plan: {
+          ...PATCH.plan,
+          notes: "The well ran dry in July.",
+          plantings: [{ ...planting!, planted: true, harvests, notes: "Blight in August." }],
+        },
+      },
+    ])
+    backend.shares.set(PATCH.id, { token: TOKEN, showLocation: false })
+
+    const shared = await backend.publicBackend.sharedGarden(TOKEN)
+    expect(shared.plan).toEqual({
+      ...PATCH.plan,
+      plantings: [{ ...planting, planted: true, harvests: [{ date: `${year}-07-12` }] }],
+    })
   })
 
   it("does not say where the garden is", async () => {

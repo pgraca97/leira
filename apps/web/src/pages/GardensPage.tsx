@@ -1,4 +1,4 @@
-import { emptyPlan, samplePlan, toIsoDate } from "@leira/core"
+import { emptyPlan, samplePlan, toIsoDate, withoutRecords } from "@leira/core"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link, useNavigate } from "@tanstack/react-router"
 import { useEffect } from "react"
@@ -37,7 +37,12 @@ export function GardensPage() {
     // Read again at the moment of the press: the list may be older than the garden.
     mutationFn: async (garden: GardenSummary) => {
       const { name, plan, location } = await backend.gardens.get(garden.id)
-      return backend.gardens.create(gardenCopyName(name, t("gardens.copySuffix")), plan, location)
+      // A copy is the same plan to start again from: what happened stays with the original.
+      return backend.gardens.create(
+        gardenCopyName(name, t("gardens.copySuffix")),
+        withoutRecords(plan),
+        location
+      )
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: GARDENS_KEY }),
   })

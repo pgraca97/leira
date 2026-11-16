@@ -1,4 +1,4 @@
-import type { Forecast, Place, WeatherNow } from "@leira/core"
+import { type Forecast, type Place, publicPlan, type WeatherNow } from "@leira/core"
 import type { Backend, PublicBackend } from "../lib/backend"
 import {
   type Garden,
@@ -123,7 +123,12 @@ export function fakeBackend(seed: Garden[] = []): FakeBackend {
       const garden = gardenId ? rows.get(gardenId) : undefined
       if (!garden || !share) throw new GardenNotFoundError(token)
       const { name, plan, location, updatedAt } = structuredClone(garden)
-      return { name, plan, location: share.showLocation ? location : null, updatedAt }
+      return {
+        name,
+        plan: publicPlan(plan),
+        location: share.showLocation ? location : null,
+        updatedAt,
+      }
     },
   }
 

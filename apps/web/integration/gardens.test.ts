@@ -1,4 +1,4 @@
-import { emptyPlan } from "@leira/core"
+import { emptyPlan, type GardenPlan } from "@leira/core"
 import { createClient } from "@supabase/supabase-js"
 import { beforeAll, describe, expect, it } from "vitest"
 import {
@@ -122,6 +122,47 @@ describe("sharing a garden", () => {
     })
     // Sharing is not a save: the editor's copy of the garden is still current.
     expect((await aliceGardens.get(garden.id)).version).toBe(1)
+  })
+
+  it("keeps the owner's notes and harvest amounts out of the link", async () => {
+    const planting = {
+      id: "55555555-5555-4555-8555-555555555555",
+      plantId: "tomato",
+      rect: { x: 0, y: 0, w: 100, h: 100 },
+      layout: "block" as const,
+      inGround: { from: "2026-05-01", to: "2026-09-30" },
+    }
+    const plan: GardenPlan = {
+      ...emptyPlan(),
+      notes: "The well ran dry in July.",
+      plantings: [
+        {
+          ...planting,
+          planted: true,
+          harvests: [{ date: "2026-07-12", quantity: 1.2, unit: "kg" }],
+          notes: "Blight in August.",
+        },
+      ],
+    }
+    const garden = await aliceGardens.create("Recorded plot", plan)
+    // The owner still reads all of it.
+    expect((await aliceGardens.get(garden.id)).plan).toEqual(plan)
+
+    const share = await aliceGardens.share(garden.id, false)
+    expect(await fetchSharedGarden(env, share.token)).toMatchObject({
+      plan: {
+        ...emptyPlan(),
+        plantings: [{ ...planting, planted: true, harvests: [{ date: "2026-07-12" }] }],
+      },
+    })
+    const body = JSON.stringify(await fetchSharedGarden(env, share.token))
+    expect(body).not.toMatch(/notes|quantity|unit|well|Blight/)
+  })
+
+  it("opens a plan stored by an older version of the app, brought up to date", async () => {
+    const older = { ...emptyPlan(), schemaVersion: 1 } as unknown as GardenPlan
+    const garden = await aliceGardens.create("Older plot", older)
+    expect((await aliceGardens.get(garden.id)).plan).toEqual(emptyPlan())
   })
 
   it("shows the location once the owner says so, on the same link", async () => {
