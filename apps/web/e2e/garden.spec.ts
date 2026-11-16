@@ -92,7 +92,7 @@ test("a planting shows on the calendar and on the day it is in the ground", asyn
   await page.getByRole("link", { name: "Calendar" }).click()
   const line = page.getByRole("button", { name: /^Tomato × \d+: .*in the ground/ })
   await expect(line).toBeVisible()
-  await expect(page.getByRole("list", { name: "Coming up" })).toContainText("Tomato")
+  await expect(page.getByRole("list", { name: "Jobs" })).toContainText("Tomato")
 
   await line.click()
   await expect(page.getByTestId("garden-canvas")).toBeVisible()
@@ -175,7 +175,7 @@ test("a garden opens from its share link with no account, until sharing stops", 
   expect(sessionKeys).toEqual([])
 
   await shared.getByRole("link", { name: "Calendar" }).click()
-  await expect(shared.getByRole("heading", { name: "Coming up" })).toBeVisible()
+  await expect(shared.getByRole("heading", { name: "Jobs" })).toBeVisible()
 
   // Sharing did not disturb the editor: the garden still saves.
   await page.keyboard.press("Escape")

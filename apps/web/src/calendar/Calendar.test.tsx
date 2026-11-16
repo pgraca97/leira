@@ -1,12 +1,12 @@
 // @vitest-environment jsdom
 import "../test/setup"
 import "../i18n"
-import { emptyPlan, type Planting } from "@leira/core"
-import { render, screen, within } from "@testing-library/react"
+import { emptyPlan, type GardenPlan, type Planting } from "@leira/core"
+import { fireEvent, render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { editorStore } from "../editor/store"
-import { Calendar } from "./Calendar"
+import { Calendar, PlanCalendar } from "./Calendar"
 
 function planting(id: string, plantId: string, from: string, to: string): Planting {
   return {
@@ -89,28 +89,108 @@ describe("the year's plantings", () => {
   })
 })
 
-describe("coming up", () => {
+describe("the jobs", () => {
+  const jobs = () =>
+    within(screen.getByRole("list", { name: "Jobs" }))
+      .getAllByRole("listitem")
+      .map((job) => job.textContent)
+  const stored = () => editorStore.getState().plan.plantings[0]
+
   it("lists the jobs of the next 30 days, soonest first", () => {
     // Today is 20 April 2026.
     show([TOMATOES, CARROTS, planting("beans", "green-bean", "2026-05-20", "2026-07-24")])
-    const tasks = within(screen.getByRole("list", { name: "Coming up" })).getAllByRole("listitem")
-    expect(tasks.map((task) => task.textContent)).toEqual([
-      "May 1Plant out Tomato",
-      "May 20Sow Green bean",
-    ])
+    expect(jobs()).toEqual(["May 1Plant out Tomato", "May 20Sow Green bean"])
   })
 
-  it("includes today's jobs and leaves out yesterday's", () => {
+  it("keeps a job of the last 30 days on the list, marked overdue", () => {
     show([
       planting("today", "carrot", "2026-04-20", "2026-08-08"),
       planting("yesterday", "carrot", "2026-04-19", "2026-08-07"),
+      planting("a month ago", "carrot", "2026-03-21", "2026-07-09"),
+      planting("longer ago", "carrot", "2026-03-20", "2026-07-08"),
     ])
-    const tasks = within(screen.getByRole("list", { name: "Coming up" })).getAllByRole("listitem")
-    expect(tasks.map((task) => task.textContent)).toEqual(["Apr 20Sow Carrot"])
+    expect(jobs()).toEqual([
+      "Mar 21Sow Carrotoverdue",
+      "Apr 19Sow Carrotoverdue",
+      "Apr 20Sow Carrot",
+    ])
   })
 
   it("says so when there is nothing to do", () => {
     show([NEXT_YEAR])
     expect(screen.getByText("Nothing to do in the next 30 days.")).toBeVisible()
+  })
+
+  it("marks a job done today when it is ticked", async () => {
+    show([planting("late", "carrot", "2026-04-15", "2026-08-03")])
+    await userEvent.click(screen.getByRole("checkbox", { name: "Sow Carrot" }))
+
+    expect(stored()).toMatchObject({
+      planted: true,
+      inGround: { from: "2026-04-20", to: "2026-08-03" },
+    })
+    expect(screen.getByRole("checkbox", { name: "Sow Carrot" })).toBeChecked()
+    expect(jobs()).toEqual(["Apr 20Sow Carrot"])
+  })
+
+  it("marks a job done ahead of its day", async () => {
+    show([planting("soon", "carrot", "2026-04-25", "2026-08-13")])
+    await userEvent.click(screen.getByRole("checkbox", { name: "Sow Carrot" }))
+    expect(stored()?.inGround.from).toBe("2026-04-20")
+  })
+
+  it("records a sowing of seedlings on its planned day when today is too late for it", async () => {
+    // Cucumber: 3 weeks indoors. Due out two days ago, so the seedlings cannot be sown today.
+    show([planting("cucumbers", "cucumber", "2026-04-18", "2026-08-30")])
+    expect(jobs()).toEqual(["Mar 28Sow Cucumber indoorsoverdue", "Apr 18Plant out Cucumberoverdue"])
+
+    await userEvent.click(screen.getByRole("checkbox", { name: "Sow Cucumber indoors" }))
+    expect(stored()?.sowDate).toBe("2026-03-28")
+    expect(screen.getByRole("checkbox", { name: "Sow Cucumber indoors" })).toBeChecked()
+  })
+
+  it("lets the day of a done job be corrected, up to today", async () => {
+    show([planting("late", "carrot", "2026-04-15", "2026-08-03")])
+    expect(screen.queryByLabelText("Sow Carrot: done on")).toBeNull()
+    await userEvent.click(screen.getByRole("checkbox", { name: "Sow Carrot" }))
+
+    const day = screen.getByLabelText("Sow Carrot: done on")
+    expect(day).toHaveValue("2026-04-20")
+    expect(day).toHaveAttribute("max", "2026-04-20")
+    fireEvent.change(day, { target: { value: "2026-04-17" } })
+    expect(stored()?.inGround.from).toBe("2026-04-17")
+    expect(jobs()).toEqual(["Apr 17Sow Carrot"])
+  })
+
+  it("puts a job back to do when it is unticked", async () => {
+    show([{ ...planting("done", "carrot", "2026-04-15", "2026-08-03"), planted: true }])
+    await userEvent.click(screen.getByRole("checkbox", { name: "Sow Carrot" }))
+
+    expect(stored()).not.toHaveProperty("planted")
+    expect(jobs()).toEqual(["Apr 15Sow Carrotoverdue"])
+  })
+
+  it("starts the harvest when its job is ticked, and leaves undoing it to the planting", async () => {
+    // Carrot: first picking after 70 days, so 21 April for one sown on 10 February.
+    show([{ ...planting("ready", "carrot", "2026-02-10", "2026-06-30"), planted: true }])
+    await userEvent.click(screen.getByRole("checkbox", { name: "Start picking Carrot" }))
+
+    expect(stored()?.harvests).toEqual([{ date: "2026-04-20" }])
+    expect(screen.getByRole("checkbox", { name: "Start picking Carrot" })).toBeDisabled()
+    expect(screen.queryByLabelText("Start picking Carrot: done on")).toBeNull()
+  })
+
+  it("shows what was done without offering to change it, when it cannot change the plan", () => {
+    const plan: GardenPlan = {
+      ...emptyPlan(),
+      plantings: [
+        { ...planting("done", "carrot", "2026-04-15", "2026-08-03"), planted: true },
+        planting("late", "carrot", "2026-04-18", "2026-08-06"),
+      ],
+    }
+    render(<PlanCalendar plan={plan} />)
+    expect(jobs()).toEqual(["Apr 15Sow Carrotdone", "Apr 18Sow Carrotoverdue"])
+    expect(screen.queryByRole("checkbox")).toBeNull()
+    expect(screen.queryByLabelText(/done on/)).toBeNull()
   })
 })

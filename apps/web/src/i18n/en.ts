@@ -195,7 +195,10 @@ export const en = {
       inGround: "In the ground",
       harvest: "Harvest",
     },
-    comingUp: "Coming up",
+    tasks: "Jobs",
+    overdue: "overdue",
+    done: "done",
+    doneOn: "{{task}}: done on",
     noTasks: "Nothing to do in the next {{days}} days.",
     task: {
       "sow-indoors": "Sow {{name}} indoors",

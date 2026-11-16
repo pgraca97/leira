@@ -198,7 +198,10 @@ export const pt: Translation = {
       inGround: "Na terra",
       harvest: "Colheita",
     },
-    comingUp: "A seguir",
+    tasks: "Tarefas",
+    overdue: "atrasada",
+    done: "feita",
+    doneOn: "{{task}}: feita a",
     noTasks: "Nada para fazer nos próximos {{days}} dias.",
     task: {
       "sow-indoors": "Semear {{name}} em interior",

@@ -1,7 +1,11 @@
 import {
   addDays,
   type DateRange,
+  defaultDoneDate,
+  doneDateBounds,
   type GardenPlan,
+  type GardenTask,
+  type GardenTaskKind,
   gardenTasks,
   getPlant,
   type IsoDate,
@@ -15,13 +19,19 @@ import {
 } from "@leira/core"
 import { type ReactNode, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { buttonClass } from "../components/ui"
+import { buttonClass, inputClass } from "../components/ui"
 import { useEditor } from "../editor/useEditor"
 import { currentLanguage } from "../i18n"
 import { yearSpan } from "./layout"
 
 /** How far ahead the list of jobs looks. */
 const TASK_HORIZON_DAYS = 30
+/**
+ * How long a job stays on the list after its day. Long enough to catch up on
+ * a job that slipped, short enough that crops planted before anyone kept
+ * records do not fill the list with jobs nobody is going to tick.
+ */
+const TASK_LOOKBACK_DAYS = 30
 
 const headingClass = "text-xs font-semibold tracking-wide text-stone-500 uppercase"
 
@@ -38,20 +48,27 @@ interface Row {
  */
 export function Calendar({ onOpenPlanting }: { onOpenPlanting(plantingId: string): void }) {
   const plan = useEditor((state) => state.plan)
-  return <PlanCalendar plan={plan} onOpenPlanting={onOpenPlanting} />
+  const recordTask = useEditor((state) => state.recordTask)
+  return <PlanCalendar plan={plan} onOpenPlanting={onOpenPlanting} onRecordTask={recordTask} />
 }
 
 interface PlanCalendarProps {
   plan: GardenPlan
   /** Opens a planting from its line. Without it the lines are only to read. */
   onOpenPlanting?(plantingId: string): void
+  /**
+   * Records a job as done on a day, or as still to do when given null.
+   * Without it the jobs only show what was done.
+   */
+  onRecordTask?(plantingId: string, kind: GardenTaskKind, date: IsoDate | null): boolean
 }
 
 /**
  * A plan's year at a glance: one line per planting with its time indoors,
- * in the ground and in harvest, and the jobs coming up next.
+ * in the ground and in harvest, and the jobs around today: the ones coming
+ * up, the ones that slipped, and the ones just done.
  */
-export function PlanCalendar({ plan, onOpenPlanting }: PlanCalendarProps) {
+export function PlanCalendar({ plan, onOpenPlanting, onRecordTask }: PlanCalendarProps) {
   const { t } = useTranslation()
   const language = currentLanguage()
   const today = toIsoDate(new Date())
@@ -97,8 +114,11 @@ export function PlanCalendar({ plan, onOpenPlanting }: PlanCalendarProps) {
     .sort((a, b) => a.schedule.inGround.from.localeCompare(b.schedule.inGround.from))
 
   const tasks = gardenTasks(plan, getPlant, {
-    from: today,
+    from: addDays(today, -TASK_LOOKBACK_DAYS),
     to: addDays(today, TASK_HORIZON_DAYS),
+  }).flatMap((task) => {
+    const planting = plan.plantings.find((item) => item.id === task.plantingId)
+    return planting ? [{ task, planting }] : []
   })
   const todayMark = yearSpan({ from: today, to: today }, year)
 
@@ -194,7 +214,7 @@ export function PlanCalendar({ plan, onOpenPlanting }: PlanCalendarProps) {
 
       <section aria-labelledby="calendar-tasks" className="flex flex-col gap-2">
         <h2 id="calendar-tasks" className={headingClass}>
-          {t("calendar.comingUp")}
+          {t("calendar.tasks")}
         </h2>
         {tasks.length === 0 ? (
           <p className="text-sm text-stone-600">
@@ -202,23 +222,94 @@ export function PlanCalendar({ plan, onOpenPlanting }: PlanCalendarProps) {
           </p>
         ) : (
           <ul aria-labelledby="calendar-tasks" className="flex flex-col gap-1">
-            {tasks.map((task) => (
-              <li
+            {tasks.map(({ task, planting }) => (
+              <TaskRow
                 key={`${task.plantingId}:${task.kind}`}
-                className="flex items-baseline gap-3 rounded-md border border-stone-200 bg-white px-3 py-2 text-sm"
-              >
-                <span className="w-16 shrink-0 font-medium text-stone-500">{day(task.date)}</span>
-                <span className="text-stone-900">
-                  {t(`calendar.task.${task.kind}`, {
-                    name: getPlant(task.plantId)?.name[language] ?? task.plantId,
-                  })}
-                </span>
-              </li>
+                task={task}
+                planting={planting}
+                day={day(task.date)}
+                text={t(`calendar.task.${task.kind}`, {
+                  name: getPlant(task.plantId)?.name[language] ?? task.plantId,
+                })}
+                today={today}
+                onRecord={onRecordTask && ((date) => onRecordTask(planting.id, task.kind, date))}
+              />
             ))}
           </ul>
         )}
       </section>
     </main>
+  )
+}
+
+interface TaskRowProps {
+  task: GardenTask
+  planting: Planting
+  /** The job's day, as the list writes days. */
+  day: string
+  /** The job in words: "Sow Carrot". */
+  text: string
+  today: IsoDate
+  onRecord?(date: IsoDate | null): boolean
+}
+
+/**
+ * One job. Where the plan can change, a tick marks it done and a done job
+ * shows the day it was done on, to correct: ticking only knows about today.
+ */
+function TaskRow({ task, planting, day, text, today, onRecord }: TaskRowProps) {
+  const { t } = useTranslation()
+  const overdue = !task.done && task.date < today
+  // A harvest is one of several: the planting's own list is where each is changed or removed.
+  const firstHarvest = task.done && task.kind === "harvest"
+  const bounds = doneDateBounds(planting, task.kind)
+  const words = (
+    <>
+      <span className="w-16 shrink-0 font-medium text-stone-500">{day}</span>
+      <span className={task.done ? "text-stone-500 line-through" : "text-stone-900"}>{text}</span>
+    </>
+  )
+  return (
+    <li className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-stone-200 bg-white px-3 py-2 text-sm">
+      {onRecord ? (
+        <label className="flex items-center gap-3">
+          <input
+            type="checkbox"
+            className="size-4 accent-emerald-700"
+            aria-label={text}
+            checked={task.done}
+            disabled={firstHarvest}
+            onChange={(event) =>
+              onRecord(event.target.checked ? defaultDoneDate(planting, task, today) : null)
+            }
+          />
+          {words}
+        </label>
+      ) : (
+        words
+      )}
+      {overdue && (
+        <span className="rounded-sm bg-amber-100 px-1.5 text-xs font-medium text-amber-900">
+          {t("calendar.overdue")}
+        </span>
+      )}
+      {task.done && !onRecord && (
+        <span className="text-xs text-stone-500">{t("calendar.done")}</span>
+      )}
+      {task.done && onRecord && !firstHarvest && (
+        <input
+          type="date"
+          className={`${inputClass} ml-auto`}
+          aria-label={t("calendar.doneOn", { task: text })}
+          value={task.date}
+          min={bounds.min}
+          // Nothing was done on a day still to come.
+          max={bounds.max && bounds.max < today ? bounds.max : today}
+          // An emptied field is someone typing, not a day to record.
+          onChange={(event) => event.target.value && onRecord(event.target.value)}
+        />
+      )}
+    </li>
   )
 }
 
