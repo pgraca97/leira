@@ -9,6 +9,7 @@ export const en = {
     en: "English",
   },
   common: {
+    more: "More",
     retry: "Try again",
     pageNotFound: "This page does not exist.",
   },

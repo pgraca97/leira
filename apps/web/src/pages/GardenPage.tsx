@@ -99,11 +99,10 @@ function LoadedGarden({ garden, view, onReload }: LoadedGardenProps) {
 
   return (
     <div className="flex h-full flex-col">
-      <AppHeader>
+      <AppHeader secondary={<ExportControls gardenName={name} />}>
         <BackLink />
         <ViewSwitch gardenId={garden.id} />
         <NameField name={name} onRename={setName} />
-        <ExportControls gardenName={name} />
         <SaveIndicator status={saveStatus} onRetry={retrySave} onReload={onReload} />
       </AppHeader>
       <div className="min-h-0 flex-1 print:hidden">
@@ -156,7 +155,11 @@ function ViewSwitch({ gardenId }: { gardenId: string }) {
   )
 }
 
-/** The garden's name, edited in place. An empty name snaps back to the saved one. */
+/**
+ * The garden's name, edited in place. An empty name snaps back to the saved one.
+ * On a narrow screen the field takes what is left of its line, so the save
+ * status and the menu stay beside it.
+ */
 function NameField({ name, onRename }: { name: string; onRename(name: string): boolean }) {
   const { t } = useTranslation()
   const [draft, setDraft] = useState(name)
@@ -165,7 +168,7 @@ function NameField({ name, onRename }: { name: string; onRename(name: string): b
     <input
       type="text"
       aria-label={t("garden.nameLabel")}
-      className={`${inputClass} w-48 font-medium`}
+      className={`${inputClass} min-w-24 flex-1 font-medium sm:w-48 sm:flex-none`}
       maxLength={GARDEN_NAME_MAX}
       value={draft}
       onChange={(event) => {

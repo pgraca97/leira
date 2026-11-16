@@ -11,6 +11,7 @@ export const pt: Translation = {
     en: "English",
   },
   common: {
+    more: "Mais",
     retry: "Tentar de novo",
     pageNotFound: "Esta página não existe.",
   },

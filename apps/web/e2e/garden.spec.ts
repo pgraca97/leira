@@ -298,6 +298,28 @@ test.describe("on a phone", () => {
     expect(garden.x + garden.width).toBeLessThanOrEqual(SCREEN.width)
     await expect(page.locator("html")).toHaveJSProperty("scrollWidth", SCREEN.width)
   })
+
+  test("the header keeps to two lines, with the rest behind a menu", async ({ page }) => {
+    await page.goto("/")
+    await page.getByRole("button", { name: "See an example" }).click()
+    await expect(page.getByTestId("garden-canvas")).toHaveAttribute("data-status", "ready")
+
+    const header = await page.getByRole("banner").boundingBox()
+    if (!header) throw new Error("The header is not on the page")
+    expect(header.height).toBeLessThanOrEqual(110)
+    // What matters while drawing stays in sight.
+    await expect(page.getByRole("textbox", { name: "Garden name" })).toBeVisible()
+    await expect(page.getByText("Saved", { exact: true })).toBeVisible()
+
+    const print = page.getByRole("button", { name: "Print" })
+    const language = page.getByRole("combobox", { name: "Language" })
+    await expect(print).toBeHidden()
+    await expect(language).toBeHidden()
+    await page.getByRole("button", { name: "More" }).click()
+    await expect(print).toBeVisible()
+    await language.selectOption("pt")
+    await expect(page.getByRole("button", { name: "Mais" })).toBeVisible()
+  })
 })
 
 test("the interface switches to Portuguese", async ({ page }) => {
