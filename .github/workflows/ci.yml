@@ -95,7 +95,11 @@ jobs:
         # A migration must therefore leave the Worker that is still live working.
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        run: pnpm supabase db push --remote="$SUPABASE_PROJECT_REF" --yes
+        # Linked first: the database's own host has only an IPv6 address, which
+        # the runners cannot reach, and linking finds the IPv4 connection pooler.
+        run: |
+          pnpm supabase link --project-ref "$SUPABASE_PROJECT_REF" --yes
+          pnpm supabase db push --remote --yes
 
       - run: pnpm --filter @leira/web build
 
