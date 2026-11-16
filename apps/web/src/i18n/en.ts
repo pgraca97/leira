@@ -197,6 +197,7 @@ export const en = {
     },
     tasks: "Jobs",
     overdue: "overdue",
+    tooSoon: "not in the ground yet",
     done: "done",
     doneOn: "{{task}}: done on",
     noTasks: "Nothing to do in the next {{days}} days.",

@@ -251,8 +251,27 @@ describe("defaultDoneDate", () => {
     expect(defaultDoneDate(tomatoes, sowing, "2026-04-30")).toBe("2026-04-30")
   })
 
-  it("is the planned day when today is too early for the job", () => {
+  it("is no day at all for a job that cannot have been done yet", () => {
+    // Not in the ground until May: nothing was picked or cleared in April.
     const harvest = { kind: "harvest", date: "2026-06-30" } as const
-    expect(defaultDoneDate(tomatoes, harvest, "2026-04-20")).toBe("2026-06-30")
+    const clear = { kind: "clear", date: "2026-09-30" } as const
+    expect(defaultDoneDate(tomatoes, harvest, "2026-04-20")).toBeNull()
+    expect(defaultDoneDate(tomatoes, clear, "2026-04-20")).toBeNull()
+    expect(defaultDoneDate(tomatoes, clear, "2026-05-01")).toBe("2026-05-01")
+  })
+
+  it("never is a day still to come", () => {
+    const kinds = ["sow-indoors", "transplant", "harvest", "clear"] as const
+    const days = ["2026-01-01", "2026-04-30", "2026-05-01", "2026-07-15", "2026-12-31"]
+    for (const today of days) {
+      for (const task of gardenTasks({ ...emptyPlan(), plantings: [tomatoes] }, getPlant, {
+        from: "2026-01-01",
+        to: "2026-12-31",
+      })) {
+        expect(kinds).toContain(task.kind)
+        const day = defaultDoneDate(tomatoes, task, today)
+        if (day !== null) expect(day <= today).toBe(true)
+      }
+    }
   })
 })

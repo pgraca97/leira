@@ -149,6 +149,22 @@ describe("the jobs", () => {
     expect(screen.getByRole("checkbox", { name: "Sow Cucumber indoors" })).toBeChecked()
   })
 
+  it("does not take a job that cannot have been done yet, and says why", async () => {
+    // Sown in five days' time and out again in May: it cannot have been cleared today.
+    show([planting("short", "carrot", "2026-04-25", "2026-05-10")])
+    expect(jobs()).toEqual(["Apr 25Sow Carrot", "May 10Clear Carrotnot in the ground yet"])
+    expect(screen.getByRole("checkbox", { name: "Clear Carrot" })).toBeDisabled()
+
+    // Once it is in the ground, it can come out.
+    await userEvent.click(screen.getByRole("checkbox", { name: "Sow Carrot" }))
+    expect(screen.getByRole("checkbox", { name: "Clear Carrot" })).toBeEnabled()
+    await userEvent.click(screen.getByRole("checkbox", { name: "Clear Carrot" }))
+    expect(stored()).toMatchObject({
+      cleared: true,
+      inGround: { from: "2026-04-20", to: "2026-04-20" },
+    })
+  })
+
   it("lets the day of a done job be corrected, up to today", async () => {
     show([planting("late", "carrot", "2026-04-15", "2026-08-03")])
     expect(screen.queryByLabelText("Sow Carrot: done on")).toBeNull()

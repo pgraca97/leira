@@ -263,6 +263,9 @@ function TaskRow({ task, planting, day, text, today, onRecord }: TaskRowProps) {
   // A harvest is one of several: the planting's own list is where each is changed or removed.
   const firstHarvest = task.done && task.kind === "harvest"
   const bounds = doneDateBounds(planting, task.kind)
+  // The day a tick would record. None means the job cannot have been done yet.
+  const tickDay = defaultDoneDate(planting, task, today)
+  const tooSoon = !task.done && tickDay === null
   const words = (
     <>
       <span className="w-16 shrink-0 font-medium text-stone-500">{day}</span>
@@ -278,10 +281,8 @@ function TaskRow({ task, planting, day, text, today, onRecord }: TaskRowProps) {
             className="size-4 accent-emerald-700"
             aria-label={text}
             checked={task.done}
-            disabled={firstHarvest}
-            onChange={(event) =>
-              onRecord(event.target.checked ? defaultDoneDate(planting, task, today) : null)
-            }
+            disabled={firstHarvest || tooSoon}
+            onChange={(event) => onRecord(event.target.checked ? tickDay : null)}
           />
           {words}
         </label>
@@ -292,6 +293,9 @@ function TaskRow({ task, planting, day, text, today, onRecord }: TaskRowProps) {
         <span className="rounded-sm bg-amber-100 px-1.5 text-xs font-medium text-amber-900">
           {t("calendar.overdue")}
         </span>
+      )}
+      {onRecord && tooSoon && (
+        <span className="text-xs text-stone-500">{t("calendar.tooSoon")}</span>
       )}
       {task.done && !onRecord && (
         <span className="text-xs text-stone-500">{t("calendar.done")}</span>

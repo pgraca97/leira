@@ -200,6 +200,7 @@ export const pt: Translation = {
     },
     tasks: "Tarefas",
     overdue: "atrasada",
+    tooSoon: "ainda não está na terra",
     done: "feita",
     doneOn: "{{task}}: feita a",
     noTasks: "Nada para fazer nos próximos {{days}} dias.",

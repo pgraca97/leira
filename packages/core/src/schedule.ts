@@ -123,12 +123,17 @@ export function gardenTasks(
  * The day to record a job on when it is only ticked off: today where the
  * planting's other dates allow it, otherwise the day it was planned for. A
  * sowing of seedlings ticked after they went out, say, was not done today.
+ *
+ * Null when neither will do, because the planned day is still to come: a crop
+ * not yet in the ground cannot have been picked or cleared, and nothing is
+ * recorded as done on a day that has not arrived.
  */
 export function defaultDoneDate(
   planting: Planting,
   task: Pick<GardenTask, "kind" | "date">,
   today: IsoDate
-): IsoDate {
+): IsoDate | null {
   const { min, max } = doneDateBounds(planting, task.kind)
-  return (!min || min <= today) && (!max || today <= max) ? today : task.date
+  if ((!min || min <= today) && (!max || today <= max)) return today
+  return task.date <= today ? task.date : null
 }
