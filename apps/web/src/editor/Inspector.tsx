@@ -3,6 +3,7 @@ import {
   BED_KINDS,
   type BedKind,
   findCompanions,
+  findOutOfSeason,
   findRotationConflicts,
   getPlant,
   isInGround,
@@ -18,6 +19,7 @@ import { CommitField } from "../components/CommitField"
 import { dangerButtonClass, inputClass, toggleButtonClass } from "../components/ui"
 import { currentLanguage } from "../i18n"
 import { PlantingMarks, PlantingRecord } from "./PlantingRecord"
+import { monthName, seasonText } from "./season"
 import { editorStore, selectedBed, selectedPlanting } from "./store"
 import { useEditor } from "./useEditor"
 
@@ -73,6 +75,7 @@ export function Inspector({ children }: { children?: ReactNode }) {
     return item?.plant?.name[language] ?? ""
   }
   const companions = findCompanions(plan, getPlant)
+  const outOfSeason = findOutOfSeason(plan, getPlant)
 
   const bed = selectedBed({ plan, selection })
   const planted = plantings.find((item) => item.planting === selectedPlanting({ plan, selection }))
@@ -323,6 +326,35 @@ export function Inspector({ children }: { children?: ReactNode }) {
                         : t("rotation.yearsBefore", { count: conflict.yearsApart }),
                     years: ROTATION_YEARS,
                     family: t(`rotation.family.${conflict.family}`),
+                  })}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {outOfSeason.length > 0 && (
+        <section aria-labelledby="inspector-season">
+          <h3
+            id="inspector-season"
+            className="mb-1 text-xs font-semibold tracking-wide text-amber-800 uppercase"
+          >
+            {t("season.title")}
+          </h3>
+          <ul className="flex flex-col gap-1">
+            {outOfSeason.map((late) => (
+              <li key={late.plantingId}>
+                <button
+                  type="button"
+                  className={`${toggleButtonClass} bg-amber-50 text-amber-900`}
+                  aria-pressed={selection?.kind === "planting" && selection.id === late.plantingId}
+                  onClick={() => select({ kind: "planting", id: late.plantingId })}
+                >
+                  {t("season.outOfSeason", {
+                    name: plantNameOf(late.plantingId),
+                    month: monthName(late.month, language),
+                    season: seasonText(getPlant(late.plantId)?.groundMonths ?? [], language, t),
                   })}
                 </button>
               </li>

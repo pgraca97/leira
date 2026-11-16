@@ -209,6 +209,20 @@ export const en = {
       clear: "Clear {{name}}",
     },
   },
+  season: {
+    range: "{{from}} to {{to}}",
+    allYear: "all year",
+    title: "Out of season",
+    outOfSeason: "{{name}} goes in the ground in {{month}}. Season: {{season}}.",
+    goesIn: "Goes in the ground: {{season}}.",
+    startNow: "To sow or plant now",
+    nothingNow: "Nothing to sow or plant in {{month}}.",
+    way: {
+      "sow-indoors": "sow under cover",
+      sow: "sow",
+      transplant: "plant out",
+    },
+  },
   record: {
     planted: "In the ground",
     cleared: "Cleared",

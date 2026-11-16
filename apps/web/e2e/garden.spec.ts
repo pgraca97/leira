@@ -99,6 +99,34 @@ test("a planting shows on the calendar and on the day it is in the ground", asyn
   await expect(page.getByRole("region", { name: "Selected" })).toContainText("Tomato")
 })
 
+test("the crop list narrows to what the month allows, and a crop says its season", async ({
+  page,
+}) => {
+  await page.goto("/")
+  await page.getByRole("button", { name: "New garden" }).click()
+  const crops = page.getByRole("region", { name: "Plants" }).getByRole("button")
+  // Counted once the editor is up: before that the list is not there to count.
+  await expect(page.getByRole("button", { name: "Tomato" })).toBeVisible()
+  const all = await crops.count()
+
+  // Whatever the month, some crops can be started and some cannot.
+  await page.getByRole("checkbox", { name: "To sow or plant now" }).check()
+  await expect(crops.first()).toContainText(/sow|plant out/)
+  expect(await crops.count()).toBeLessThan(all)
+  await page.getByRole("checkbox", { name: "To sow or plant now" }).uncheck()
+  await expect(crops).toHaveCount(all)
+
+  await page.getByRole("button", { name: "Tomato" }).click()
+  await expect(page.getByText(/^Goes in the ground: /)).toBeVisible()
+
+  // A tomato planted out in January is flagged, and the flag leads to it.
+  const year = new Date().getFullYear()
+  await page.getByLabel("Show the garden on").fill(`${year + 1}-01-15`)
+  await dragOnCanvas(page, [0.4, 0.4], [0.6, 0.6])
+  const warning = page.getByRole("region", { name: "Out of season" }).getByRole("button")
+  await expect(warning).toContainText("Tomato goes in the ground in January")
+})
+
 test("the plan can be saved as an image and printed", async ({ page }) => {
   await page.goto("/")
   await page.getByRole("button", { name: "New garden" }).click()

@@ -212,6 +212,20 @@ export const pt: Translation = {
       clear: "Retirar {{name}}",
     },
   },
+  season: {
+    range: "{{from}} a {{to}}",
+    allYear: "todo o ano",
+    title: "Fora de época",
+    outOfSeason: "{{name}} vai para a terra em {{month}}. Época: {{season}}.",
+    goesIn: "Vai para a terra: {{season}}.",
+    startNow: "Para semear ou plantar agora",
+    nothingNow: "Nada para semear ou plantar em {{month}}.",
+    way: {
+      "sow-indoors": "semear em interior",
+      sow: "semear",
+      transplant: "plantar",
+    },
+  },
   record: {
     planted: "Já está na terra",
     cleared: "Já foi retirado",

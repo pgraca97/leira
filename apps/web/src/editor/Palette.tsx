@@ -1,8 +1,9 @@
-import { getPlant, PLANTS, relationBetween } from "@leira/core"
+import { getPlant, PLANTS, relationBetween, startsOn, toIsoDate } from "@leira/core"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { inputClass, toggleButtonClass } from "../components/ui"
 import { currentLanguage } from "../i18n"
+import { monthName, seasonText } from "./season"
 import { editorStore } from "./store"
 import { useEditor } from "./useEditor"
 
@@ -10,10 +11,14 @@ import { useEditor } from "./useEditor"
 export function Palette() {
   const { t } = useTranslation()
   const tool = useEditor((state) => state.tool)
+  const viewDate = useEditor((state) => state.viewDate)
   const { setTool } = editorStore.getState()
   const language = currentLanguage()
 
   const [search, setSearch] = useState("")
+  const [startNow, setStartNow] = useState(false)
+  // "Now" is the day the garden is shown on, so next spring can be planned in winter.
+  const now = viewDate ?? toIsoDate(new Date())
 
   // Alphabetical in the language in use: with dozens of plants, that is how one is found.
   const sorted = [...PLANTS].sort((a, b) =>
@@ -22,11 +27,14 @@ export function Palette() {
   // A plant matches on its name, its botanical name, or its family, the unit
   // crop rotation works in ("nightshades" finds tomatoes and potatoes alike).
   const wanted = foldText(search.trim())
-  const shown = sorted.filter((plant) =>
-    [plant.name[language], plant.latin, t(`rotation.family.${plant.family}`)].some((text) =>
-      foldText(text).includes(wanted)
+  const shown = sorted
+    .filter((plant) =>
+      [plant.name[language], plant.latin, t(`rotation.family.${plant.family}`)].some((text) =>
+        foldText(text).includes(wanted)
+      )
     )
-  )
+    .map((plant) => ({ plant, ways: startNow ? startsOn(plant, now) : [] }))
+    .filter(({ ways }) => !startNow || ways.length > 0)
 
   // Advice for the plant about to be placed: who to put it next to, who to keep it from.
   const chosen = tool.kind === "plant" ? getPlant(tool.plantId) : undefined
@@ -88,14 +96,25 @@ export function Palette() {
           value={search}
           onChange={(event) => setSearch(event.target.value)}
         />
+        <label className="mb-1 flex items-center gap-1.5 text-sm text-stone-800">
+          <input
+            type="checkbox"
+            className="size-4 accent-emerald-700"
+            checked={startNow}
+            onChange={(event) => setStartNow(event.target.checked)}
+          />
+          {t("season.startNow")}
+        </label>
         {shown.length === 0 && (
           <p className="text-sm text-stone-600">
-            {t("editor.noPlantMatches", { search: search.trim() })}
+            {wanted
+              ? t("editor.noPlantMatches", { search: search.trim() })
+              : t("season.nothingNow", { month: monthName(Number(now.slice(5, 7)), language) })}
           </p>
         )}
         {/* One row to swipe through on small screens, where the palette sits above the canvas. */}
         <ul className="flex gap-1 overflow-x-auto pb-1 lg:grid lg:grid-cols-1 lg:overflow-visible lg:pb-0">
-          {shown.map((plant) => (
+          {shown.map(({ plant, ways }) => (
             <li key={plant.id} className="shrink-0 whitespace-nowrap lg:shrink">
               <button
                 type="button"
@@ -109,6 +128,11 @@ export function Palette() {
                   style={{ backgroundColor: plant.color }}
                 />
                 {plant.name[language]}
+                {ways.length > 0 && (
+                  <span className="ml-auto pl-2 text-xs font-normal text-stone-500">
+                    {ways.map((way) => t(`season.way.${way}`)).join(", ")}
+                  </span>
+                )}
               </button>
             </li>
           ))}
@@ -118,6 +142,7 @@ export function Palette() {
       <p className="text-xs text-stone-600">{hint}</p>
       {chosen && (
         <div className="flex flex-col gap-1 text-xs text-stone-600">
+          <p>{t("season.goesIn", { season: seasonText(chosen.groundMonths, language, t) })}</p>
           {neighbours("good").length > 0 && (
             <p>{t("companions.goodWith", { names: neighbours("good").join(", ") })}</p>
           )}

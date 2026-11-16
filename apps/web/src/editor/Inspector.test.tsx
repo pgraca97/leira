@@ -2,11 +2,13 @@
 import "../test/setup"
 import "../i18n"
 import type { PlanItemRef } from "@leira/core"
-import { type Bed, emptyPlan, type Planting } from "@leira/core"
+import { type Bed, emptyPlan, getPlant, type Planting } from "@leira/core"
 import { act, fireEvent, render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, expect, it } from "vitest"
+import { i18n } from "../i18n"
 import { Inspector } from "./Inspector"
+import { monthName, seasonText } from "./season"
 import { editorStore } from "./store"
 
 function planting(id: string, plantId: string, from: string, to: string, x = 0): Planting {
@@ -283,5 +285,37 @@ describe("the garden's notes", () => {
 
     expect(screen.getByLabelText("Garden notes")).toHaveValue("Dry year.")
     expect(screen.getByLabelText("Garden notes")).toHaveAttribute("maxlength", "5000")
+  })
+})
+
+describe("out of season warnings", () => {
+  const tomato = getPlant("tomato")
+  if (!tomato) throw new Error("No tomato in the catalogue")
+  const good = tomato.groundMonths[0] as number
+  const bad = ([1, 12] as const).find((month) => !tomato.groundMonths.includes(month)) as number
+  const day = (month: number) => `2026-${String(month).padStart(2, "0")}-10`
+
+  it("warns about a crop that goes in the ground outside its season, and says when that is", () => {
+    show([planting("early", "tomato", day(bad), "2026-12-31")])
+    const warnings = screen.getByRole("region", { name: "Out of season" })
+    expect(within(warnings).getByRole("button")).toHaveTextContent(
+      `Tomato goes in the ground in ${monthName(bad, "en")}. Season: ${seasonText(tomato.groundMonths, "en", i18n.getFixedT("en"))}.`
+    )
+  })
+
+  it("selects the planting to move when its warning is clicked", async () => {
+    show([planting("early", "tomato", day(bad), "2026-12-31")])
+    await userEvent.click(
+      within(screen.getByRole("region", { name: "Out of season" })).getByRole("button")
+    )
+    expect(editorStore.getState().selection).toEqual({ kind: "planting", id: "early" })
+  })
+
+  it("stays quiet for a crop in season, and for one already in the ground", () => {
+    show([
+      planting("fine", "tomato", day(good), "2026-12-31"),
+      { ...planting("done", "tomato", day(bad), "2026-12-31", 300), planted: true },
+    ])
+    expect(screen.queryByRole("region", { name: "Out of season" })).toBeNull()
   })
 })
