@@ -204,6 +204,63 @@ test("a new visitor opens the example garden and finds the advice at work", asyn
   await expect(page.getByRole("button", { name: "See an example" })).toHaveCount(0)
 })
 
+test("the canvas zooms with its buttons and goes back to fitting the garden", async ({ page }) => {
+  await page.goto("/")
+  await page.getByRole("button", { name: "New garden" }).click()
+  await expect(page.getByTestId("garden-canvas")).toHaveAttribute("data-status", "ready")
+
+  const fit = page.getByRole("button", { name: "Fit the garden to the view" })
+  const zoomIn = page.getByRole("button", { name: "Zoom in" })
+  const zoomOut = page.getByRole("button", { name: "Zoom out" })
+  // A new garden opens fitted to the view.
+  await expect(fit).toBeDisabled()
+
+  await zoomIn.click()
+  await expect(fit).toBeEnabled()
+  await fit.click()
+  await expect(fit).toBeDisabled()
+
+  // The view goes out to half the size that fits, and no further.
+  for (let press = 0; press < 4; press += 1) await zoomOut.click()
+  await expect(zoomOut).toBeDisabled()
+  await expect(zoomIn).toBeEnabled()
+})
+
+test.describe("on a touch screen", () => {
+  test.use({ hasTouch: true })
+
+  test("two fingers pinch the canvas to zoom, without drawing anything", async ({ page }) => {
+    await page.goto("/")
+    await page.getByRole("button", { name: "New garden" }).click()
+    const canvas = page.getByTestId("garden-canvas")
+    await expect(canvas).toHaveAttribute("data-status", "ready")
+    const fit = page.getByRole("button", { name: "Fit the garden to the view" })
+    await expect(fit).toBeDisabled()
+
+    // With the bed tool, one finger draws. Two must still zoom.
+    await page.getByRole("button", { name: "Bed", exact: true }).click()
+    const box = await canvas.boundingBox()
+    if (!box) throw new Error("The canvas is not on the page")
+    const centre = { x: box.x + box.width / 2, y: box.y + box.height / 2 }
+    const fingers = (apart: number) => [
+      { x: centre.x - apart, y: centre.y, id: 1 },
+      { x: centre.x + apart, y: centre.y, id: 2 },
+    ]
+    const session = await page.context().newCDPSession(page)
+    const touch = (
+      type: "touchStart" | "touchMove" | "touchEnd",
+      touchPoints: { x: number; y: number; id: number }[]
+    ) => session.send("Input.dispatchTouchEvent", { type, touchPoints })
+    await touch("touchStart", fingers(40).slice(0, 1))
+    await touch("touchStart", fingers(40))
+    for (const apart of [60, 80, 100, 120]) await touch("touchMove", fingers(apart))
+    await touch("touchEnd", [])
+
+    await expect(fit).toBeEnabled()
+    await expect(page.getByRole("button", { name: /^Bed 1/ })).toHaveCount(0)
+  })
+})
+
 test("the interface switches to Portuguese", async ({ page }) => {
   await page.goto("/")
   await page.getByRole("combobox", { name: "Language" }).selectOption("pt")

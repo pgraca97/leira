@@ -22,8 +22,9 @@ import {
 } from "@leira/core"
 import Phaser from "phaser"
 import { BED_STYLE, GROUND_STYLE } from "../bedStyles"
-import { type EditorState, editorStore, shownPlan, type Tool } from "../store"
+import { type EditorState, editorStore, shownPlan, type Tool, type ViewAction } from "../store"
 import { cursorFor, pointerTarget } from "./pointerTarget"
+import { clampZoom, pinchZoom, scrollToKeep, viewState, ZOOM_STEP, zoomLimits } from "./zoom"
 
 /** Registry key under which the host page publishes `window.devicePixelRatio`. */
 export const PIXEL_RATIO_KEY = "pixelRatio"
@@ -46,10 +47,6 @@ const DEPTH = { ground: 0, grid: 1, beds: 10, plantings: 20, outlines: 30, overl
 const DRAG_THRESHOLD_PX = 4
 /** Zoom change per unit of wheel delta. A mouse wheel notch is about 100 units. */
 const WHEEL_ZOOM_RATE = 0.0015
-/** Closest zoom, in screen pixels per centimetre. */
-const MAX_ZOOM_PX_PER_CM = 8
-/** How far out the view may zoom, relative to the zoom that fits the whole garden. */
-const MIN_ZOOM_FACTOR = 0.5
 /** Space kept around the garden when fitting it to the view, in screen pixels. */
 const FIT_MARGIN_PX = 32
 /** Grid cells narrower than this on screen are not drawn. */
@@ -75,6 +72,8 @@ type Gesture =
   | (Press & { kind: "draw"; start: Point; end: Point })
   | (Press & { kind: "move"; ref: PlanItemRef; start: Point; end: Point })
   | (Press & { kind: "resize"; ref: PlanItemRef; handle: ResizeHandle; end: Point })
+  /** Two fingers: `anchor` is the garden point that started between them and stays there. */
+  | { kind: "pinch"; startDistance: number; startZoom: number; anchor: Point }
 
 type EditGesture = Extract<Gesture, { kind: "move" | "resize" }>
 
@@ -134,6 +133,8 @@ export class GardenScene extends Phaser.Scene {
     this.draftLabel = this.add.text(0, 0, "", this.labelStyle()).setDepth(DEPTH.overlay)
     this.draftLabel.setVisible(false)
 
+    // Phaser starts with one touch pointer. A pinch needs a second.
+    this.input.addPointer(1)
     this.input.on(Phaser.Input.Events.POINTER_DOWN, this.onPointerDown, this)
     this.input.on(Phaser.Input.Events.POINTER_MOVE, this.onPointerMove, this)
     this.input.on(Phaser.Input.Events.POINTER_UP, this.onPointerUp, this)
@@ -174,6 +175,9 @@ export class GardenScene extends Phaser.Scene {
       this.drawOutlines(next)
     }
     if (next.tool !== previous.tool) this.applyTool(next.tool)
+    if (next.viewRequest && next.viewRequest !== previous.viewRequest) {
+      this.applyViewRequest(next.viewRequest.action)
+    }
   }
 
   /** Brings the views in line with the plan: adds, redraws and removes by id. */
@@ -376,7 +380,20 @@ export class GardenScene extends Phaser.Scene {
   // --- Pointer -> store ----------------------------------------------------
 
   private onPointerDown(pointer: Phaser.Input.Pointer): void {
-    // A second finger or button while a gesture is running is ignored.
+    // A second finger turns whatever the first one was doing into a pinch:
+    // with a drawing tool, one finger draws, so two are the only way to zoom and move.
+    const fingers = this.fingers()
+    if (fingers) {
+      this.clearDraft()
+      this.gesture = {
+        kind: "pinch",
+        startDistance: distance(...fingers),
+        startZoom: this.cameras.main.zoom,
+        anchor: this.worldPoint(midpoint(...fingers)),
+      }
+      return
+    }
+    // A second mouse button while a gesture is running is ignored.
     if (this.gesture) return
     const { tool } = editorStore.getState()
     const press = { downX: pointer.x, downY: pointer.y, moved: false }
@@ -411,6 +428,14 @@ export class GardenScene extends Phaser.Scene {
     const gesture = this.gesture
     if (!gesture) {
       this.showHoverCursor(pointer)
+      return
+    }
+    if (gesture.kind === "pinch") {
+      const fingers = this.fingers()
+      if (!fingers) return
+      const zoom = pinchZoom(gesture.startZoom, gesture.startDistance, distance(...fingers))
+      // Anchored to where the pinch began, so moving both fingers also moves the garden.
+      this.zoomAbout(midpoint(...fingers), zoom, gesture.anchor)
       return
     }
     if (!gesture.moved) {
@@ -449,6 +474,8 @@ export class GardenScene extends Phaser.Scene {
     const gesture = this.gesture
     if (!gesture) return
     this.gesture = null
+    // The pinch ends with the first finger to lift. The other one does nothing more.
+    if (gesture.kind === "pinch") return
     const state = editorStore.getState()
 
     if (gesture.kind === "pan") {
@@ -488,19 +515,39 @@ export class GardenScene extends Phaser.Scene {
     _deltaX: number,
     deltaY: number
   ): void {
+    this.zoomAbout(pointer, this.cameras.main.zoom * Math.exp(-deltaY * WHEEL_ZOOM_RATE))
+  }
+
+  /** What a zoom button asked for. The buttons zoom about the middle of the view. */
+  private applyViewRequest(action: ViewAction): void {
     const camera = this.cameras.main
-    const anchor = this.worldPoint(pointer)
-    const zoom = Phaser.Math.Clamp(
-      camera.zoom * Math.exp(-deltaY * WHEEL_ZOOM_RATE),
-      this.fitZoom * MIN_ZOOM_FACTOR,
-      Math.max(this.fitZoom, MAX_ZOOM_PX_PER_CM * this.pixelRatio)
-    )
-    camera.setZoom(zoom)
-    // Scroll so the point under the cursor stays under the cursor.
-    camera.scrollX = anchor.x - camera.width / 2 - (pointer.x - camera.width / 2) / zoom
-    camera.scrollY = anchor.y - camera.height / 2 - (pointer.y - camera.height / 2) / zoom
+    if (action === "fit") {
+      this.fitToView()
+      return
+    }
+    const centre = { x: camera.width / 2, y: camera.height / 2 }
+    this.zoomAbout(centre, action === "zoom-in" ? camera.zoom * ZOOM_STEP : camera.zoom / ZOOM_STEP)
+  }
+
+  /**
+   * Changes the zoom, within its limits, so that the garden point `world`
+   * ends up at the screen point `screen`. By default that is the point
+   * already there, which then stays put: under the cursor, say.
+   */
+  private zoomAbout(screen: Point, zoom: number, world: Point = this.worldPoint(screen)): void {
+    const camera = this.cameras.main
+    camera.setZoom(clampZoom(zoom, zoomLimits(this.fitZoom, this.pixelRatio)))
+    const { scrollX, scrollY } = scrollToKeep(world, screen, camera.zoom, camera)
+    camera.scrollX = scrollX
+    camera.scrollY = scrollY
     this.viewTouched = true
     this.onViewChanged()
+  }
+
+  /** The two touches of a pinch, when two fingers are down. */
+  private fingers(): [Point, Point] | null {
+    const { pointer1, pointer2 } = this.input
+    return pointer1?.isDown && pointer2?.isDown ? [pointer1, pointer2] : null
   }
 
   /** Shows what releasing the pointer now would create. */
@@ -628,22 +675,25 @@ export class GardenScene extends Phaser.Scene {
     this.drawGrid()
     this.drawOutlines(editorStore.getState())
     this.layoutLabels()
+    // The zoom buttons live outside the canvas: tell them what is still possible.
+    const limits = zoomLimits(this.fitZoom, this.pixelRatio)
+    editorStore.getState().reportView(viewState(camera.zoom, limits, !this.viewTouched))
     const gesture = this.gesture
-    if (!gesture?.moved) return
+    if (!gesture || gesture.kind === "pinch" || !gesture.moved) return
     if (gesture.kind === "draw") this.drawDraft(gesture)
     else if (gesture.kind !== "pan") this.drawEditPreview(gesture)
   }
 
   /**
-   * Converts a pointer position to garden coordinates. Worked out from the
+   * Converts a position on the canvas, a pointer's say, to garden coordinates. Worked out from the
    * camera's scroll and zoom rather than read from `pointer.worldX`, which is
    * only refreshed once per frame and lags behind a zoom made in the same event.
    */
-  private worldPoint(pointer: Phaser.Input.Pointer): Point {
+  private worldPoint(screen: Point): Point {
     const camera = this.cameras.main
     return {
-      x: camera.scrollX + camera.width / 2 + (pointer.x - camera.width / 2) / camera.zoom,
-      y: camera.scrollY + camera.height / 2 + (pointer.y - camera.height / 2) / camera.zoom,
+      x: camera.scrollX + camera.width / 2 + (screen.x - camera.width / 2) / camera.zoom,
+      y: camera.scrollY + camera.height / 2 + (screen.y - camera.height / 2) / camera.zoom,
     }
   }
 
@@ -672,6 +722,14 @@ export class GardenScene extends Phaser.Scene {
       strokeThickness: 3 * this.pixelRatio,
     }
   }
+}
+
+function distance(a: Point, b: Point): number {
+  return Math.hypot(a.x - b.x, a.y - b.y)
+}
+
+function midpoint(a: Point, b: Point): Point {
+  return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
 }
 
 /** Items later in the plan are drawn above earlier ones of the same kind. */

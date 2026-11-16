@@ -23,9 +23,13 @@ import {
 } from "@leira/core"
 import { temporal } from "zundo"
 import { createStore } from "zustand/vanilla"
+import type { ViewState } from "./canvas/zoom"
 
 /** What a press on the canvas does. */
 export type Tool = { kind: "select" } | { kind: "bed" } | { kind: "plant"; plantId: string }
+
+/** A change to the canvas's view that a control outside it can ask for. */
+export type ViewAction = "zoom-in" | "zoom-out" | "fit"
 
 export interface EditorState {
   /** The document being edited. Replaced, never mutated, so `===` detects any change. */
@@ -39,6 +43,13 @@ export interface EditorState {
    * drawn, and new plantings start on it. Null shows the whole plan at once.
    */
   viewDate: IsoDate | null
+  /** What the canvas can still do with its view. The canvas owns the view and reports this. */
+  view: ViewState
+  /**
+   * The latest change of view asked of the canvas. A new object each time, so
+   * asking twice for the same thing is two requests.
+   */
+  viewRequest: { action: ViewAction } | null
 
   /** Replaces the document, e.g. after loading it. Clears the undo history. */
   loadPlan(plan: GardenPlan): void
@@ -77,6 +88,10 @@ export interface EditorState {
   setLocale(locale: "pt" | "en"): void
   /** Sets the day to show. Null, or anything that is not a date, shows the whole plan. */
   setViewDate(date: IsoDate | null): void
+  /** Asks the canvas to zoom or to fit the garden. */
+  requestView(action: ViewAction): void
+  /** For the canvas: says what its view can still do. Nothing is stored when nothing changed. */
+  reportView(view: ViewState): void
 }
 
 const UNDO_LIMIT = 100
@@ -109,6 +124,8 @@ export const editorStore = createStore<EditorState>()(
         tool: { kind: "select" },
         locale: "en",
         viewDate: null,
+        view: { canZoomIn: true, canZoomOut: true, fitted: true },
+        viewRequest: null,
 
         loadPlan: (plan) => {
           const history = editorStore.temporal.getState()
@@ -249,6 +266,18 @@ export const editorStore = createStore<EditorState>()(
         select: (selection) => set({ selection }),
         setTool: (tool) => set({ tool }),
         setLocale: (locale) => set({ locale }),
+        requestView: (action) => set({ viewRequest: { action } }),
+        reportView: (view) => {
+          const known = get().view
+          if (
+            known.canZoomIn === view.canZoomIn &&
+            known.canZoomOut === view.canZoomOut &&
+            known.fitted === view.fitted
+          ) {
+            return
+          }
+          set({ view })
+        },
         setViewDate: (date) =>
           set({
             viewDate:

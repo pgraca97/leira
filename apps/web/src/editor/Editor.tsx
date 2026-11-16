@@ -9,6 +9,7 @@ import { Palette } from "./Palette"
 import { editorStore, redo, undo } from "./store"
 import { useHistory } from "./useEditor"
 import { useEditorShortcuts } from "./useEditorShortcuts"
+import { ZoomControls } from "./ZoomControls"
 
 /**
  * The garden editor: palette, canvas and inspector around the shared editor store.
@@ -41,6 +42,10 @@ export function Editor({ aside }: { aside?: ReactNode }) {
             </button>
           </div>
           <DateFilter />
+        </div>
+        {/* In the bottom corner, where a thumb reaches and no label of the plan starts. */}
+        <div className="absolute right-2 bottom-2">
+          <ZoomControls />
         </div>
       </main>
       <Inspector>{aside}</Inspector>

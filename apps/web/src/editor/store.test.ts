@@ -104,6 +104,47 @@ describe("setPlantingSowDate", () => {
   })
 })
 
+describe("the view of the canvas", () => {
+  // The store outlives each test: leave the view as a new canvas would find it.
+  afterEach(() => {
+    state().reportView({ canZoomIn: true, canZoomOut: true, fitted: true })
+  })
+
+  it("starts fitted to the garden, free to zoom either way", () => {
+    expect(state().view).toEqual({ canZoomIn: true, canZoomOut: true, fitted: true })
+  })
+
+  it("passes a request on to the canvas, a new one each time it is asked", () => {
+    state().requestView("zoom-in")
+    const first = state().viewRequest
+    expect(first).toEqual({ action: "zoom-in" })
+    state().requestView("zoom-in")
+    expect(state().viewRequest).toEqual({ action: "zoom-in" })
+    expect(state().viewRequest).not.toBe(first)
+  })
+
+  it("keeps what the canvas reports", () => {
+    state().reportView({ canZoomIn: false, canZoomOut: true, fitted: false })
+    expect(state().view).toEqual({ canZoomIn: false, canZoomOut: true, fitted: false })
+  })
+
+  it("tells nobody when the canvas reports what is already known", () => {
+    const listener = vi.fn()
+    const unsubscribe = editorStore.subscribe(listener)
+    state().reportView({ ...state().view })
+    unsubscribe()
+    expect(listener).not.toHaveBeenCalled()
+  })
+
+  it("is not something to undo or to save", () => {
+    const plan = state().plan
+    state().requestView("fit")
+    state().reportView({ canZoomIn: true, canZoomOut: false, fitted: false })
+    expect(state().plan).toBe(plan)
+    expect(editorStore.temporal.getState().pastStates).toHaveLength(0)
+  })
+})
+
 describe("moveItem", () => {
   it("moves an item on the grid", () => {
     expect(state().moveItem({ kind: "planting", id: "p1" }, 52, 18)).toBe(true)
