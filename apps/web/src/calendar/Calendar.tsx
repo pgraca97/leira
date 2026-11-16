@@ -1,5 +1,8 @@
 import {
   addDays,
+  bedOfPlanting,
+  bedSeasons,
+  cropsThatFit,
   type DateRange,
   defaultDoneDate,
   doneDateBounds,
@@ -9,6 +12,7 @@ import {
   gardenTasks,
   getPlant,
   type IsoDate,
+  PLANTS,
   type Plant,
   type Planting,
   type PlantingSchedule,
@@ -19,10 +23,13 @@ import {
 } from "@leira/core"
 import { type ReactNode, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { buttonClass, inputClass } from "../components/ui"
+import { buttonClass, inputClass, viewLinkClass } from "../components/ui"
 import { useEditor } from "../editor/useEditor"
 import { currentLanguage } from "../i18n"
-import { yearSpan } from "./layout"
+import { type YearSpan, yearSpan } from "./layout"
+
+/** How many crops a free stretch of a bed names before it only counts the rest. */
+const FITS_SHOWN = 4
 
 /** How far ahead the list of jobs looks. */
 const TASK_HORIZON_DAYS = 30
@@ -73,6 +80,7 @@ export function PlanCalendar({ plan, onOpenPlanting, onRecordTask }: PlanCalenda
   const language = currentLanguage()
   const today = toIsoDate(new Date())
   const [year, setYear] = useState(() => yearOf(today))
+  const [grouping, setGrouping] = useState<"planting" | "bed">("planting")
 
   // Dates carry no zone, so they are formatted in UTC to stay on the same day everywhere.
   const dayFormat = new Intl.DateTimeFormat(language, {
@@ -122,6 +130,49 @@ export function PlanCalendar({ plan, onOpenPlanting, onRecordTask }: PlanCalenda
   })
   const todayMark = yearSpan({ from: today, to: today }, year)
 
+  // The free stretches are looked for to the end of the following year, so one
+  // that runs past December is known for as long as it really is. That is the
+  // room a crop is offered; the calendar draws the part inside the year.
+  const yearEnd = `${year}-12-31`
+  const seasons = bedSeasons(plan, { from: `${year}-01-01`, to: `${year + 1}-12-31` }).filter(
+    (season) => season.bed
+  )
+  const bedIdOf = (row: Row) => bedOfPlanting(plan, row.planting)?.id ?? null
+  const bedGroups = seasons.map(({ bed, free }) => ({
+    bed,
+    name: bed?.name || t("inspector.bedName", { number: bed ? plan.beds.indexOf(bed) + 1 : 0 }),
+    rows: rows.filter((row) => bedIdOf(row) === bed?.id),
+    free: free
+      .filter((window) => window.from <= yearEnd)
+      .map((window) => {
+        const shown = { from: window.from, to: window.to < yearEnd ? window.to : yearEnd }
+        const words = t("calendar.free", { from: day(shown.from), to: day(shown.to) })
+        // Nothing is planned into days gone by: the room is what is left from today.
+        // biome-ignore lint/complexity/useMathMinMax: dates are strings, which Math.max does not compare
+        const room = { from: window.from > today ? window.from : today, to: window.to }
+        // Quickest first: the crops most likely to be what a gap is for.
+        const fits = cropsThatFit(room, PLANTS)
+          .toSorted((a, b) => a.daysToHarvest[1] - b.daysToHarvest[1])
+          .map((plant) => plant.name[language])
+        const named = fits.slice(0, FITS_SHOWN)
+        const crops =
+          fits.length > FITS_SHOWN
+            ? t("calendar.andMore", { crops: named.join(", "), count: fits.length - FITS_SHOWN })
+            : new Intl.ListFormat(language, { type: "conjunction" }).format(named)
+        return {
+          ...shown,
+          label: fits.length > 0 ? t("calendar.freeFits", { free: words, crops }) : words,
+        }
+      }),
+  }))
+  const looseRows = rows.filter((row) => bedIdOf(row) === null)
+  const groups = [
+    ...bedGroups,
+    ...(looseRows.length > 0
+      ? [{ bed: null, name: t("calendar.noBed"), rows: looseRows, free: [] }]
+      : []),
+  ]
+
   return (
     <main className="mx-auto flex h-full w-full max-w-5xl flex-col gap-6 overflow-y-auto p-4">
       <section aria-labelledby="calendar-year" className="flex flex-col gap-3">
@@ -145,12 +196,28 @@ export function PlanCalendar({ plan, onOpenPlanting, onRecordTask }: PlanCalenda
           >
             <span aria-hidden="true">›</span>
           </button>
-          <Legend />
+          <div className="ml-2 flex gap-1">
+            {(["planting", "bed"] as const).map((by) => (
+              <button
+                key={by}
+                type="button"
+                className={viewLinkClass}
+                aria-pressed={grouping === by}
+                onClick={() => setGrouping(by)}
+              >
+                {t(`calendar.by.${by}`)}
+              </button>
+            ))}
+          </div>
+          <Legend withFree={grouping === "bed"} />
         </div>
 
-        {rows.length === 0 ? (
+        {grouping === "bed" && seasons.length === 0 && (
+          <p className="text-sm text-stone-600">{t("calendar.noBeds")}</p>
+        )}
+        {grouping === "planting" && rows.length === 0 ? (
           <p className="text-sm text-stone-600">{t("calendar.empty", { year })}</p>
-        ) : (
+        ) : grouping === "bed" && groups.length === 0 ? null : (
           <div className="overflow-x-auto rounded-md border border-stone-200 bg-white">
             <div className="min-w-[40rem]">
               <div
@@ -166,47 +233,63 @@ export function PlanCalendar({ plan, onOpenPlanting, onRecordTask }: PlanCalenda
                   ))}
                 </div>
               </div>
-              <ul aria-label={t("calendar.rowsLabel", { year })}>
-                {rows.map((row) => (
-                  <li key={row.planting.id} className="border-b border-stone-100 last:border-b-0">
-                    <RowFrame
-                      label={row.label}
-                      onOpen={onOpenPlanting && (() => onOpenPlanting(row.planting.id))}
-                    >
-                      <span className="truncate px-3 py-2 text-sm text-stone-800">
-                        {row.label.slice(0, row.label.indexOf(":"))}
+              {grouping === "bed" ? (
+                groups.map((group) => (
+                  // biome-ignore lint/a11y/useSemanticElements: a fieldset is for form controls, and this groups lines of a timeline
+                  <div
+                    key={group.bed?.id ?? "none"}
+                    role="group"
+                    aria-label={group.name}
+                    className="border-b border-stone-200 last:border-b-0"
+                  >
+                    <div className={`${rowClass} bg-stone-50`}>
+                      <span className="truncate px-3 py-1.5 text-sm font-semibold text-stone-900">
+                        {group.name}
                       </span>
-                      <span className="relative block h-9">
+                      <span aria-hidden="true" className="relative block h-8">
                         <MonthLines />
-                        <Bar
-                          range={row.schedule.indoors}
-                          year={year}
-                          color={row.plant.color}
-                          stage="indoors"
-                        />
-                        <Bar
-                          range={row.schedule.inGround}
-                          year={year}
-                          color={row.plant.color}
-                          stage="inGround"
-                        />
-                        <Bar
-                          range={row.schedule.harvest}
-                          year={year}
-                          color={row.plant.color}
-                          stage="harvest"
-                        />
-                        {todayMark && (
-                          <span
-                            className="absolute inset-y-0 w-px bg-stone-900"
-                            style={{ left: `${todayMark.start * 100}%` }}
-                          />
-                        )}
+                        {group.free.map((window) => (
+                          <FreeBar key={window.from} range={window} year={year} />
+                        ))}
                       </span>
-                    </RowFrame>
-                  </li>
-                ))}
-              </ul>
+                    </div>
+                    {group.free.map((window) => (
+                      <p key={window.from} className="px-3 py-1 text-xs text-stone-600">
+                        {window.label}
+                      </p>
+                    ))}
+                    {group.rows.length === 0 ? (
+                      <p className="px-3 py-2 text-sm text-stone-600">
+                        {t("calendar.bedEmpty", { year })}
+                      </p>
+                    ) : (
+                      <ul aria-label={group.name}>
+                        {group.rows.map((row) => (
+                          <PlantingLine
+                            key={row.planting.id}
+                            row={row}
+                            year={year}
+                            todayMark={todayMark}
+                            onOpen={onOpenPlanting}
+                          />
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                ))
+              ) : (
+                <ul aria-label={t("calendar.rowsLabel", { year })}>
+                  {rows.map((row) => (
+                    <PlantingLine
+                      key={row.planting.id}
+                      row={row}
+                      year={year}
+                      todayMark={todayMark}
+                      onOpen={onOpenPlanting}
+                    />
+                  ))}
+                </ul>
+              )}
             </div>
           </div>
         )}
@@ -369,6 +452,50 @@ function RowFrame({
   )
 }
 
+interface PlantingLineProps {
+  row: Row
+  year: number
+  todayMark: YearSpan | null
+  onOpen?(plantingId: string): void
+}
+
+/** One planting's line on the year: its name, and a bar for each of its stages. */
+function PlantingLine({ row, year, todayMark, onOpen }: PlantingLineProps) {
+  return (
+    <li className="border-b border-stone-100 last:border-b-0">
+      <RowFrame label={row.label} onOpen={onOpen && (() => onOpen(row.planting.id))}>
+        <span className="truncate px-3 py-2 text-sm text-stone-800">
+          {row.label.slice(0, row.label.indexOf(":"))}
+        </span>
+        <span className="relative block h-9">
+          <MonthLines />
+          <Bar range={row.schedule.indoors} year={year} color={row.plant.color} stage="indoors" />
+          <Bar range={row.schedule.inGround} year={year} color={row.plant.color} stage="inGround" />
+          <Bar range={row.schedule.harvest} year={year} color={row.plant.color} stage="harvest" />
+          {todayMark && (
+            <span
+              className="absolute inset-y-0 w-px bg-stone-900"
+              style={{ left: `${todayMark.start * 100}%` }}
+            />
+          )}
+        </span>
+      </RowFrame>
+    </li>
+  )
+}
+
+/** A stretch when a bed stands empty, drawn as an outline: room, not a crop. */
+function FreeBar({ range, year }: { range: DateRange; year: number }) {
+  const span = yearSpan(range, year)
+  if (!span) return null
+  return (
+    <span
+      className="absolute inset-y-1.5 rounded-sm border border-dashed border-emerald-700 bg-emerald-50"
+      style={{ left: `${span.start * 100}%`, width: `${span.width * 100}%` }}
+    />
+  )
+}
+
 function Bar({
   range,
   year,
@@ -406,7 +533,7 @@ function MonthLines() {
   )
 }
 
-function Legend() {
+function Legend({ withFree }: { withFree: boolean }) {
   const { t } = useTranslation()
   const sample = "#57534e"
   const stages: Stage[] = ["indoors", "inGround", "harvest"]
@@ -422,6 +549,15 @@ function Legend() {
           {t(`calendar.legend.${stage}`)}
         </li>
       ))}
+      {withFree && (
+        <li className="flex items-center gap-1.5">
+          <span
+            aria-hidden="true"
+            className="h-3 w-5 rounded-sm border border-dashed border-emerald-700 bg-emerald-50"
+          />
+          {t("calendar.legend.free")}
+        </li>
+      )}
     </ul>
   )
 }

@@ -94,6 +94,12 @@ test("a planting shows on the calendar and on the day it is in the ground", asyn
   await expect(line).toBeVisible()
   await expect(page.getByRole("list", { name: "Jobs" })).toContainText("Tomato")
 
+  // By bed, a planting on open ground is listed apart, and there are no beds to show.
+  await page.getByRole("button", { name: "By bed" }).click()
+  await expect(page.getByRole("group", { name: "Outside the beds" })).toContainText("Tomato")
+  await expect(page.getByText("No beds drawn yet.")).toBeVisible()
+  await page.getByRole("button", { name: "By planting" }).click()
+
   await line.click()
   await expect(page.getByTestId("garden-canvas")).toBeVisible()
   await expect(page.getByRole("region", { name: "Selected" })).toContainText("Tomato")

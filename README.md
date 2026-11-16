@@ -24,10 +24,11 @@ A _leira_ is what a plot of cultivated land is called in Minho, in the north of 
   months each one goes in the ground. One tick narrows the list to what can be sown or planted
   out this month.
 - **Advice:** crop rotation (same family in the same place too soon), companion planting, crops
-  planned outside their season, and warnings from a 5-day forecast for the planted crops: frost, heat, and nights too cold for
-  seedlings that have just been planted out. The garden is located by searching for its town or
-  from the device's position.
-- **Time:** show the garden on any date, a yearly calendar per planting, and the jobs of the last
+  planned outside their season, and warnings from a 5-day forecast for the planted crops: frost,
+  heat, and nights too cold for seedlings that have just been planted out. The garden is located
+  by searching for its town or from the device's position.
+- **Time:** show the garden on any date, a yearly calendar per planting or per bed, where each bed
+  shows when it stands empty and which crops there is still room for, and the jobs of the last
   and the next 30 days. A job is ticked off with the day it was really done, and the calendar
   follows that day; a job that slipped stays on the list as overdue.
 - **Records:** a harvest log per planting, in kilos or units, with what the crop gave in total, and

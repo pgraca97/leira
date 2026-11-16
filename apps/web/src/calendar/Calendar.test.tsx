@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import "../test/setup"
 import "../i18n"
-import { emptyPlan, type GardenPlan, type Planting } from "@leira/core"
+import { type Bed, emptyPlan, type GardenPlan, type Planting } from "@leira/core"
 import { fireEvent, render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
@@ -208,5 +208,102 @@ describe("the jobs", () => {
     expect(jobs()).toEqual(["Apr 15Sow Carrotdone", "Apr 18Sow Carrotoverdue"])
     expect(screen.queryByRole("checkbox")).toBeNull()
     expect(screen.queryByLabelText(/done on/)).toBeNull()
+  })
+})
+
+describe("the year by bed", () => {
+  const bed = (id: string, name: string, x: number, kind: Bed["kind"] = "bed"): Bed => ({
+    id,
+    name,
+    kind,
+    rect: { x, y: 0, w: 200, h: 200 },
+  })
+  const at = (planted: Planting, x: number): Planting => ({
+    ...planted,
+    rect: { ...planted.rect, x },
+  })
+
+  function showBeds(beds: Bed[], plantings: Planting[]) {
+    editorStore.getState().loadPlan({ ...emptyPlan(), beds, plantings })
+    opened = []
+    render(<Calendar onOpenPlanting={(id) => opened.push(id)} />)
+  }
+
+  const byBed = () => userEvent.click(screen.getByRole("button", { name: "By bed" }))
+  const groups = () => screen.getAllByRole("group").map((group) => group.getAttribute("aria-label"))
+  const linesOf = (name: string) =>
+    within(screen.getByRole("group", { name }))
+      .queryAllByRole("button")
+      .map((line) => line.getAttribute("aria-label")?.split(":")[0])
+  const freeOf = (name: string) =>
+    within(screen.getByRole("group", { name }))
+      .queryAllByText(/^Free /)
+      .map((line) => line.textContent)
+
+  it("starts as one list, and groups the plantings under their beds when asked", async () => {
+    showBeds(
+      [bed("b1", "", 0), bed("path", "", 250, "path"), bed("b2", "Herbs", 500)],
+      [
+        at(TOMATOES, 510),
+        at(CARROTS, 10),
+        at(planting("loose", "lettuce", "2026-04-01", "2026-06-01"), 900),
+      ]
+    )
+    expect(screen.queryByRole("group")).toBeNull()
+    expect(screen.getByRole("button", { name: "By planting" })).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    )
+
+    await byBed()
+    // Beds are numbered as the plan lists them, so the path between them takes number 2.
+    expect(groups()).toEqual(["Bed 1", "Herbs", "Outside the beds"])
+    expect(linesOf("Bed 1")).toEqual(["Carrot × 400"])
+    expect(linesOf("Herbs")).toEqual(["Tomato × 4"])
+    expect(linesOf("Outside the beds")).toEqual(["Lettuce × 16"])
+  })
+
+  it("still opens a planting from its line", async () => {
+    showBeds([bed("b1", "", 0)], [at(CARROTS, 10)])
+    await byBed()
+    await userEvent.click(screen.getByRole("button", { name: /^Carrot/ }))
+    expect(opened).toEqual(["carrots"])
+  })
+
+  it("says when a bed stands empty, and what there is still room for", async () => {
+    // Today is 20 April 2026. The carrots are in from 15 March to 3 July.
+    showBeds([bed("b1", "", 0)], [at(CARROTS, 10)])
+    await byBed()
+
+    const [before, after] = freeOf("Bed 1")
+    // Nothing is planned into a window that has passed.
+    expect(before).toBe("Free Jan 1 to Mar 14")
+    expect(after).toMatch(/^Free Jul 4 to Dec 31: room for .*Radish/)
+    expect(freeOf("Bed 1")).toHaveLength(2)
+  })
+
+  it("offers the whole year of a bed with nothing in it, from today on", async () => {
+    showBeds([bed("b1", "", 0), bed("b2", "Herbs", 500)], [at(CARROTS, 10)])
+    await byBed()
+
+    const herbs = screen.getByRole("group", { name: "Herbs" })
+    expect(within(herbs).getByText("Nothing planted here in 2026.")).toBeVisible()
+    expect(freeOf("Herbs")).toHaveLength(1)
+    expect(freeOf("Herbs")[0]).toMatch(/^Free Jan 1 to Dec 31: room for .* and \d+ more$/)
+  })
+
+  it("has nothing to say about beds when none is drawn", async () => {
+    showBeds([], [TOMATOES])
+    await byBed()
+    expect(groups()).toEqual(["Outside the beds"])
+    expect(screen.getByText("No beds drawn yet.")).toBeVisible()
+  })
+
+  it("goes back to one list", async () => {
+    showBeds([bed("b1", "", 0)], [at(CARROTS, 10)])
+    await byBed()
+    await userEvent.click(screen.getByRole("button", { name: "By planting" }))
+    expect(screen.queryByRole("group")).toBeNull()
+    expect(screen.getByRole("button", { name: /^Carrot/ })).toBeVisible()
   })
 })
