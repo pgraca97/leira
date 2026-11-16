@@ -74,6 +74,46 @@ describe("GardenPlanSchema", () => {
   })
 })
 
+describe("what happened to a planting", () => {
+  const withRecord = (record: Record<string, unknown>) => {
+    const plan = samplePlan()
+    return { ...plan, plantings: [{ ...plan.plantings[0], ...record }] }
+  }
+
+  it("is kept with the planting: marks, harvests and notes", () => {
+    const plan = withRecord({
+      planted: true,
+      cleared: true,
+      harvests: [{ date: "2026-07-12", quantity: 1.2, unit: "kg" }, { date: "2026-07-20" }],
+      notes: "Blight in August.",
+    })
+    expect(GardenPlanSchema.parse(plan)).toEqual(plan)
+  })
+
+  it("lets the garden carry notes of its own", () => {
+    const plan = { ...samplePlan(), notes: "Water from the well ran out in July." }
+    expect(GardenPlanSchema.parse(plan)).toEqual(plan)
+  })
+
+  it.each([
+    ["a quantity with no unit", { harvests: [{ date: "2026-07-12", quantity: 1.2 }] }],
+    ["a unit with no quantity", { harvests: [{ date: "2026-07-12", unit: "kg" }] }],
+    ["a quantity of nothing", { harvests: [{ date: "2026-07-12", quantity: 0, unit: "kg" }] }],
+    ["a quantity too large", { harvests: [{ date: "2026-07-12", quantity: 10_001, unit: "kg" }] }],
+    ["an unknown unit", { harvests: [{ date: "2026-07-12", quantity: 2, unit: "lb" }] }],
+    ["a mark that says no", { planted: false }],
+    ["more harvests than fit", { harvests: Array(201).fill({ date: "2026-07-12" }) }],
+    ["notes that are too long", { notes: "x".repeat(2001) }],
+  ])("rejects %s", (_name, record) => {
+    expect(GardenPlanSchema.safeParse(withRecord(record)).success).toBe(false)
+  })
+
+  it("rejects garden notes that are too long", () => {
+    const plan = { ...samplePlan(), notes: "x".repeat(5001) }
+    expect(GardenPlanSchema.safeParse(plan).success).toBe(false)
+  })
+})
+
 describe("GardenLocationSchema", () => {
   it("accepts coordinates with an optional name", () => {
     expect(GardenLocationSchema.safeParse({ lat: 38.72, lon: -9.14 }).success).toBe(true)

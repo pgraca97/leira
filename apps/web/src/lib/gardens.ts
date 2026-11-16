@@ -2,7 +2,7 @@ import {
   type GardenLocation,
   GardenLocationSchema,
   type GardenPlan,
-  GardenPlanSchema,
+  StoredPlanSchema,
 } from "@leira/core"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { z } from "zod"
@@ -71,7 +71,7 @@ const SummaryRowSchema = z.object({
 
 const GardenRowSchema = SummaryRowSchema.extend({
   location: GardenLocationSchema.nullable(),
-  plan: GardenPlanSchema,
+  plan: StoredPlanSchema,
   version: z.int(),
 })
 
@@ -80,7 +80,7 @@ const ShareRowSchema = z.object({ token: z.string(), show_location: z.boolean() 
 const SharedGardenSchema = z.object({
   name: z.string(),
   location: GardenLocationSchema.nullable(),
-  plan: GardenPlanSchema,
+  plan: StoredPlanSchema,
   updatedAt: z.string(),
 })
 
@@ -90,7 +90,7 @@ export function parseGardenSummary(row: unknown): GardenSummary {
   const parsed = SummaryRowSchema.safeParse(row)
   if (!parsed.success) throw new GardenFormatError("Unreadable garden row")
   const { id, name, updated_at } = parsed.data
-  const plan = GardenPlanSchema.safeParse(parsed.data.plan)
+  const plan = StoredPlanSchema.safeParse(parsed.data.plan)
   return { id, name, updatedAt: updated_at, plan: plan.success ? plan.data : null }
 }
 

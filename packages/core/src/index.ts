@@ -28,6 +28,7 @@ export {
   snap,
   snapRect,
 } from "./geometry"
+export { migratePlan, StoredPlanSchema } from "./migrate"
 export {
   defaultInGround,
   fitRectToPlan,
@@ -70,6 +71,10 @@ export {
   GardenLocationSchema,
   type GardenPlan,
   GardenPlanSchema,
+  HARVEST_UNITS,
+  type Harvest,
+  HarvestSchema,
+  type HarvestUnit,
   PLAN_LIMITS,
   PLAN_SCHEMA_VERSION,
   PLANT_FAMILIES,

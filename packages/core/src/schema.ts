@@ -1,10 +1,14 @@
 import { z } from "zod"
 
 /**
- * Version of the stored plan document. Bump it, and add a migration, whenever
- * the shape of `GardenPlan` changes in a way old documents do not satisfy.
+ * Version of the stored plan document. Bump it, and add a step to
+ * `migratePlan`, whenever the shape of `GardenPlan` changes: also when old
+ * documents still fit, because an older copy of the app left open in a tab
+ * would drop the fields it does not know when it saves.
+ *
+ * 2: what happened to a planting (marks, harvests, notes) and garden notes.
  */
-export const PLAN_SCHEMA_VERSION = 1
+export const PLAN_SCHEMA_VERSION = 2
 
 /** Upper bounds that keep a plan document small enough to store and draw. */
 export const PLAN_LIMITS = {
@@ -12,6 +16,10 @@ export const PLAN_LIMITS = {
   minSideCm: 100,
   maxBeds: 500,
   maxPlantings: 2_000,
+  maxHarvests: 200,
+  maxHarvestQuantity: 10_000,
+  maxPlantingNotes: 2_000,
+  maxPlanNotes: 5_000,
 } as const
 
 const isoDate = z.iso.date()
@@ -46,6 +54,22 @@ export type Bed = z.infer<typeof BedSchema>
 export const PLANTING_LAYOUTS = ["single", "row", "block", "sfg"] as const
 export type PlantingLayout = (typeof PLANTING_LAYOUTS)[number]
 
+/** `units` counts what is not weighed: heads of lettuce, pumpkins, bunches. */
+export const HARVEST_UNITS = ["kg", "units"] as const
+export type HarvestUnit = (typeof HARVEST_UNITS)[number]
+
+/** One picking. The amount is optional: "picked some today" is worth recording too. */
+export const HarvestSchema = z
+  .object({
+    date: isoDate,
+    quantity: z.number().positive().max(PLAN_LIMITS.maxHarvestQuantity).optional(),
+    unit: z.enum(HARVEST_UNITS).optional(),
+  })
+  .refine((harvest) => (harvest.quantity === undefined) === (harvest.unit === undefined), {
+    error: "quantity and unit come together",
+  })
+export type Harvest = z.infer<typeof HarvestSchema>
+
 export const PlantingSchema = z.object({
   id: z.uuid(),
   plantId: z.string().min(1).max(64),
@@ -56,7 +80,15 @@ export const PlantingSchema = z.object({
   inGround: z
     .object({ from: isoDate, to: isoDate })
     .refine((range) => range.from <= range.to, { error: "from must not be after to" }),
+  /** The day seedlings were really sown under cover. Absent until it is recorded. */
   sowDate: isoDate.optional(),
+  /** Present once the crop is really in the ground: `inGround.from` is then the day it went in. */
+  planted: z.literal(true).optional(),
+  /** Present once the crop is really out: `inGround.to` is then the day it came out. */
+  cleared: z.literal(true).optional(),
+  /** What was picked, oldest first. */
+  harvests: z.array(HarvestSchema).max(PLAN_LIMITS.maxHarvests).optional(),
+  notes: z.string().max(PLAN_LIMITS.maxPlantingNotes).optional(),
 })
 export type Planting = z.infer<typeof PlantingSchema>
 
@@ -68,6 +100,7 @@ export const GardenPlanSchema = z.object({
   cellCm: z.int().min(5).max(100),
   beds: z.array(BedSchema).max(PLAN_LIMITS.maxBeds),
   plantings: z.array(PlantingSchema).max(PLAN_LIMITS.maxPlantings),
+  notes: z.string().max(PLAN_LIMITS.maxPlanNotes).optional(),
 })
 export type GardenPlan = z.infer<typeof GardenPlanSchema>
 

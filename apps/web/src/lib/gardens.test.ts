@@ -39,6 +39,11 @@ describe("parseGarden", () => {
     expect(() => parseGarden(row)).toThrow(GardenFormatError)
   })
 
+  it("brings a plan stored by an older version of the app up to date", () => {
+    const row = { ...ROW, plan: { ...emptyPlan(), schemaVersion: 1 } }
+    expect(parseGarden(row).plan).toEqual(emptyPlan())
+  })
+
   it("rejects a row that is not a garden", () => {
     expect(() => parseGarden(null)).toThrow(GardenFormatError)
   })
@@ -60,6 +65,11 @@ describe("parseGardenSummary", () => {
     const newer = { ...emptyPlan(), schemaVersion: 999 }
     expect(parseGardenSummary({ id, name, updated_at, plan: newer }).plan).toBeNull()
     expect(parseGardenSummary({ id, name, updated_at }).plan).toBeNull()
+  })
+
+  it("brings a plan stored by an older version of the app up to date", () => {
+    const older = { ...emptyPlan(), schemaVersion: 1 }
+    expect(parseGardenSummary({ id, name, updated_at, plan: older }).plan).toEqual(emptyPlan())
   })
 
   it("rejects a row that is not a garden", () => {
