@@ -1,4 +1,5 @@
 import {
+  addHarvest,
   type Bed,
   BedSchema,
   defaultInGround,
@@ -6,9 +7,13 @@ import {
   emptyPlan,
   fitRectToPlan,
   type GardenPlan,
+  type GardenTaskKind,
   getPlant,
+  type Harvest,
+  HarvestSchema,
   type IsoDate,
   moveItem,
+  PLAN_LIMITS,
   type PlanItemRef,
   type Planting,
   type PlantingLayout,
@@ -17,6 +22,8 @@ import {
   plantingsInGround,
   type Rect,
   type ResizeHandle,
+  recordTask,
+  removeHarvest,
   resizeItem,
   resizePlan,
   toIsoDate,
@@ -73,7 +80,10 @@ export interface EditorState {
   setPlantingLayout(id: string, layout: PlantingLayout): boolean
   /** Resizes the garden. Returns false for a size that is not allowed or leaves an item outside. */
   setPlanSize(widthCm: number, heightCm: number): boolean
-  /** Changes when a planting is in the ground. Returns false for dates the plan cannot hold. */
+  /**
+   * Changes when a planting is in the ground. Returns false for dates the plan
+   * cannot hold, or that leave a recorded harvest outside them.
+   */
   setPlantingDates(id: string, inGround: Planting["inGround"]): boolean
   /**
    * Records the day a crop raised under cover was actually sown, or forgets it
@@ -82,6 +92,19 @@ export interface EditorState {
    * in the ground: the schedule would ignore it.
    */
   setPlantingSowDate(id: string, sowDate: IsoDate | null): boolean
+  /**
+   * Records one of a planting's jobs as done on a day, or as still to do when
+   * given null. Returns false for a day the planting's other dates rule out.
+   */
+  recordTask(plantingId: string, kind: GardenTaskKind, date: IsoDate | null): boolean
+  /** Records a harvest. Returns false for one that does not fit the planting's time in the ground. */
+  addHarvest(plantingId: string, harvest: Harvest): boolean
+  /** Removes the harvest at a position in a planting's list. */
+  removeHarvest(plantingId: string, index: number): boolean
+  /** Stores a planting's note. An empty one removes it. Returns false when it is too long. */
+  setPlantingNotes(plantingId: string, notes: string): boolean
+  /** Stores the garden's note. An empty one removes it. Returns false when it is too long. */
+  setPlanNotes(notes: string): boolean
   removeSelection(): void
   select(selection: PlanItemRef | null): void
   setTool(tool: Tool): void
@@ -116,6 +139,21 @@ export const editorStore = createStore<EditorState>()(
         if (plan === get().plan) return false
         set({ plan })
         return true
+      }
+
+      /**
+       * Stores what `edit` makes of a planting. Null from it is a refusal, and
+       * the planting it was given back means there was nothing to change.
+       */
+      const editPlanting = (id: string, edit: (planting: Planting) => Planting | null): boolean => {
+        const { plan } = get()
+        const planting = plan.plantings.find((item) => item.id === id)
+        const edited = planting && edit(planting)
+        if (!edited || edited === planting) return false
+        return replacePlan({
+          ...plan,
+          plantings: plan.plantings.map((item) => (item === planting ? edited : item)),
+        })
       }
 
       return {
@@ -221,7 +259,16 @@ export const editorStore = createStore<EditorState>()(
         setPlantingDates: (id, inGround) => {
           const { plan } = get()
           const dates = PlantingSchema.shape.inGround.safeParse(inGround)
+          const harvests = plan.plantings.find((planting) => planting.id === id)?.harvests
           if (!dates.success || !plan.plantings.some((planting) => planting.id === id)) return false
+          // A harvest recorded outside the new dates would be a crop picked while not in the ground.
+          if (
+            harvests?.some(
+              (harvest) => harvest.date < dates.data.from || harvest.date > dates.data.to
+            )
+          ) {
+            return false
+          }
           set({
             plan: {
               ...plan,
@@ -246,6 +293,38 @@ export const editorStore = createStore<EditorState>()(
             ...plan,
             plantings: plan.plantings.map((item) => (item.id === id ? updated : item)),
           })
+        },
+
+        recordTask: (plantingId, kind, date) => {
+          if (date !== null && !isDate(date)) return false
+          return editPlanting(plantingId, (planting) => recordTask(planting, kind, date))
+        },
+
+        addHarvest: (plantingId, harvest) => {
+          const checked = HarvestSchema.safeParse(harvest)
+          if (!checked.success) return false
+          return editPlanting(plantingId, (planting) => addHarvest(planting, checked.data))
+        },
+
+        removeHarvest: (plantingId, index) =>
+          editPlanting(plantingId, (planting) => removeHarvest(planting, index)),
+
+        setPlantingNotes: (plantingId, notes) => {
+          const kept = notes.trimEnd()
+          if (kept.length > PLAN_LIMITS.maxPlantingNotes) return false
+          return editPlanting(plantingId, (planting) => {
+            if ((planting.notes ?? "") === kept) return planting
+            const { notes: _previous, ...rest } = planting
+            return kept ? { ...rest, notes: kept } : rest
+          })
+        },
+
+        setPlanNotes: (notes) => {
+          const { plan } = get()
+          const kept = notes.trimEnd()
+          if (kept.length > PLAN_LIMITS.maxPlanNotes || (plan.notes ?? "") === kept) return false
+          const { notes: _previous, ...rest } = plan
+          return replacePlan(kept ? { ...rest, notes: kept } : rest)
         },
 
         removeSelection: () => {
@@ -278,13 +357,7 @@ export const editorStore = createStore<EditorState>()(
           }
           set({ view })
         },
-        setViewDate: (date) =>
-          set({
-            viewDate:
-              date && PlantingSchema.shape.inGround.shape.from.safeParse(date).success
-                ? date
-                : null,
-          }),
+        setViewDate: (date) => set({ viewDate: date && isDate(date) ? date : null }),
       }
     },
     {
@@ -294,6 +367,11 @@ export const editorStore = createStore<EditorState>()(
     }
   )
 )
+
+/** Whether a value typed or passed in is a calendar day the plan can hold. */
+function isDate(value: unknown): value is IsoDate {
+  return PlantingSchema.shape.inGround.shape.from.safeParse(value).success
+}
 
 /**
  * The planting with its sowing day set to `sowDate`, or with none at all when

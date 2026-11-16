@@ -104,6 +104,143 @@ describe("setPlantingSowDate", () => {
   })
 })
 
+describe("recordTask", () => {
+  it("marks a job done on a day, writing the real day into the plan", () => {
+    expect(state().recordTask("p1", "transplant", "2026-05-06")).toBe(true)
+    expect(planting()).toMatchObject({
+      planted: true,
+      inGround: { from: "2026-05-06", to: "2026-09-30" },
+    })
+  })
+
+  it("puts a job back to do, keeping the day", () => {
+    state().recordTask("p1", "clear", "2026-09-12")
+    expect(state().recordTask("p1", "clear", null)).toBe(true)
+    expect(planting()).not.toHaveProperty("cleared")
+    expect(planting()?.inGround.to).toBe("2026-09-12")
+  })
+
+  it("refuses a day the planting's other dates rule out, adding no undo step", () => {
+    expect(state().recordTask("p1", "clear", "2026-04-30")).toBe(false)
+    expect(state().recordTask("p1", "sow-indoors", "2026-05-01")).toBe(false)
+    expect(state().recordTask("p1", "transplant", "not a date")).toBe(false)
+    expect(planting()).toEqual(TOMATO)
+    expect(editorStore.temporal.getState().pastStates).toHaveLength(0)
+  })
+
+  it("does nothing for a planting that is gone", () => {
+    expect(state().recordTask("nope", "transplant", "2026-05-06")).toBe(false)
+  })
+
+  it("is one undo step", () => {
+    state().recordTask("p1", "transplant", "2026-05-06")
+    undo()
+    expect(planting()).toEqual(TOMATO)
+  })
+})
+
+describe("addHarvest and removeHarvest", () => {
+  it("records what was picked", () => {
+    expect(state().addHarvest("p1", { date: "2026-07-12", quantity: 1.5, unit: "kg" })).toBe(true)
+    expect(state().addHarvest("p1", { date: "2026-07-20" })).toBe(true)
+    expect(planting()?.harvests).toEqual([
+      { date: "2026-07-12", quantity: 1.5, unit: "kg" },
+      { date: "2026-07-20" },
+    ])
+  })
+
+  it.each([
+    ["an amount with no unit", { date: "2026-07-12", quantity: 2 }],
+    ["an amount of nothing", { date: "2026-07-12", quantity: 0, unit: "kg" as const }],
+    ["a day that is not one", { date: "soon" }],
+    ["a day before the crop went in", { date: "2026-04-30" }],
+  ])("refuses %s", (_case, harvest) => {
+    expect(state().addHarvest("p1", harvest)).toBe(false)
+    expect(planting()).toEqual(TOMATO)
+  })
+
+  it("undoes a late harvest together with the last day it moved", () => {
+    state().addHarvest("p1", { date: "2026-10-08" })
+    expect(planting()?.inGround.to).toBe("2026-10-08")
+    undo()
+    expect(planting()).toEqual(TOMATO)
+  })
+
+  it("removes one harvest", () => {
+    state().addHarvest("p1", { date: "2026-07-12" })
+    state().addHarvest("p1", { date: "2026-07-20" })
+    expect(state().removeHarvest("p1", 0)).toBe(true)
+    expect(planting()?.harvests).toEqual([{ date: "2026-07-20" }])
+    expect(state().removeHarvest("p1", 5)).toBe(false)
+  })
+})
+
+describe("setPlantingDates with harvests recorded", () => {
+  beforeEach(() => {
+    state().addHarvest("p1", { date: "2026-07-12" })
+    state().addHarvest("p1", { date: "2026-08-20" })
+  })
+
+  it("refuses to plant the crop after it was first picked", () => {
+    expect(state().setPlantingDates("p1", { from: "2026-07-13", to: "2026-09-30" })).toBe(false)
+    expect(planting()?.inGround).toEqual(TOMATO.inGround)
+  })
+
+  it("refuses to end the crop before it was last picked", () => {
+    expect(state().setPlantingDates("p1", { from: "2026-05-01", to: "2026-08-19" })).toBe(false)
+    expect(planting()?.inGround).toEqual(TOMATO.inGround)
+  })
+
+  it("still moves the dates around the harvests", () => {
+    expect(state().setPlantingDates("p1", { from: "2026-07-12", to: "2026-08-20" })).toBe(true)
+  })
+})
+
+describe("notes", () => {
+  it("keeps a note on a planting, line breaks and all", () => {
+    expect(state().setPlantingNotes("p1", "Blight in August.\nTry another variety.")).toBe(true)
+    expect(planting()?.notes).toBe("Blight in August.\nTry another variety.")
+  })
+
+  it("keeps a note on the garden", () => {
+    expect(state().setPlanNotes("The well ran dry in July.")).toBe(true)
+    expect(state().plan.notes).toBe("The well ran dry in July.")
+  })
+
+  it("drops the space left at the end of a note", () => {
+    state().setPlantingNotes("p1", "Slugs.  \n\n")
+    expect(planting()?.notes).toBe("Slugs.")
+  })
+
+  it("leaves no trace of a note that was emptied", () => {
+    state().setPlantingNotes("p1", "Slugs.")
+    state().setPlanNotes("Dry year.")
+    expect(state().setPlantingNotes("p1", "  ")).toBe(true)
+    expect(state().setPlanNotes("")).toBe(true)
+    expect(planting()).toEqual(TOMATO)
+    expect(state().plan).not.toHaveProperty("notes")
+  })
+
+  it("refuses a note longer than the plan holds", () => {
+    expect(state().setPlantingNotes("p1", "x".repeat(2001))).toBe(false)
+    expect(state().setPlanNotes("x".repeat(5001))).toBe(false)
+    expect(state().setPlantingNotes("p1", "x".repeat(2000))).toBe(true)
+  })
+
+  it("adds no undo step when the note is the same", () => {
+    state().setPlantingNotes("p1", "Slugs.")
+    expect(state().setPlantingNotes("p1", "Slugs. ")).toBe(false)
+    expect(state().setPlanNotes(" ")).toBe(false)
+    expect(editorStore.temporal.getState().pastStates).toHaveLength(1)
+  })
+
+  it("is one undo step", () => {
+    state().setPlantingNotes("p1", "Slugs.")
+    undo()
+    expect(planting()).toEqual(TOMATO)
+  })
+})
+
 describe("the view of the canvas", () => {
   // The store outlives each test: leave the view as a new canvas would find it.
   afterEach(() => {
