@@ -19,6 +19,7 @@ A _leira_ is what a plot of cultivated land is called in Minho, in the north of 
 - **Beds and plantings on a grid.** Drag to draw a bed or fill an area with a crop; the number of
   plants follows from the crop's spacing, as one plant, rows, a block or square-foot squares.
   Move and resize with handles, nudge with the arrow keys, duplicate with Ctrl+D, undo and redo.
+  Zoom with the wheel, a pinch or the buttons.
 - **45 crops** common in Portugal, with search, spacing, frost tolerance and days to harvest.
 - **Advice:** crop rotation (same family in the same place too soon), companion planting, and
   warnings from a 5-day forecast for the planted crops: frost, heat, and nights too cold for
