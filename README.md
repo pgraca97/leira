@@ -84,6 +84,9 @@ The last two need `pnpm db:start` and a filled-in `.dev.vars`.
 - **The weather key stays on the server.** The Worker calls OpenWeather and caches each answer in
   KV per zone of about 11 km, so nearby gardens share one call. The garden itself only keeps its
   position rounded to about 1 km.
+- **A visitor cannot spend the weather quota.** The Worker counts calls per address: 60 a minute
+  to the weather and place routes, and 10 a minute of those the cache cannot answer, since only
+  these reach OpenWeather and write to KV.
 
 ## Repository layout
 

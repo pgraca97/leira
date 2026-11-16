@@ -26,6 +26,8 @@ const ZONE_DECIMALS = 1
 /** A town does not move, so a search for its name is good for a month. */
 const PLACES_TTL_SECONDS = 30 * 24 * 3600
 const PLACES_BROWSER_MAX_AGE_SECONDS = 24 * 3600
+/** The window both rate limiters count over, as set in wrangler.jsonc. */
+const RATE_LIMIT_PERIOD_SECONDS = 60
 
 const decimal = z
   .string()
@@ -47,6 +49,16 @@ const PlaceQuerySchema = z.object({
 
 export function createApp(deps: AppDeps) {
   const app = new Hono<AppEnv>()
+
+  /**
+   * Stops one address from calling the routes that cost something more than
+   * `API_LIMIT` allows. It runs before the session check, so a flood of bad
+   * tokens is counted too.
+   */
+  const limitVisitor = createMiddleware<AppEnv>(async (c, next) => {
+    if (!(await allowed(c.env.API_LIMIT, visitorKey(c)))) return tooManyRequests(c)
+    await next()
+  })
 
   const requireUser = createMiddleware<AppEnv>(async (c, next) => {
     const token = c.req.header("Authorization")?.match(/^Bearer (\S+)$/)?.[1]
@@ -104,6 +116,10 @@ export function createApp(deps: AppDeps) {
     const provider = deps.weatherProvider(c.env)
     if (!provider) return c.json({ error: "weather_not_configured" }, 503)
 
+    // Only now, with the cache unable to answer, does the request cost a call
+    // to the provider and a write to the cache: those are counted on their own.
+    if (!(await allowed(c.env.LOOKUP_LIMIT, visitorKey(c)))) return tooManyRequests(c)
+
     let data: T
     try {
       data = await options.load(provider)
@@ -119,8 +135,8 @@ export function createApp(deps: AppDeps) {
 
   /**
    * A route that answers with weather data for a position. Only signed-in
-   * users may call it, and answers are cached per zone, so nearby gardens
-   * share one call to the provider.
+   * users may call it, a limited number of times a minute, and answers are
+   * cached per zone, so nearby gardens share one call to the provider.
    */
   function zoneRoute<T>(options: {
     path: string
@@ -131,7 +147,7 @@ export function createApp(deps: AppDeps) {
     browserMaxAgeSeconds: number
     load(provider: WeatherProvider, lat: number, lon: number): Promise<T>
   }) {
-    app.get(options.path, requireUser, async (c) => {
+    app.get(options.path, limitVisitor, requireUser, async (c) => {
       const query = WeatherQuerySchema.safeParse(c.req.query())
       if (!query.success) return c.json({ error: "invalid_coordinates" }, 400)
 
@@ -171,7 +187,7 @@ export function createApp(deps: AppDeps) {
    * the weather routes do. The cache key ignores case: "BRAGA" and "braga"
    * are one search.
    */
-  app.get("/api/places", requireUser, async (c) => {
+  app.get("/api/places", limitVisitor, requireUser, async (c) => {
     const query = PlaceQuerySchema.safeParse(c.req.query())
     if (!query.success) return c.json({ error: "invalid_query" }, 400)
 
@@ -188,6 +204,29 @@ export function createApp(deps: AppDeps) {
   app.notFound((c) => c.json({ error: "not_found" }, 404))
 
   return app
+}
+
+/**
+ * What the rate limiters count by: the address Cloudflare saw the request
+ * come from. An account would not do, since a guest can make a new one at will.
+ */
+function visitorKey(c: Context<AppEnv>): string {
+  return c.req.header("CF-Connecting-IP") ?? "unknown"
+}
+
+/** A limiter that is down lets requests through: it must not take the endpoint down with it. */
+async function allowed(limiter: RateLimit, key: string): Promise<boolean> {
+  try {
+    return (await limiter.limit({ key })).success
+  } catch {
+    return true
+  }
+}
+
+function tooManyRequests(c: Context<AppEnv>) {
+  return c.json({ error: "rate_limited" }, 429, {
+    "Retry-After": String(RATE_LIMIT_PERIOD_SECONDS),
+  })
 }
 
 /** A cache that is down must not take the endpoint down with it. */

@@ -40,19 +40,33 @@ function fakeKv() {
   return { store, kv, binding: kv as unknown as KVNamespace }
 }
 
+/** A rate limiter that lets everything through until a test tells it to refuse. */
+function fakeLimiter() {
+  const limit = vi.fn(async (_options: { key: string }) => ({ success: true }))
+  return { limit, binding: { limit } as unknown as RateLimit }
+}
+
 let cache: ReturnType<typeof fakeKv>
+let apiLimit: ReturnType<typeof fakeLimiter>
+let lookupLimit: ReturnType<typeof fakeLimiter>
 let current: ReturnType<typeof vi.fn<WeatherProvider["current"]>>
 let forecast: ReturnType<typeof vi.fn<WeatherProvider["forecast"]>>
 let places: ReturnType<typeof vi.fn<WeatherProvider["places"]>>
 let deps: AppDeps
 
 function request(path: string, headers: Record<string, string> = SIGNED_IN) {
-  const env = { CACHE: cache.binding } as Env
+  const env = {
+    CACHE: cache.binding,
+    API_LIMIT: apiLimit.binding,
+    LOOKUP_LIMIT: lookupLimit.binding,
+  } as Env
   return createApp(deps).request(path, { headers }, env)
 }
 
 beforeEach(() => {
   cache = fakeKv()
+  apiLimit = fakeLimiter()
+  lookupLimit = fakeLimiter()
   current = vi.fn<WeatherProvider["current"]>(async () => READING)
   forecast = vi.fn<WeatherProvider["forecast"]>(async () => FORECAST)
   places = vi.fn<WeatherProvider["places"]>(async () => PLACES)
@@ -100,6 +114,74 @@ describe("unknown routes", () => {
     const response = await request("/api/nope")
     expect(response.status).toBe(404)
     expect(await response.json()).toEqual({ error: "not_found" })
+  })
+})
+
+describe("rate limits", () => {
+  const FROM_ALICE = { ...SIGNED_IN, "CF-Connecting-IP": "203.0.113.7" }
+
+  it.each([
+    "/api/weather?lat=38.72&lon=-9.14",
+    "/api/forecast?lat=38.72&lon=-9.14",
+    "/api/places?q=Braga",
+  ])("refuse %s to a visitor who asks too often, before checking the session", async (path) => {
+    const verifyToken = vi.spyOn(deps, "verifyToken")
+    apiLimit.limit.mockResolvedValue({ success: false })
+
+    const response = await request(path, FROM_ALICE)
+    expect(response.status).toBe(429)
+    expect(await response.json()).toEqual({ error: "rate_limited" })
+    expect(response.headers.get("Retry-After")).toBe("60")
+    expect(verifyToken).not.toHaveBeenCalled()
+    expect(cache.kv.get).not.toHaveBeenCalled()
+  })
+
+  it("count each visitor apart, by the address the request came from", async () => {
+    await request("/api/weather?lat=38.72&lon=-9.14", FROM_ALICE)
+    expect(apiLimit.limit).toHaveBeenCalledExactlyOnceWith({ key: "203.0.113.7" })
+    expect(lookupLimit.limit).toHaveBeenCalledExactlyOnceWith({ key: "203.0.113.7" })
+  })
+
+  it("refuse a lookup to a visitor who has caused too many, sparing the provider", async () => {
+    lookupLimit.limit.mockResolvedValue({ success: false })
+
+    const response = await request("/api/places?q=Braga", FROM_ALICE)
+    expect(response.status).toBe(429)
+    expect(await response.json()).toEqual({ error: "rate_limited" })
+    expect(response.headers.get("Retry-After")).toBe("60")
+    expect(places).not.toHaveBeenCalled()
+    expect(cache.kv.put).not.toHaveBeenCalled()
+  })
+
+  it("do not count an answer from the cache as a lookup", async () => {
+    await request("/api/forecast?lat=38.72&lon=-9.14", FROM_ALICE)
+    lookupLimit.limit.mockResolvedValue({ success: false })
+
+    const response = await request("/api/forecast?lat=38.72&lon=-9.14", FROM_ALICE)
+    expect(response.status).toBe(200)
+    expect(response.headers.get("X-Cache")).toBe("HIT")
+    expect(lookupLimit.limit).toHaveBeenCalledTimes(1)
+  })
+
+  it("do not count a request that is refused for another reason as a lookup", async () => {
+    await request("/api/weather?lat=north&lon=west", FROM_ALICE)
+    await request("/api/weather?lat=38.72&lon=-9.14", { "CF-Connecting-IP": "203.0.113.7" })
+    expect(lookupLimit.limit).not.toHaveBeenCalled()
+  })
+
+  it("leave the health check and the public settings alone", async () => {
+    apiLimit.limit.mockResolvedValue({ success: false })
+    expect((await request("/api/health", {})).status).toBe(200)
+    expect(apiLimit.limit).not.toHaveBeenCalled()
+  })
+
+  it("let requests through when the limiter itself is down", async () => {
+    apiLimit.limit.mockRejectedValue(new Error("limiter unavailable"))
+    lookupLimit.limit.mockRejectedValue(new Error("limiter unavailable"))
+
+    const response = await request("/api/weather?lat=38.72&lon=-9.14", FROM_ALICE)
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual(READING)
   })
 })
 

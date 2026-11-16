@@ -14,6 +14,13 @@
   },
   // Caches weather readings. The id is filled in when the namespace is first created on deploy.
   "kv_namespaces": [{ "binding": "CACHE" }],
+  // Both count per visitor address. A namespace id is any number not yet used in the account.
+  "ratelimits": [
+    // Every call to a weather or place route, cached or not.
+    { "name": "API_LIMIT", "namespace_id": "5301", "simple": { "limit": 60, "period": 60 } },
+    // Calls the cache could not answer: each one spends the provider's quota and a KV write.
+    { "name": "LOOKUP_LIMIT", "namespace_id": "5302", "simple": { "limit": 10, "period": 60 } }
+  ],
   // Set per environment: `.dev.vars` locally, `wrangler secret put` when deployed.
   // The two Supabase values are public, but each environment still needs its own.
   "secrets": {
