@@ -220,6 +220,188 @@ describe("garden data checks", () => {
   })
 })
 
+describe("garden shares", () => {
+  async function share(showLocation = false): Promise<string> {
+    const created = await db.query<{ token: string }>(
+      "insert into public.garden_shares (garden_id, show_location) values ($1, $2) returning token",
+      [gardenId, showLocation]
+    )
+    return created.rows[0]!.token
+  }
+
+  it("give a garden a link token that nobody could guess, hiding the location at first", async () => {
+    const created = await db.query<{ token: string; show_location: boolean }>(
+      "insert into public.garden_shares (garden_id) values ($1) returning token, show_location",
+      [gardenId]
+    )
+    expect(created.rows[0]?.token).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-/)
+    expect(created.rows[0]?.show_location).toBe(false)
+  })
+
+  // A failed statement ends the test's transaction, so each refusal has its own test.
+  it("cannot have their token chosen by the client", async () => {
+    await expect(
+      db.query(
+        "insert into public.garden_shares (garden_id, token) values ($1, gen_random_uuid())",
+        [gardenId]
+      )
+    ).rejects.toThrow(/permission denied/)
+  })
+
+  it("cannot have their token changed by the client", async () => {
+    await share()
+    await expect(
+      db.query("update public.garden_shares set token = gen_random_uuid()")
+    ).rejects.toThrow(/permission denied/)
+  })
+
+  it("cannot be moved to another garden", async () => {
+    await share()
+    await expect(
+      db.query("update public.garden_shares set garden_id = gen_random_uuid()")
+    ).rejects.toThrow(/permission denied/)
+  })
+
+  it("are one to a garden", async () => {
+    await share()
+    await expect(share()).rejects.toThrow(/garden_shares_pkey/)
+  })
+
+  it("let the owner show the location, and stop sharing", async () => {
+    await share()
+    const shown = await db.query<{ show_location: boolean }>(
+      "update public.garden_shares set show_location = true where garden_id = $1 returning show_location",
+      [gardenId]
+    )
+    expect(shown.rows).toEqual([{ show_location: true }])
+
+    await db.query("delete from public.garden_shares where garden_id = $1", [gardenId])
+    const left = await db.query("select token from public.garden_shares")
+    expect(left.rows).toEqual([])
+  })
+
+  it("cannot be created for someone else's garden", async () => {
+    await signInAs(bob)
+    await expect(
+      db.query("insert into public.garden_shares (garden_id) values ($1)", [gardenId])
+    ).rejects.toThrow(/row-level security/)
+  })
+
+  it("cannot be read, changed or removed by other users", async () => {
+    await share()
+    await signInAs(bob)
+    const read = await db.query("select token from public.garden_shares")
+    const changed = await db.query(
+      "update public.garden_shares set show_location = true returning token"
+    )
+    const removed = await db.query("delete from public.garden_shares returning token")
+    expect(read.rows).toEqual([])
+    expect(changed.rows).toEqual([])
+    expect(removed.rows).toEqual([])
+
+    await signInAs(alice)
+    const kept = await db.query<{ show_location: boolean }>(
+      "select show_location from public.garden_shares"
+    )
+    expect(kept.rows).toEqual([{ show_location: false }])
+  })
+
+  it("are closed to visitors who are not signed in", async () => {
+    await share()
+    await signOut()
+    await expect(db.query("select token from public.garden_shares")).rejects.toThrow(
+      /permission denied/
+    )
+  })
+
+  it("are removed together with their garden", async () => {
+    await share()
+    await db.query("delete from public.gardens where id = $1", [gardenId])
+    await db.exec("reset role")
+    const left = await db.query("select token from public.garden_shares")
+    expect(left.rows).toEqual([])
+  })
+})
+
+describe("a shared garden", () => {
+  const LOCATION = { lat: 41.55, lon: -8.43, name: "Braga" }
+
+  async function share(showLocation: boolean): Promise<string> {
+    await db.query("update public.gardens set location = $1 where id = $2", [
+      JSON.stringify(LOCATION),
+      gardenId,
+    ])
+    const created = await db.query<{ token: string }>(
+      "insert into public.garden_shares (garden_id, show_location) values ($1, $2) returning token",
+      [gardenId, showLocation]
+    )
+    return created.rows[0]!.token
+  }
+
+  const open = (token: string) =>
+    db.query<Record<string, unknown>>("select * from public.shared_garden($1)", [token])
+
+  it("opens with its link for a visitor who is not signed in, without its location", async () => {
+    const token = await share(false)
+    await signOut()
+    const shared = await open(token)
+    expect(shared.rows).toEqual([
+      {
+        name: "Alice's garden",
+        plan: JSON.parse(PLAN),
+        location: null,
+        updated_at: expect.any(Date),
+      },
+    ])
+  })
+
+  it("says where it is only when its owner chose to show that", async () => {
+    const token = await share(true)
+    await signOut()
+    const shared = await open(token)
+    expect(shared.rows[0]?.location).toEqual(LOCATION)
+  })
+
+  it("shows the garden as it is now, not as it was when shared", async () => {
+    const token = await share(false)
+    await db.query("update public.gardens set name = 'Renamed' where id = $1", [gardenId])
+    await signOut()
+    expect((await open(token)).rows[0]?.name).toBe("Renamed")
+  })
+
+  it("does not open with a link nobody made", async () => {
+    await share(false)
+    await signOut()
+    const shared = await open("11111111-1111-4111-8111-111111111111")
+    expect(shared.rows).toEqual([])
+  })
+
+  it("stops opening once its owner stops sharing, and a new link is a different one", async () => {
+    const token = await share(false)
+    await db.query("delete from public.garden_shares where garden_id = $1", [gardenId])
+    const again = await db.query<{ token: string }>(
+      "insert into public.garden_shares (garden_id) values ($1) returning token",
+      [gardenId]
+    )
+    expect(again.rows[0]?.token).not.toBe(token)
+
+    await signOut()
+    expect((await open(token)).rows).toEqual([])
+  })
+
+  it("leaves the gardens themselves closed to the visitor", async () => {
+    await share(true)
+    await signOut()
+    await expect(db.query("select id from public.gardens")).rejects.toThrow(/permission denied/)
+  })
+
+  it("is opened through the Worker only, not by signed-in users directly", async () => {
+    const token = await share(false)
+    await signInAs(bob)
+    await expect(open(token)).rejects.toThrow(/permission denied/)
+  })
+})
+
 describe("profiles", () => {
   it("are created for every new user", async () => {
     await db.exec("reset role")
