@@ -369,6 +369,68 @@ describe("a shared garden", () => {
     expect((await open(token)).rows[0]?.name).toBe("Renamed")
   })
 
+  /** Gives Alice's garden a plan of any shape: the database only asks for an object. */
+  async function setPlan(plan: unknown): Promise<void> {
+    await signInAs(alice)
+    await db.query("update public.gardens set plan = $1 where id = $2", [
+      JSON.stringify(plan),
+      gardenId,
+    ])
+  }
+
+  it("keeps the owner's notes and harvest amounts to the owner", async () => {
+    const token = await share(false)
+    const planned = {
+      id: "b",
+      plantId: "onion",
+      inGround: { from: "2026-01-29", to: "2026-07-15" },
+    }
+    await setPlan({
+      ...JSON.parse(PLAN),
+      notes: "The well ran dry in July.",
+      plantings: [
+        {
+          id: "a",
+          plantId: "tomato",
+          planted: true,
+          notes: "Blight in August.",
+          harvests: [{ date: "2026-07-12", quantity: 1.2, unit: "kg" }, { date: "2026-07-20" }],
+        },
+        planned,
+      ],
+    })
+    await signOut()
+    const shared = await open(token)
+    expect(shared.rows[0]?.plan).toEqual({
+      ...JSON.parse(PLAN),
+      plantings: [
+        {
+          id: "a",
+          plantId: "tomato",
+          planted: true,
+          harvests: [{ date: "2026-07-12" }, { date: "2026-07-20" }],
+        },
+        planned,
+      ],
+    })
+  })
+
+  it.each([
+    ["no plantings", {}, {}],
+    ["plantings that are not a list", { plantings: "none", notes: "n" }, { plantings: "none" }],
+    [
+      "plantings and harvests of the wrong kind",
+      { plantings: [7, { notes: "n", harvests: "x" }, { harvests: [7, { quantity: 1 }] }] },
+      { plantings: [7, { harvests: "x" }, { harvests: [7, {}] }] },
+    ],
+  ])("still opens a garden whose plan has %s", async (_case, plan, expected) => {
+    const token = await share(false)
+    await setPlan(plan)
+    await signOut()
+    const shared = await open(token)
+    expect(shared.rows.map((row) => row.plan)).toEqual([expected])
+  })
+
   it("does not open with a link nobody made", async () => {
     await share(false)
     await signOut()
