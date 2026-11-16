@@ -27,6 +27,8 @@ A _leira_ is what a plot of cultivated land is called in Minho, in the north of 
 - **Time:** show the garden on any date, a yearly calendar per planting, and the jobs coming up in
   the next 30 days. Seedlings follow the day they were actually sown, once it is recorded.
 - **Export:** save the plan as a PNG or print a sheet with the plan and a planting table.
+- **An example to look around.** A first visit can start from a ready-made garden whose crops
+  follow the seasons, with a rotation mistake and good and bad neighbours to show the advice.
 - **Accounts without a sign-up wall.** A guest gets a real user straight away. Signing in with
   Google or an emailed link attaches to that same user, so the gardens made as a guest are kept.
 - **Portuguese and English** interface.
