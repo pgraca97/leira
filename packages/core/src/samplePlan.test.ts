@@ -4,6 +4,7 @@ import { addDays, type IsoDate } from "./dates"
 import { intersection } from "./geometry"
 import { plantingFill } from "./plan"
 import { getPlant } from "./plants"
+import { harvestTotals } from "./records"
 import { findRotationConflicts } from "./rotation"
 import { samplePlan } from "./samplePlan"
 import { gardenTasks, plantingsInGround } from "./schedule"
@@ -115,6 +116,40 @@ describe("samplePlan", () => {
     })
     expect(quietDays).toEqual([])
   })
+
+  it("has already done every job of the last 30 days: the example is not behind", () => {
+    const behind = eachDay("2027-01-01", 731).filter((today) => {
+      const range = { from: addDays(today, -30), to: addDays(today, -1) }
+      return gardenTasks(sample(today), getPlant, range).some((task) => !task.done)
+    })
+    expect(behind).toEqual([])
+  })
+
+  it("has done nothing ahead of its day", () => {
+    const ahead = eachDay("2027-01-01", 731).filter((today) => {
+      const range = { from: today, to: addDays(today, 400) }
+      return gardenTasks(sample(today), getPlant, range).some((task) => task.done)
+    })
+    expect(ahead).toEqual([])
+  })
+
+  it("stays a plan the app can store with its records, whatever the day", () => {
+    const refused = eachDay("2027-01-01", 731).filter(
+      (today) => !GardenPlanSchema.safeParse(sample(today)).success
+    )
+    expect(refused).toEqual([])
+  })
+
+  it.each(["2026-06-15", "2026-11-16"])(
+    "shows what last year's tomatoes gave, seen from %s",
+    (today) => {
+      const [lastYears] = sample(today).plantings.filter(
+        (planting) => planting.plantId === "tomato"
+      )
+      expect(lastYears).toMatchObject({ planted: true, cleared: true })
+      expect(lastYears && harvestTotals(lastYears)).toEqual({ kg: 15.5, units: 0 })
+    }
+  )
 
   it("always has something in the ground", () => {
     const bareDays = eachDay("2027-01-01", 731).filter(
