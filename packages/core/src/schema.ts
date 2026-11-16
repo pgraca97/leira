@@ -197,6 +197,20 @@ export const PlantSchema = z.object({
     .refine(([min, max]) => min <= max, { error: "min must not exceed max" }),
   /** Weeks to raise seedlings indoors before transplanting. Absent for crops sown direct. */
   indoorsWeeks: z.int().min(1).max(20).optional(),
+  /**
+   * The months, 1 to 12 and in order, when the crop can go in the ground in the
+   * open air: sown where it grows, or planted out when it is raised indoors.
+   * They are for the north and centre of mainland Portugal.
+   */
+  groundMonths: z
+    .array(z.int().min(1).max(12))
+    .min(1)
+    .refine(
+      (months) => months.every((month, index) => index === 0 || month > (months[index - 1] ?? 0)),
+      {
+        error: "months must be in order, without repeats",
+      }
+    ),
   /** Traditional companion planting pairs, by plant id. */
   companions: z.object({
     good: z.array(z.string()),

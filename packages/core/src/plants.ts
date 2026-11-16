@@ -9,6 +9,16 @@ import type { Plant } from "./schema"
  * a plan, not promises. `daysToHarvest` counts from the day the crop goes in
  * the ground, whether sown direct or planted out.
  *
+ * `groundMonths` are the months a crop goes in the ground in the open air in
+ * the north and centre of mainland Portugal. They were put together from
+ * sowing calendars published there (LIPOR in Porto, the Guimaraes and
+ * Penafiel garden manuals, the Eco-Escolas "Calendario da Horta", Sementes
+ * Vivas, the Portuguese horticulture association) and checked against
+ * Galicia's. Where a calendar only gave the sowing month of a crop raised
+ * indoors, the planting month is that plus the crop's weeks indoors. Fennel,
+ * endive, French marigold, rosemary and nasturtium had no good local source
+ * and follow general practice.
+ *
  * Companions are not listed here but in `GOOD_NEIGHBOURS` and
  * `BAD_NEIGHBOURS` below: a pair is written once and applied to both crops,
  * so the two can never disagree.
@@ -27,6 +37,7 @@ const CROPS: readonly Crop[] = [
     temps: { germMinSoilC: 10, transplantMinNightC: 10, maxDayC: 35 },
     daysToHarvest: [60, 85],
     indoorsWeeks: 6,
+    groundMonths: [4, 5, 6],
     color: "#d94a3a",
   },
   {
@@ -39,6 +50,7 @@ const CROPS: readonly Crop[] = [
     temps: { germMinSoilC: 15, transplantMinNightC: 12, maxDayC: 32 },
     daysToHarvest: [60, 90],
     indoorsWeeks: 8,
+    groundMonths: [4, 5, 6],
     color: "#e8742c",
   },
   {
@@ -51,6 +63,7 @@ const CROPS: readonly Crop[] = [
     temps: { germMinSoilC: 18, transplantMinNightC: 12, maxDayC: 35 },
     daysToHarvest: [70, 100],
     indoorsWeeks: 9,
+    groundMonths: [5, 6],
     color: "#b3261e",
   },
   {
@@ -63,6 +76,7 @@ const CROPS: readonly Crop[] = [
     temps: { germMinSoilC: 18, transplantMinNightC: 13, maxDayC: 35 },
     daysToHarvest: [65, 90],
     indoorsWeeks: 8,
+    groundMonths: [5, 6],
     color: "#5b3a8c",
   },
   {
@@ -75,6 +89,7 @@ const CROPS: readonly Crop[] = [
     spacing: { inRowCm: 30, rowCm: 70 },
     temps: { germMinSoilC: 7, maxDayC: 30 },
     daysToHarvest: [80, 130],
+    groundMonths: [2, 3, 4],
     color: "#b08d57",
   },
 
@@ -89,6 +104,7 @@ const CROPS: readonly Crop[] = [
     temps: { germMinSoilC: 15, transplantMinNightC: 12, maxDayC: 35 },
     daysToHarvest: [50, 70],
     indoorsWeeks: 3,
+    groundMonths: [4, 5, 6],
     color: "#4f9d5d",
   },
   {
@@ -101,6 +117,7 @@ const CROPS: readonly Crop[] = [
     temps: { germMinSoilC: 15, transplantMinNightC: 10, maxDayC: 35 },
     daysToHarvest: [45, 60],
     indoorsWeeks: 3,
+    groundMonths: [5, 6],
     color: "#6b8e23",
   },
   {
@@ -113,6 +130,7 @@ const CROPS: readonly Crop[] = [
     temps: { germMinSoilC: 15, transplantMinNightC: 10 },
     daysToHarvest: [90, 120],
     indoorsWeeks: 3,
+    groundMonths: [5, 6],
     color: "#e67e22",
   },
   {
@@ -125,6 +143,7 @@ const CROPS: readonly Crop[] = [
     temps: { germMinSoilC: 18, transplantMinNightC: 13 },
     daysToHarvest: [80, 100],
     indoorsWeeks: 4,
+    groundMonths: [5, 6],
     color: "#d6c45a",
   },
   {
@@ -137,6 +156,7 @@ const CROPS: readonly Crop[] = [
     temps: { germMinSoilC: 18, transplantMinNightC: 13 },
     daysToHarvest: [80, 100],
     indoorsWeeks: 4,
+    groundMonths: [5, 6],
     color: "#2e7d4f",
   },
 
@@ -150,6 +170,7 @@ const CROPS: readonly Crop[] = [
     spacing: { inRowCm: 10, rowCm: 45 },
     temps: { germMinSoilC: 15, maxDayC: 32 },
     daysToHarvest: [50, 65],
+    groundMonths: [4, 5, 6, 7],
     color: "#3f8f4f",
   },
   {
@@ -161,6 +182,7 @@ const CROPS: readonly Crop[] = [
     spacing: { inRowCm: 5, rowCm: 60 },
     temps: { germMinSoilC: 5, maxDayC: 25 },
     daysToHarvest: [60, 80],
+    groundMonths: [1, 2, 3, 10, 11, 12],
     color: "#7cb342",
   },
   {
@@ -173,6 +195,7 @@ const CROPS: readonly Crop[] = [
     temps: { germMinSoilC: 5, maxDayC: 25 },
     // The long end is for autumn sowings, which stand through the winter.
     daysToHarvest: [90, 150],
+    groundMonths: [1, 2, 10, 11, 12],
     color: "#8a9a5b",
   },
 
@@ -187,6 +210,7 @@ const CROPS: readonly Crop[] = [
     temps: { germMinSoilC: 5, transplantMinNightC: 0, maxDayC: 27 },
     daysToHarvest: [70, 120],
     indoorsWeeks: 5,
+    groundMonths: [3, 4, 7, 8, 9, 10],
     color: "#7fb08a",
   },
   {
@@ -199,6 +223,7 @@ const CROPS: readonly Crop[] = [
     temps: { germMinSoilC: 5, transplantMinNightC: 0, maxDayC: 27 },
     daysToHarvest: [55, 75],
     indoorsWeeks: 5,
+    groundMonths: [3, 4, 6, 7, 8, 9, 10],
     color: "#2f6f4f",
   },
   {
@@ -211,6 +236,7 @@ const CROPS: readonly Crop[] = [
     temps: { germMinSoilC: 5, transplantMinNightC: 2, maxDayC: 25 },
     daysToHarvest: [60, 90],
     indoorsWeeks: 5,
+    groundMonths: [3, 4, 7, 8, 9],
     color: "#3d8b5f",
   },
   {
@@ -223,6 +249,7 @@ const CROPS: readonly Crop[] = [
     temps: { germMinSoilC: 5, transplantMinNightC: 2, maxDayC: 25 },
     daysToHarvest: [70, 110],
     indoorsWeeks: 5,
+    groundMonths: [3, 4, 7, 8, 9],
     color: "#d8d2b8",
   },
   {
@@ -234,6 +261,7 @@ const CROPS: readonly Crop[] = [
     spacing: { inRowCm: 10, rowCm: 30 },
     temps: { germMinSoilC: 5, maxDayC: 25 },
     daysToHarvest: [40, 60],
+    groundMonths: [2, 3, 4, 8, 9, 10],
     color: "#b58bb0",
   },
   {
@@ -245,6 +273,7 @@ const CROPS: readonly Crop[] = [
     spacing: { inRowCm: 3, rowCm: 15 },
     temps: { germMinSoilC: 5, maxDayC: 25 },
     daysToHarvest: [25, 35],
+    groundMonths: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
     color: "#d6336c",
   },
   {
@@ -256,6 +285,7 @@ const CROPS: readonly Crop[] = [
     spacing: { inRowCm: 15, rowCm: 20 },
     temps: { germMinSoilC: 5, maxDayC: 25 },
     daysToHarvest: [30, 45],
+    groundMonths: [3, 4, 5, 9, 10],
     color: "#5a9e4b",
   },
 
@@ -270,6 +300,7 @@ const CROPS: readonly Crop[] = [
     temps: { germMinSoilC: 2 },
     daysToHarvest: [90, 120],
     indoorsWeeks: 8,
+    groundMonths: [1, 2, 3, 4],
     color: "#c9a227",
   },
   {
@@ -282,6 +313,7 @@ const CROPS: readonly Crop[] = [
     temps: {},
     // Planted as cloves in autumn or late winter and lifted in summer.
     daysToHarvest: [180, 240],
+    groundMonths: [1, 10, 11, 12],
     color: "#cbbfa6",
   },
   {
@@ -294,6 +326,7 @@ const CROPS: readonly Crop[] = [
     temps: { germMinSoilC: 5 },
     daysToHarvest: [100, 150],
     indoorsWeeks: 10,
+    groundMonths: [4, 5, 6, 7, 8, 9],
     color: "#9bbf8a",
   },
   {
@@ -306,6 +339,7 @@ const CROPS: readonly Crop[] = [
     temps: { germMinSoilC: 5 },
     daysToHarvest: [60, 90],
     indoorsWeeks: 6,
+    groundMonths: [4, 5, 6, 9],
     color: "#8e6bbf",
   },
 
@@ -319,6 +353,7 @@ const CROPS: readonly Crop[] = [
     spacing: { inRowCm: 5, rowCm: 25 },
     temps: { germMinSoilC: 5, maxDayC: 30 },
     daysToHarvest: [70, 110],
+    groundMonths: [2, 3, 4, 5, 6, 7, 8, 9, 10],
     color: "#f08a24",
   },
   {
@@ -331,6 +366,7 @@ const CROPS: readonly Crop[] = [
     temps: { germMinSoilC: 5 },
     daysToHarvest: [70, 90],
     indoorsWeeks: 6,
+    groundMonths: [3, 4, 5, 6, 9, 10],
     color: "#4caf50",
   },
   {
@@ -343,6 +379,7 @@ const CROPS: readonly Crop[] = [
     // Runs to seed quickly once the days turn hot.
     temps: { germMinSoilC: 10, maxDayC: 27 },
     daysToHarvest: [40, 60],
+    groundMonths: [2, 3, 4, 5, 9, 10],
     color: "#6fbf73",
   },
   {
@@ -355,6 +392,7 @@ const CROPS: readonly Crop[] = [
     temps: { germMinSoilC: 10, transplantMinNightC: 7, maxDayC: 27 },
     daysToHarvest: [85, 120],
     indoorsWeeks: 10,
+    groundMonths: [5, 6, 7],
     color: "#a8cf7a",
   },
   {
@@ -366,6 +404,7 @@ const CROPS: readonly Crop[] = [
     spacing: { inRowCm: 25, rowCm: 40 },
     temps: { germMinSoilC: 10, maxDayC: 27 },
     daysToHarvest: [70, 90],
+    groundMonths: [3, 4, 7, 8, 9],
     color: "#c5d86d",
   },
 
@@ -380,6 +419,7 @@ const CROPS: readonly Crop[] = [
     temps: { germMinSoilC: 2, transplantMinNightC: 2, maxDayC: 27 },
     daysToHarvest: [45, 75],
     indoorsWeeks: 4,
+    groundMonths: [2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
     color: "#8bc34a",
   },
   {
@@ -392,6 +432,7 @@ const CROPS: readonly Crop[] = [
     temps: { germMinSoilC: 5, transplantMinNightC: 2, maxDayC: 27 },
     daysToHarvest: [60, 90],
     indoorsWeeks: 4,
+    groundMonths: [6, 7, 8, 9, 10],
     color: "#b5cc5a",
   },
   {
@@ -403,6 +444,7 @@ const CROPS: readonly Crop[] = [
     spacing: { inRowCm: 45, rowCm: 60 },
     temps: { germMinSoilC: 10 },
     daysToHarvest: [80, 120],
+    groundMonths: [4, 5, 6],
     color: "#f2c230",
   },
   {
@@ -416,6 +458,7 @@ const CROPS: readonly Crop[] = [
     // Days until it flowers: it is grown for the pests it keeps away, not to eat.
     daysToHarvest: [50, 70],
     indoorsWeeks: 6,
+    groundMonths: [5, 6],
     color: "#f59e0b",
   },
 
@@ -429,6 +472,7 @@ const CROPS: readonly Crop[] = [
     spacing: { inRowCm: 10, rowCm: 30 },
     temps: { germMinSoilC: 2, maxDayC: 24 },
     daysToHarvest: [40, 55],
+    groundMonths: [2, 3, 4, 8, 9, 10],
     color: "#2e8b57",
   },
   {
@@ -441,6 +485,7 @@ const CROPS: readonly Crop[] = [
     temps: { germMinSoilC: 5, transplantMinNightC: 2 },
     daysToHarvest: [50, 65],
     indoorsWeeks: 4,
+    groundMonths: [3, 4, 5, 8, 9, 10],
     color: "#c2185b",
   },
   {
@@ -452,6 +497,7 @@ const CROPS: readonly Crop[] = [
     spacing: { inRowCm: 10, rowCm: 30 },
     temps: { germMinSoilC: 5, maxDayC: 27 },
     daysToHarvest: [55, 75],
+    groundMonths: [3, 4, 5, 6, 8, 9],
     color: "#8e244d",
   },
 
@@ -466,6 +512,7 @@ const CROPS: readonly Crop[] = [
     temps: { germMinSoilC: 15, transplantMinNightC: 10 },
     daysToHarvest: [50, 70],
     indoorsWeeks: 6,
+    groundMonths: [5, 6],
     color: "#3aa35c",
   },
   {
@@ -477,6 +524,7 @@ const CROPS: readonly Crop[] = [
     spacing: { inRowCm: 30, rowCm: 45 },
     temps: {},
     daysToHarvest: [60, 90],
+    groundMonths: [3, 4, 5, 9, 10],
     color: "#57b894",
   },
   {
@@ -489,6 +537,7 @@ const CROPS: readonly Crop[] = [
     temps: { germMinSoilC: 15 },
     daysToHarvest: [80, 90],
     indoorsWeeks: 8,
+    groundMonths: [5, 6, 9, 10],
     color: "#7a9a6a",
   },
   {
@@ -501,6 +550,7 @@ const CROPS: readonly Crop[] = [
     temps: { germMinSoilC: 15 },
     daysToHarvest: [90, 120],
     indoorsWeeks: 8,
+    groundMonths: [5, 6, 9, 10],
     color: "#8f9779",
   },
   {
@@ -513,6 +563,7 @@ const CROPS: readonly Crop[] = [
     temps: {},
     daysToHarvest: [90, 180],
     indoorsWeeks: 10,
+    groundMonths: [4, 5, 6, 9, 10],
     color: "#4a7c6f",
   },
 
@@ -526,6 +577,7 @@ const CROPS: readonly Crop[] = [
     spacing: { inRowCm: 30, rowCm: 75 },
     temps: { germMinSoilC: 12, transplantMinNightC: 10 },
     daysToHarvest: [70, 100],
+    groundMonths: [5, 6],
     color: "#e6c229",
   },
 
@@ -539,6 +591,7 @@ const CROPS: readonly Crop[] = [
     spacing: { inRowCm: 35, rowCm: 60 },
     temps: { maxDayC: 30 },
     daysToHarvest: [60, 90],
+    groundMonths: [9, 10, 11, 12],
     color: "#e0314b",
   },
 
@@ -552,6 +605,7 @@ const CROPS: readonly Crop[] = [
     spacing: { inRowCm: 30, rowCm: 90 },
     temps: { transplantMinNightC: 13 },
     daysToHarvest: [100, 150],
+    groundMonths: [5, 6],
     color: "#c9683a",
   },
   {
@@ -563,6 +617,7 @@ const CROPS: readonly Crop[] = [
     spacing: { inRowCm: 30, rowCm: 30 },
     temps: { germMinSoilC: 12 },
     daysToHarvest: [50, 70],
+    groundMonths: [4, 5, 6],
     color: "#f4771b",
   },
 ]

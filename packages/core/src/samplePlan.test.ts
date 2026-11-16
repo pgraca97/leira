@@ -4,11 +4,12 @@ import { addDays, type IsoDate } from "./dates"
 import { intersection } from "./geometry"
 import { plantingFill } from "./plan"
 import { getPlant } from "./plants"
-import { harvestTotals } from "./records"
+import { harvestTotals, withoutRecords } from "./records"
 import { findRotationConflicts } from "./rotation"
 import { samplePlan } from "./samplePlan"
 import { gardenTasks, plantingsInGround } from "./schedule"
 import { GardenPlanSchema } from "./schema"
+import { findOutOfSeason } from "./sowing"
 
 /** Hands out distinct, valid ids the way `crypto.randomUUID` would. */
 function ids(): () => string {
@@ -70,6 +71,11 @@ describe("samplePlan", () => {
       "good: basil and tomato",
       "good: carrot and onion",
     ])
+  })
+
+  it("plants every crop in its season, records or no records", () => {
+    expect(findOutOfSeason(withoutRecords(plan), getPlant)).toEqual([])
+    expect(findOutOfSeason(withoutRecords(sample("2026-11-16")), getPlant)).toEqual([])
   })
 
   it("has room for several plants of every crop", () => {

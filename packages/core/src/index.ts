@@ -108,5 +108,6 @@ export {
   type WeatherNow,
   WeatherNowSchema,
 } from "./schema"
+export { findOutOfSeason, monthRanges, type OutOfSeason, startsOn } from "./sowing"
 export { type AreaFill, fillArea, fillPoints, SFG_CELL_CM } from "./spacing"
 export { FROST_LIMIT_C, findWeatherRisks, SETTLING_DAYS, type WeatherRisk } from "./weatherRisks"
