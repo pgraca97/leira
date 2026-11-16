@@ -64,6 +64,38 @@ describe("the gardens list", () => {
     expect(await screen.findByText(/You have no gardens yet/)).toBeVisible()
   })
 
+  it("offers an example to a user with no gardens, and opens it in the editor", async () => {
+    backend = fakeBackend()
+    const history = open("/")
+    await userEvent.click(await screen.findByRole("button", { name: "See an example" }))
+
+    expect(await screen.findByRole("textbox", { name: "Garden name" })).toHaveValue(
+      "Example garden"
+    )
+    const [created] = [...backend.rows.values()]
+    expect(history.location.pathname).toBe(`/gardens/${created?.id}`)
+    expect(created?.plan.beds).toHaveLength(2)
+    // The example is there to show the advice at work.
+    expect(await screen.findByRole("region", { name: "Crop rotation" })).toBeVisible()
+    expect(screen.getByRole("region", { name: "Companion planting" })).toBeVisible()
+  })
+
+  it("does not offer the example to a user who already has gardens", async () => {
+    open("/")
+    await screen.findAllByRole("link", { name: /Tomato patch|Herb spiral/ })
+    expect(screen.queryByRole("button", { name: "See an example" })).toBeNull()
+  })
+
+  it("says so when the example could not be created", async () => {
+    backend = fakeBackend()
+    backend.gardens.create = async () => {
+      throw new Error("503")
+    }
+    open("/")
+    await userEvent.click(await screen.findByRole("button", { name: "See an example" }))
+    expect(await screen.findByRole("alert")).toHaveTextContent("could not be created")
+  })
+
   it("creates a garden and opens it in the editor", async () => {
     backend = fakeBackend()
     const history = open("/")

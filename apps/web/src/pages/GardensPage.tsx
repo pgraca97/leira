@@ -1,4 +1,4 @@
-import { emptyPlan } from "@leira/core"
+import { emptyPlan, samplePlan, toIsoDate } from "@leira/core"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link, useNavigate } from "@tanstack/react-router"
 import { useEffect } from "react"
@@ -22,7 +22,13 @@ export function GardensPage() {
   const gardens = useQuery({ queryKey: GARDENS_KEY, queryFn: () => backend.gardens.list() })
 
   const create = useMutation({
-    mutationFn: () => backend.gardens.create(t("gardens.defaultName"), emptyPlan()),
+    mutationFn: (start: "empty" | "example") =>
+      start === "example"
+        ? backend.gardens.create(
+            t("gardens.exampleName"),
+            samplePlan(toIsoDate(new Date()), () => crypto.randomUUID())
+          )
+        : backend.gardens.create(t("gardens.defaultName"), emptyPlan()),
     onSuccess: (garden) => navigate({ to: "/gardens/$gardenId", params: { gardenId: garden.id } }),
   })
 
@@ -52,7 +58,7 @@ export function GardensPage() {
             type="button"
             className={primaryButtonClass}
             disabled={create.isPending}
-            onClick={() => create.mutate()}
+            onClick={() => create.mutate("empty")}
           >
             {t("gardens.new")}
           </button>
@@ -72,7 +78,19 @@ export function GardensPage() {
             action={{ label: t("common.retry"), onClick: () => void gardens.refetch() }}
           />
         )}
-        {gardens.data?.length === 0 && <Notice kind="info" message={t("gardens.empty")} />}
+        {gardens.data?.length === 0 && (
+          <Notice
+            kind="info"
+            message={t("gardens.empty")}
+            action={{
+              label: t("gardens.example"),
+              // A second press while the first is on its way would make two examples.
+              onClick: () => {
+                if (!create.isPending) create.mutate("example")
+              },
+            }}
+          />
+        )}
 
         {gardens.data && gardens.data.length > 0 && (
           <ul className="flex flex-col gap-2">

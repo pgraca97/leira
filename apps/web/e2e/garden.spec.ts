@@ -185,6 +185,25 @@ test("a guest keeps their gardens with an emailed link, then signs out", async (
   await expect(page.getByText(/You have no gardens yet/)).toBeVisible()
 })
 
+test("a new visitor opens the example garden and finds the advice at work", async ({ page }) => {
+  await page.goto("/")
+  await page.getByRole("button", { name: "See an example" }).click()
+
+  await expect(page.getByRole("textbox", { name: "Garden name" })).toHaveValue("Example garden")
+  await expect(page.getByTestId("garden-canvas")).toHaveAttribute("data-status", "ready")
+  await expect(page.getByRole("region", { name: "Crop rotation" })).toContainText(
+    "Potato goes where Tomato grew"
+  )
+  await expect(page.getByRole("region", { name: "Companion planting" })).toContainText(
+    "Onion and Broad bean grow poorly side by side"
+  )
+
+  // It is a garden like any other: it is kept, and listed.
+  await page.getByRole("link", { name: "All gardens" }).click()
+  await expect(page.getByRole("link", { name: "Example garden" })).toBeVisible()
+  await expect(page.getByRole("button", { name: "See an example" })).toHaveCount(0)
+})
+
 test("the interface switches to Portuguese", async ({ page }) => {
   await page.goto("/")
   await page.getByRole("combobox", { name: "Language" }).selectOption("pt")

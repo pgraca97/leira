@@ -39,7 +39,10 @@ export const en = {
     defaultName: "My garden",
     loading: "Loading your gardens…",
     loadFailed: "Your gardens could not be loaded.",
-    empty: "You have no gardens yet. Create one to start planning.",
+    empty:
+      "You have no gardens yet. Create one to start planning, or look around an example first.",
+    example: "See an example",
+    exampleName: "Example garden",
     updated: "Changed {{date}}",
     delete: "Delete",
     deleteNamed: "Delete {{name}}",
