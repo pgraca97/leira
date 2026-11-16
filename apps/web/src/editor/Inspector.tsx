@@ -16,7 +16,7 @@ import { useTranslation } from "react-i18next"
 import { CommitField } from "../components/CommitField"
 import { dangerButtonClass, inputClass, toggleButtonClass } from "../components/ui"
 import { currentLanguage } from "../i18n"
-import { PlantingMarks } from "./PlantingRecord"
+import { PlantingMarks, PlantingRecord } from "./PlantingRecord"
 import { editorStore, selectedBed, selectedPlanting } from "./store"
 import { useEditor } from "./useEditor"
 
@@ -286,6 +286,7 @@ export function Inspector({ children }: { children?: ReactNode }) {
               )}
             </div>
           )}
+          {planted && <PlantingRecord key={planted.planting.id} planting={planted.planting} />}
           <button type="button" className={`${dangerButtonClass} mt-2`} onClick={removeSelection}>
             {t("inspector.delete")}
           </button>
