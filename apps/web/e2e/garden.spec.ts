@@ -94,6 +94,16 @@ test("a planting shows on the calendar and on the day it is in the ground", asyn
   await expect(line).toBeVisible()
   await expect(page.getByRole("list", { name: "Jobs" })).toContainText("Tomato")
 
+  // The year's shopping list, and the jobs as a file a phone calendar takes.
+  await expect(page.getByRole("list", { name: /^To get for/ })).toContainText("Tomato")
+  const saved = page.waitForEvent("download")
+  await page.getByRole("button", { name: "Add to my calendar (.ics)" }).click()
+  const file = await saved
+  expect(file.suggestedFilename()).toBe("my-garden.ics")
+  const calendar = readFileSync(await file.path(), "utf8")
+  expect(calendar).toContain("BEGIN:VCALENDAR")
+  expect(calendar).toMatch(/SUMMARY:.*Tomato/)
+
   // By bed, a planting on open ground is listed apart, and there are no beds to show.
   await page.getByRole("button", { name: "By bed" }).click()
   await expect(page.getByRole("group", { name: "Outside the beds" })).toContainText("Tomato")

@@ -12,12 +12,14 @@ import {
   gardenTasks,
   getPlant,
   type IsoDate,
+  icsCalendar,
   PLANTS,
   type Plant,
   type Planting,
   type PlantingSchedule,
   plantingFill,
   plantingSchedule,
+  seedList,
   toIsoDate,
   yearOf,
 } from "@leira/core"
@@ -25,11 +27,16 @@ import { type ReactNode, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { buttonClass, inputClass, viewLinkClass } from "../components/ui"
 import { useEditor } from "../editor/useEditor"
+import { downloadText } from "../export/downloadFile"
+import { fileNameFor } from "../export/fileName"
 import { currentLanguage } from "../i18n"
 import { type YearSpan, yearSpan } from "./layout"
 
 /** How many crops a free stretch of a bed names before it only counts the rest. */
 const FITS_SHOWN = 4
+
+/** How far ahead the jobs saved to a calendar file reach: a year covers every season once. */
+const EXPORT_HORIZON_DAYS = 365
 
 /** How far ahead the list of jobs looks. */
 const TASK_HORIZON_DAYS = 30
@@ -53,14 +60,29 @@ interface Row {
  * The calendar of the garden being edited. It reads the plan from the editor
  * store, so it always shows what the editor holds.
  */
-export function Calendar({ onOpenPlanting }: { onOpenPlanting(plantingId: string): void }) {
+export function Calendar({
+  gardenName,
+  onOpenPlanting,
+}: {
+  gardenName: string
+  onOpenPlanting(plantingId: string): void
+}) {
   const plan = useEditor((state) => state.plan)
   const recordTask = useEditor((state) => state.recordTask)
-  return <PlanCalendar plan={plan} onOpenPlanting={onOpenPlanting} onRecordTask={recordTask} />
+  return (
+    <PlanCalendar
+      plan={plan}
+      gardenName={gardenName}
+      onOpenPlanting={onOpenPlanting}
+      onRecordTask={recordTask}
+    />
+  )
 }
 
 interface PlanCalendarProps {
   plan: GardenPlan
+  /** Names the calendar file the jobs can be saved to. Without it that is not offered. */
+  gardenName?: string
   /** Opens a planting from its line. Without it the lines are only to read. */
   onOpenPlanting?(plantingId: string): void
   /**
@@ -75,7 +97,12 @@ interface PlanCalendarProps {
  * in the ground and in harvest, and the jobs around today: the ones coming
  * up, the ones that slipped, and the ones just done.
  */
-export function PlanCalendar({ plan, onOpenPlanting, onRecordTask }: PlanCalendarProps) {
+export function PlanCalendar({
+  plan,
+  gardenName,
+  onOpenPlanting,
+  onRecordTask,
+}: PlanCalendarProps) {
   const { t } = useTranslation()
   const language = currentLanguage()
   const today = toIsoDate(new Date())
@@ -129,6 +156,35 @@ export function PlanCalendar({ plan, onOpenPlanting, onRecordTask }: PlanCalenda
     return planting ? [{ task, planting }] : []
   })
   const todayMark = yearSpan({ from: today, to: today }, year)
+
+  const taskText = (task: { kind: GardenTaskKind; plantId: string }) =>
+    t(`calendar.task.${task.kind}`, {
+      name: getPlant(task.plantId)?.name[language] ?? task.plantId,
+    })
+  // The jobs still to do from today on. One already late has no day to go on a calendar.
+  const toExport = gardenTasks(plan, getPlant, {
+    from: today,
+    to: addDays(today, EXPORT_HORIZON_DAYS),
+  }).filter((task) => !task.done)
+  const saveJobs = (name: string) =>
+    downloadText(
+      icsCalendar(
+        toExport.map((task) => ({
+          // The same id every time, so importing the file again moves a job instead of doubling it.
+          uid: `${task.plantingId}-${task.kind}`,
+          date: task.date,
+          summary: taskText(task),
+          description: name,
+        })),
+        { name, stamp: new Date().toISOString() }
+      ),
+      "text/calendar",
+      fileNameFor(name, "ics")
+    )
+
+  const needs = seedList(plan, getPlant, year)
+    .map((need) => ({ ...need, name: getPlant(need.plantId)?.name[language] ?? need.plantId }))
+    .sort((a, b) => a.name.localeCompare(b.name, language))
 
   // The free stretches are looked for to the end of the following year, so one
   // that runs past December is known for as long as it really is. That is the
@@ -296,9 +352,20 @@ export function PlanCalendar({ plan, onOpenPlanting, onRecordTask }: PlanCalenda
       </section>
 
       <section aria-labelledby="calendar-tasks" className="flex flex-col gap-2">
-        <h2 id="calendar-tasks" className={headingClass}>
-          {t("calendar.tasks")}
-        </h2>
+        <div className="flex items-center gap-3">
+          <h2 id="calendar-tasks" className={headingClass}>
+            {t("calendar.tasks")}
+          </h2>
+          {gardenName && toExport.length > 0 && (
+            <button
+              type="button"
+              className={`${buttonClass} ml-auto`}
+              onClick={() => saveJobs(gardenName)}
+            >
+              {t("calendar.exportJobs")}
+            </button>
+          )}
+        </div>
         {tasks.length === 0 ? (
           <p className="text-sm text-stone-600">
             {t("calendar.noTasks", { days: TASK_HORIZON_DAYS })}
@@ -311,9 +378,7 @@ export function PlanCalendar({ plan, onOpenPlanting, onRecordTask }: PlanCalenda
                 task={task}
                 planting={planting}
                 day={day(task.date)}
-                text={t(`calendar.task.${task.kind}`, {
-                  name: getPlant(task.plantId)?.name[language] ?? task.plantId,
-                })}
+                text={taskText(task)}
                 today={today}
                 onRecord={onRecordTask && ((date) => onRecordTask(planting.id, task.kind, date))}
               />
@@ -321,6 +386,30 @@ export function PlanCalendar({ plan, onOpenPlanting, onRecordTask }: PlanCalenda
           </ul>
         )}
       </section>
+
+      {needs.length > 0 && (
+        <section aria-labelledby="calendar-seeds" className="flex flex-col gap-2">
+          <h2 id="calendar-seeds" className={headingClass}>
+            {t("calendar.seeds", { year })}
+          </h2>
+          <ul
+            aria-labelledby="calendar-seeds"
+            className="grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2 lg:grid-cols-3"
+          >
+            {needs.map((need) => (
+              <li
+                key={need.plantId}
+                className="flex items-baseline justify-between gap-3 border-b border-stone-200 py-1"
+              >
+                <span className="text-stone-900">{need.name}</span>
+                <span className="text-stone-600">
+                  {t("calendar.seedPlants", { count: need.plants })}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </main>
   )
 }

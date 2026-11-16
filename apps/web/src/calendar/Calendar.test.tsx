@@ -6,6 +6,7 @@ import { fireEvent, render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { editorStore } from "../editor/store"
+import { downloadText } from "../export/downloadFile"
 import { Calendar, PlanCalendar } from "./Calendar"
 
 function planting(id: string, plantId: string, from: string, to: string): Planting {
@@ -24,15 +25,18 @@ const TOMATOES = planting("tomatoes", "tomato", "2026-05-01", "2026-09-30")
 const CARROTS = planting("carrots", "carrot", "2026-03-15", "2026-07-03")
 const NEXT_YEAR = planting("next", "lettuce", "2027-04-01", "2027-06-01")
 
+vi.mock("../export/downloadFile", () => ({ downloadText: vi.fn() }))
+
 let opened: string[]
 
 function show(plantings: Planting[]) {
   editorStore.getState().loadPlan({ ...emptyPlan(), plantings })
   opened = []
-  render(<Calendar onOpenPlanting={(id) => opened.push(id)} />)
+  render(<Calendar gardenName="Back garden" onOpenPlanting={(id) => opened.push(id)} />)
 }
 
 beforeEach(() => {
+  vi.mocked(downloadText).mockClear()
   // Only the clock is faked, so timers that the test tools rely on keep running.
   vi.useFakeTimers({ now: new Date(2026, 3, 20, 10, 0), toFake: ["Date"] })
 })
@@ -226,7 +230,7 @@ describe("the year by bed", () => {
   function showBeds(beds: Bed[], plantings: Planting[]) {
     editorStore.getState().loadPlan({ ...emptyPlan(), beds, plantings })
     opened = []
-    render(<Calendar onOpenPlanting={(id) => opened.push(id)} />)
+    render(<Calendar gardenName="Back garden" onOpenPlanting={(id) => opened.push(id)} />)
   }
 
   const byBed = () => userEvent.click(screen.getByRole("button", { name: "By bed" }))
@@ -305,5 +309,74 @@ describe("the year by bed", () => {
     await userEvent.click(screen.getByRole("button", { name: "By planting" }))
     expect(screen.queryByRole("group")).toBeNull()
     expect(screen.getByRole("button", { name: /^Carrot/ })).toBeVisible()
+  })
+})
+
+describe("what to get for the year", () => {
+  const needs = () =>
+    within(screen.getByRole("list", { name: /^To get for/ }))
+      .getAllByRole("listitem")
+      .map((need) => need.textContent)
+
+  it("adds up the plants of each crop still to go in the ground, by name", () => {
+    show([
+      TOMATOES,
+      CARROTS,
+      planting("more", "tomato", "2026-06-01", "2026-10-15"),
+      { ...planting("in", "tomato", "2026-04-10", "2026-09-01"), planted: true },
+    ])
+    expect(screen.getByRole("heading", { name: "To get for 2026" })).toBeVisible()
+    expect(needs()).toEqual(["Carrot400 plants", "Tomato8 plants"])
+  })
+
+  it("follows the year being shown", async () => {
+    show([TOMATOES, NEXT_YEAR])
+    await userEvent.click(screen.getByRole("button", { name: "Next year" }))
+    expect(screen.getByRole("heading", { name: "To get for 2027" })).toBeVisible()
+    expect(needs()).toEqual(["Lettuce16 plants"])
+  })
+
+  it("is left out when there is nothing to get", () => {
+    show([{ ...TOMATOES, planted: true }])
+    expect(screen.queryByRole("heading", { name: /^To get for/ })).toBeNull()
+  })
+})
+
+describe("taking the jobs to another calendar", () => {
+  it("saves the jobs still to do, from today on, as a calendar file named after the garden", async () => {
+    // Today is 20 April 2026. The carrots went in on 15 March and are ticked.
+    show([TOMATOES, { ...CARROTS, planted: true }])
+    await userEvent.click(screen.getByRole("button", { name: "Add to my calendar (.ics)" }))
+
+    expect(downloadText).toHaveBeenCalledTimes(1)
+    const [file, type, name] = vi.mocked(downloadText).mock.calls[0] ?? []
+    expect(name).toBe("back-garden.ics")
+    expect(type).toBe("text/calendar")
+    expect(file).toContain("X-WR-CALNAME:Back garden")
+    const summaries = String(file)
+      .split("\r\n")
+      .filter((line) => line.startsWith("SUMMARY:") || line.startsWith("DTSTART"))
+    expect(summaries).toEqual([
+      "DTSTART;VALUE=DATE:20260501",
+      "SUMMARY:Plant out Tomato",
+      "DTSTART;VALUE=DATE:20260524",
+      "SUMMARY:Start picking Carrot",
+      "DTSTART;VALUE=DATE:20260630",
+      "SUMMARY:Start picking Tomato",
+      "DTSTART;VALUE=DATE:20260703",
+      "SUMMARY:Clear Carrot",
+      "DTSTART;VALUE=DATE:20260930",
+      "SUMMARY:Clear Tomato",
+    ])
+  })
+
+  it("is not offered where there is no garden name to save under", () => {
+    render(<PlanCalendar plan={{ ...emptyPlan(), plantings: [TOMATOES] }} />)
+    expect(screen.queryByRole("button", { name: /\.ics/ })).toBeNull()
+  })
+
+  it("is not offered when no job is left to do", () => {
+    show([])
+    expect(screen.queryByRole("button", { name: /\.ics/ })).toBeNull()
   })
 })

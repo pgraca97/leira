@@ -116,6 +116,7 @@ function LoadedGarden({ garden, view, onReload }: LoadedGardenProps) {
       <div className="min-h-0 flex-1 print:hidden">
         {view === "calendar" ? (
           <Calendar
+            gardenName={name}
             onOpenPlanting={(id) => {
               editorStore.getState().select({ kind: "planting", id })
               void navigate({ to: "/gardens/$gardenId", params: { gardenId: garden.id } })

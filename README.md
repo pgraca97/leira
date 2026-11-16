@@ -33,7 +33,9 @@ A _leira_ is what a plot of cultivated land is called in Minho, in the north of 
   follows that day; a job that slipped stays on the list as overdue.
 - **Records:** a harvest log per planting, in kilos or units, with what the crop gave in total, and
   free notes on a planting and on the garden for what went wrong and what to try next year.
-- **Export:** save the plan as a PNG or print a sheet with the plan and a planting table.
+- **Export:** save the plan as a PNG or print a sheet with the plan and a planting table. The jobs
+  still to do go to a phone or desktop calendar as an `.ics` file, and each year has a list of
+  the plants to get, added up from the plan.
 - **Share:** a read-only link shows a garden's plan and calendar to anyone, with no account. The
   owner chooses whether it says where the garden is, and can turn it off at any time. Notes and
   harvest amounts never leave with the link.

@@ -211,6 +211,10 @@ export const pt: Translation = {
     tooSoon: "ainda não está na terra",
     done: "feita",
     doneOn: "{{task}}: feita a",
+    exportJobs: "Pôr no meu calendário (.ics)",
+    seeds: "A arranjar para {{year}}",
+    seedPlants_one: "{{count}} planta",
+    seedPlants_other: "{{count}} plantas",
     noTasks: "Nada para fazer nos próximos {{days}} dias.",
     task: {
       "sow-indoors": "Semear {{name}} em interior",

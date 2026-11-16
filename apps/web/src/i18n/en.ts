@@ -208,6 +208,10 @@ export const en = {
     tooSoon: "not in the ground yet",
     done: "done",
     doneOn: "{{task}}: done on",
+    exportJobs: "Add to my calendar (.ics)",
+    seeds: "To get for {{year}}",
+    seedPlants_one: "{{count}} plant",
+    seedPlants_other: "{{count}} plants",
     noTasks: "Nothing to do in the next {{days}} days.",
     task: {
       "sow-indoors": "Sow {{name}} indoors",

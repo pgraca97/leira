@@ -114,7 +114,7 @@ function LoadedSharedGarden({ garden, token, view }: LoadedSharedGardenProps) {
       </div>
       <div className="min-h-0 flex-1">
         {view === "calendar" ? (
-          <PlanCalendar plan={plan} />
+          <PlanCalendar plan={plan} gardenName={name} />
         ) : (
           <main className="h-full overflow-auto p-4">
             <PlanSvg

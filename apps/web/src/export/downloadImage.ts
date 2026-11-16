@@ -1,3 +1,5 @@
+import { saveBlob } from "./downloadFile"
+
 /**
  * Saves an SVG picture as a PNG file. The browser draws the SVG onto a canvas
  * at the size asked for, and the canvas is handed to the user as a download.
@@ -30,14 +32,4 @@ export async function downloadPng(
   } finally {
     URL.revokeObjectURL(source)
   }
-}
-
-function saveBlob(blob: Blob, fileName: string): void {
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement("a")
-  link.href = url
-  link.download = fileName
-  link.click()
-  // Revoked on the next tick, once the browser has started the download.
-  setTimeout(() => URL.revokeObjectURL(url), 0)
 }
