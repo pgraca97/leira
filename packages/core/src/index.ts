@@ -43,6 +43,7 @@ export {
   type RotationConflict,
   type RotationOptions,
 } from "./rotation"
+export { samplePlan } from "./samplePlan"
 export {
   type DateRange,
   type GardenTask,
