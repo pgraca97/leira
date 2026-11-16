@@ -103,6 +103,8 @@ The app is one Cloudflare Worker. It needs the three values from `.dev.vars.exam
 and a Supabase project with anonymous sign-ins, manual linking and the Google provider enabled,
 an SMTP server for the emailed links, and the app's address as its site URL.
 
+The first deploy is by hand, because a new Worker takes its secrets from a file:
+
 ```bash
 pnpm supabase link --project-ref <project-ref>
 pnpm supabase db push --remote
@@ -112,3 +114,12 @@ pnpm --filter @leira/web exec wrangler deploy --secrets-file <file>
 
 The secrets file holds `NAME=value` lines and stays out of git. After the first deploy, change a
 secret with `wrangler secret put`.
+
+From then on a push to `main` deploys by itself: once every test has passed, CI applies the new
+migrations and then publishes the Worker. It needs three secrets in the GitHub repository:
+
+| Secret                  | What it is                                                               |
+| ----------------------- | ------------------------------------------------------------------------ |
+| `CLOUDFLARE_API_TOKEN`  | A Cloudflare API token made from the "Edit Cloudflare Workers" template. |
+| `CLOUDFLARE_ACCOUNT_ID` | The id of the Cloudflare account the Worker is in.                       |
+| `SUPABASE_ACCESS_TOKEN` | A Supabase access token that may write to the project's database.        |
