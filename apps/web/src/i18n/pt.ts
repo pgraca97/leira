@@ -211,6 +211,11 @@ export const pt: Translation = {
       clear: "Retirar {{name}}",
     },
   },
+  record: {
+    planted: "Já está na terra",
+    cleared: "Já foi retirado",
+    refused: "Essa data não bate certo com as outras desta plantação.",
+  },
   export: {
     saveImage: "Guardar imagem",
     print: "Imprimir",

@@ -16,6 +16,7 @@ import { useTranslation } from "react-i18next"
 import { CommitField } from "../components/CommitField"
 import { dangerButtonClass, inputClass, toggleButtonClass } from "../components/ui"
 import { currentLanguage } from "../i18n"
+import { PlantingMarks } from "./PlantingRecord"
 import { editorStore, selectedBed, selectedPlanting } from "./store"
 import { useEditor } from "./useEditor"
 
@@ -42,6 +43,11 @@ export function Inspector({ children }: { children?: ReactNode }) {
     setPlanSize,
   } = editorStore.getState()
   const [sizeRefused, setSizeRefused] = useState(false)
+  // The planting whose last change of dates or marks was refused. Kept by id,
+  // so the message does not follow the selection to another planting.
+  const [datesRefusedFor, setDatesRefusedFor] = useState<string | null>(null)
+  const noteDates = (plantingId: string, taken: boolean) =>
+    setDatesRefusedFor(taken ? null : plantingId)
   const language = currentLanguage()
 
   const plantings = plan.plantings.map((planting) => {
@@ -216,10 +222,13 @@ export function Inspector({ children }: { children?: ReactNode }) {
                   value={planted.planting.inGround.from}
                   max={planted.planting.inGround.to}
                   onChange={(event) =>
-                    setPlantingDates(planted.planting.id, {
-                      ...planted.planting.inGround,
-                      from: event.target.value,
-                    })
+                    noteDates(
+                      planted.planting.id,
+                      setPlantingDates(planted.planting.id, {
+                        ...planted.planting.inGround,
+                        from: event.target.value,
+                      })
+                    )
                   }
                 />
               </label>
@@ -231,14 +240,28 @@ export function Inspector({ children }: { children?: ReactNode }) {
                   value={planted.planting.inGround.to}
                   min={planted.planting.inGround.from}
                   onChange={(event) =>
-                    setPlantingDates(planted.planting.id, {
-                      ...planted.planting.inGround,
-                      to: event.target.value,
-                    })
+                    noteDates(
+                      planted.planting.id,
+                      setPlantingDates(planted.planting.id, {
+                        ...planted.planting.inGround,
+                        to: event.target.value,
+                      })
+                    )
                   }
                 />
               </label>
             </div>
+          )}
+          {planted && (
+            <PlantingMarks
+              planting={planted.planting}
+              onResult={(taken) => noteDates(planted.planting.id, taken)}
+            />
+          )}
+          {planted && datesRefusedFor === planted.planting.id && (
+            <p role="alert" className="mt-1 text-sm text-red-800">
+              {t("record.refused")}
+            </p>
           )}
           {planted && sownIndoors && (
             <div className="mt-2 flex flex-col items-start text-xs text-stone-600">

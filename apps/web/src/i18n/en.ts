@@ -208,6 +208,11 @@ export const en = {
       clear: "Clear {{name}}",
     },
   },
+  record: {
+    planted: "In the ground",
+    cleared: "Cleared",
+    refused: "That date does not fit this planting's other dates.",
+  },
   export: {
     saveImage: "Save image",
     print: "Print",
