@@ -20,9 +20,11 @@ A _leira_ is what a plot of cultivated land is called in Minho, in the north of 
   plants follows from the crop's spacing, as one plant, rows, a block or square-foot squares.
   Move and resize with handles, nudge with the arrow keys, duplicate with Ctrl+D, undo and redo.
   Zoom with the wheel, a pinch or the buttons.
-- **45 crops** common in Portugal, with search, spacing, frost tolerance and days to harvest.
-- **Advice:** crop rotation (same family in the same place too soon), companion planting, and
-  warnings from a 5-day forecast for the planted crops: frost, heat, and nights too cold for
+- **45 crops** common in Portugal, with search, spacing, frost tolerance, days to harvest and the
+  months each one goes in the ground. One tick narrows the list to what can be sown or planted
+  out this month.
+- **Advice:** crop rotation (same family in the same place too soon), companion planting, crops
+  planned outside their season, and warnings from a 5-day forecast for the planted crops: frost, heat, and nights too cold for
   seedlings that have just been planted out. The garden is located by searching for its town or
   from the device's position.
 - **Time:** show the garden on any date, a yearly calendar per planting, and the jobs of the last
