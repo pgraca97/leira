@@ -11,6 +11,7 @@ import {
 } from "@leira/core"
 import { type FormEvent, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { CommitField } from "../components/CommitField"
 import { buttonClass, inputClass } from "../components/ui"
 import { currentLanguage } from "../i18n"
 import { editorStore } from "./store"
@@ -72,14 +73,15 @@ function parseAmount(typed: string): number | null | undefined {
 }
 
 /**
- * What a planting gave: its harvests, oldest first, with a form to record
- * one. Give it the planting's id as `key`, so a half-filled form does not
- * follow the selection to another planting.
+ * What a planting gave and what there is to say about it: its harvests,
+ * oldest first, with a form to record one, and free notes. Give it the
+ * planting's id as `key`, so a half-filled form does not follow the selection
+ * to another planting.
  */
 export function PlantingRecord({ planting }: { planting: Planting }) {
   const { t } = useTranslation()
   const language = currentLanguage()
-  const { addHarvest, removeHarvest } = editorStore.getState()
+  const { addHarvest, removeHarvest, setPlantingNotes } = editorStore.getState()
   const bounds = doneDateBounds(planting, "harvest")
   const [date, setDate] = useState<IsoDate>(() => {
     // Today, unless the crop was not in the ground today.
@@ -198,6 +200,14 @@ export function PlantingRecord({ planting }: { planting: Planting }) {
           {t("record.harvestRefused")}
         </p>
       )}
+      <CommitField
+        multiline
+        label={t("record.notes")}
+        className="mt-0.5"
+        maxLength={PLAN_LIMITS.maxPlantingNotes}
+        value={planting.notes ?? ""}
+        onCommit={(typed) => setPlantingNotes(planting.id, typed)}
+      />
     </section>
   )
 }

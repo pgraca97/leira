@@ -229,6 +229,8 @@ export const pt: Translation = {
     total: "Total: {{total}}",
     harvestRefused:
       "Uma colheita precisa de um dia em que a cultura estava na terra e, se tiver quantidade, de uma acima de 0, até 10000.",
+    notes: "Notas",
+    gardenNotes: "Notas da horta",
   },
   export: {
     saveImage: "Guardar imagem",

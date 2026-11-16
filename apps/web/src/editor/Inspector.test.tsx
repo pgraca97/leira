@@ -267,3 +267,21 @@ describe("companion planting", () => {
     expect(screen.queryByRole("region", { name: "Companion planting" })).toBeNull()
   })
 })
+
+describe("the garden's notes", () => {
+  it("are there to write whatever is selected, and stored when the field is left", async () => {
+    show([planting("tomatoes", "tomato", "2026-05-01", "2026-09-30")], "tomatoes")
+    await userEvent.type(screen.getByLabelText("Garden notes"), "The well ran dry in July.")
+    await userEvent.tab()
+
+    expect(editorStore.getState().plan.notes).toBe("The well ran dry in July.")
+  })
+
+  it("show what was written before", () => {
+    editorStore.getState().loadPlan({ ...emptyPlan(), notes: "Dry year." })
+    render(<Inspector />)
+
+    expect(screen.getByLabelText("Garden notes")).toHaveValue("Dry year.")
+    expect(screen.getByLabelText("Garden notes")).toHaveAttribute("maxlength", "5000")
+  })
+})

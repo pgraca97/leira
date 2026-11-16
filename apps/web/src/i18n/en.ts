@@ -226,6 +226,8 @@ export const en = {
     total: "Total: {{total}}",
     harvestRefused:
       "A harvest needs a day when the crop was in the ground and, if it has one, an amount above 0, up to 10000.",
+    notes: "Notes",
+    gardenNotes: "Garden notes",
   },
   export: {
     saveImage: "Save image",

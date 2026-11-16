@@ -10,6 +10,8 @@ interface CommitFieldProps {
   className?: string
   maxLength?: number
   inputMode?: "text" | "decimal"
+  /** Several lines of text. Enter then starts a new line, and only leaving the field stores. */
+  multiline?: boolean
 }
 
 /**
@@ -24,6 +26,7 @@ export function CommitField({
   className = "",
   maxLength,
   inputMode = "text",
+  multiline = false,
 }: CommitFieldProps) {
   const [draft, setDraft] = useState(value)
   // Follow the stored value when it changes from outside: an undo, another selection.
@@ -35,6 +38,25 @@ export function CommitField({
 
   const commit = () => {
     if (draft !== value && !onCommit(draft)) setDraft(value)
+  }
+
+  if (multiline) {
+    return (
+      <label className="flex flex-col text-xs text-stone-600">
+        {label}
+        <textarea
+          rows={3}
+          className={`${inputClass} ${className}`}
+          maxLength={maxLength}
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          onBlur={commit}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") setDraft(value)
+          }}
+        />
+      </label>
+    )
   }
 
   return (

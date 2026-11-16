@@ -6,6 +6,7 @@ import {
   findRotationConflicts,
   getPlant,
   isInGround,
+  PLAN_LIMITS,
   PLANTING_LAYOUTS,
   type PlantingLayout,
   plantingFill,
@@ -41,6 +42,7 @@ export function Inspector({ children }: { children?: ReactNode }) {
     setPlantingSowDate,
     updateBed,
     setPlanSize,
+    setPlanNotes,
   } = editorStore.getState()
   const [sizeRefused, setSizeRefused] = useState(false)
   // The planting whose last change of dates or marks was refused. Kept by id,
@@ -432,6 +434,14 @@ export function Inspector({ children }: { children?: ReactNode }) {
           </ul>
         </section>
       )}
+
+      <CommitField
+        multiline
+        label={t("record.gardenNotes")}
+        maxLength={PLAN_LIMITS.maxPlanNotes}
+        value={plan.notes ?? ""}
+        onCommit={setPlanNotes}
+      />
 
       {children}
     </aside>

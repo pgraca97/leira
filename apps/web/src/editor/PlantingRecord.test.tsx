@@ -244,3 +244,44 @@ describe("the harvests of a planting", () => {
     expect(screen.queryByRole("list", { name: "Harvests" })).toBeNull()
   })
 })
+
+describe("the notes on a planting", () => {
+  const GROWING = planting("2026-03-01", "2026-09-30")
+
+  it("stores the note when the field is left, not while it is typed", async () => {
+    show(GROWING)
+    await userEvent.type(screen.getByLabelText("Notes"), "Blight in August.")
+    expect(stored()).not.toHaveProperty("notes")
+
+    await userEvent.tab()
+    expect(stored()?.notes).toBe("Blight in August.")
+    expect(editorStore.temporal.getState().pastStates).toHaveLength(1)
+  })
+
+  it("keeps the line breaks of a note", async () => {
+    show(GROWING)
+    await userEvent.type(
+      screen.getByLabelText("Notes"),
+      "Blight in August.{Enter}Try another variety."
+    )
+    await userEvent.tab()
+
+    expect(stored()?.notes).toBe("Blight in August.\nTry another variety.")
+  })
+
+  it("drops what was typed on Escape", async () => {
+    show(planting("2026-03-01", "2026-09-30", { notes: "Slugs." }))
+    const notes = screen.getByLabelText("Notes")
+    expect(notes).toHaveValue("Slugs.")
+    await userEvent.type(notes, " And snails.{Escape}")
+    await userEvent.tab()
+
+    expect(notes).toHaveValue("Slugs.")
+    expect(stored()?.notes).toBe("Slugs.")
+  })
+
+  it("takes no more than a planting's note holds", () => {
+    show(GROWING)
+    expect(screen.getByLabelText("Notes")).toHaveAttribute("maxlength", "2000")
+  })
+})
