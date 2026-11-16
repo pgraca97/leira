@@ -29,6 +29,7 @@ export {
   snap,
   snapRect,
 } from "./geometry"
+export { type CalendarEvent, icsCalendar } from "./ics"
 export { migratePlan, StoredPlanSchema } from "./migrate"
 export {
   defaultInGround,
@@ -109,6 +110,7 @@ export {
   type WeatherNow,
   WeatherNowSchema,
 } from "./schema"
+export { type SeedNeed, seedList } from "./seeds"
 export { findOutOfSeason, monthRanges, type OutOfSeason, startsOn } from "./sowing"
 export { type AreaFill, fillArea, fillPoints, SFG_CELL_CM } from "./spacing"
 export { FROST_LIMIT_C, findWeatherRisks, SETTLING_DAYS, type WeatherRisk } from "./weatherRisks"
