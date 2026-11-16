@@ -1,9 +1,10 @@
-import { type ReactNode, useContext, useEffect, useId, useRef, useState } from "react"
+import { type ReactNode, useCallback, useContext, useId, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { AccountMenu } from "../account/AccountMenu"
 import { BackendContext } from "../lib/backend"
 import { LanguageSwitcher } from "./LanguageSwitcher"
 import { buttonClass } from "./ui"
+import { useDismiss } from "./useDismiss"
 
 interface AppHeaderProps {
   /** The page's own controls: what must stay in sight on any screen. */
@@ -60,24 +61,9 @@ function NarrowScreenMenu({ children }: { children: ReactNode }) {
   const container = useRef<HTMLDivElement>(null)
   const toggle = useRef<HTMLButtonElement>(null)
   const panelId = useId()
+  const close = useCallback(() => setOpen(false), [])
 
-  useEffect(() => {
-    if (!open) return
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return
-      setOpen(false)
-      toggle.current?.focus()
-    }
-    const onPointerDown = (event: PointerEvent) => {
-      if (!container.current?.contains(event.target as Node)) setOpen(false)
-    }
-    document.addEventListener("keydown", onKeyDown)
-    document.addEventListener("pointerdown", onPointerDown)
-    return () => {
-      document.removeEventListener("keydown", onKeyDown)
-      document.removeEventListener("pointerdown", onPointerDown)
-    }
-  }, [open])
+  useDismiss(open, close, container, toggle)
 
   return (
     // `sm:contents` takes this box out of the layout on a wide screen, so the

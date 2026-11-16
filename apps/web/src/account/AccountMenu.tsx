@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
-import { type FormEvent, useEffect, useId, useRef, useState } from "react"
+import { type FormEvent, useCallback, useId, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { z } from "zod"
 import { buttonClass, inputClass, primaryButtonClass } from "../components/ui"
+import { useDismiss } from "../components/useDismiss"
 import { useBackend } from "../lib/backend"
 
 const ACCOUNT_KEY = ["account"]
@@ -40,23 +41,8 @@ export function AccountMenu() {
     onSuccess: () => setOpen(false),
   })
 
-  useEffect(() => {
-    if (!open) return
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return
-      setOpen(false)
-      toggle.current?.focus()
-    }
-    const onPointerDown = (event: PointerEvent) => {
-      if (!container.current?.contains(event.target as Node)) setOpen(false)
-    }
-    document.addEventListener("keydown", onKeyDown)
-    document.addEventListener("pointerdown", onPointerDown)
-    return () => {
-      document.removeEventListener("keydown", onKeyDown)
-      document.removeEventListener("pointerdown", onPointerDown)
-    }
-  }, [open])
+  const close = useCallback(() => setOpen(false), [])
+  useDismiss(open, close, container, toggle)
 
   if (!account.data) return null
   const { email } = account.data
