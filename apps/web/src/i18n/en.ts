@@ -187,6 +187,7 @@ export const en = {
   },
   dateFilter: {
     label: "Show the garden on",
+    labelShort: "Show on",
     previousMonth: "Previous month",
     nextMonth: "Next month",
     showAll: "Show everything",

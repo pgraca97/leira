@@ -190,6 +190,7 @@ export const pt: Translation = {
   },
   dateFilter: {
     label: "Mostrar a horta em",
+    labelShort: "Ver em",
     previousMonth: "Mês anterior",
     nextMonth: "Mês seguinte",
     showAll: "Mostrar tudo",

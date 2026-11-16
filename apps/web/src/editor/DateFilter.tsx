@@ -17,9 +17,12 @@ export function DateFilter() {
   return (
     <div className="flex flex-wrap items-center gap-1 rounded-md bg-white/90 p-1 text-sm text-stone-700 shadow-sm">
       <label className="flex items-center gap-2 pl-1">
-        {t("dateFilter.label")}
+        {/* The full sentence does not fit beside undo and redo on a narrow screen. */}
+        <span className="sm:hidden">{t("dateFilter.labelShort")}</span>
+        <span className="hidden sm:inline">{t("dateFilter.label")}</span>
         <input
           type="date"
+          aria-label={t("dateFilter.label")}
           className={inputClass}
           value={viewDate ?? ""}
           onChange={(event) => setViewDate(event.target.value)}

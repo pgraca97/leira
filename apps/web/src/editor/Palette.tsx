@@ -45,11 +45,11 @@ export function Palette() {
         : t("editor.hintPlant")
 
   return (
-    <aside className="flex flex-col gap-4 border-b border-stone-200 bg-stone-100 p-3 lg:overflow-y-auto lg:border-r lg:border-b-0">
+    <aside className="flex flex-col gap-2 border-b border-stone-200 bg-stone-100 p-3 lg:gap-4 lg:overflow-y-auto lg:border-r lg:border-b-0">
       <section aria-labelledby="palette-tools">
         <h2
           id="palette-tools"
-          className="mb-1 text-xs font-semibold tracking-wide text-stone-500 uppercase"
+          className="mb-1 text-xs font-semibold tracking-wide text-stone-500 uppercase max-lg:sr-only"
         >
           {t("editor.tools")}
         </h2>
@@ -76,7 +76,7 @@ export function Palette() {
       <section aria-labelledby="palette-plants">
         <h2
           id="palette-plants"
-          className="mb-1 text-xs font-semibold tracking-wide text-stone-500 uppercase"
+          className="mb-1 text-xs font-semibold tracking-wide text-stone-500 uppercase max-lg:sr-only"
         >
           {t("editor.plants")}
         </h2>
@@ -93,10 +93,10 @@ export function Palette() {
             {t("editor.noPlantMatches", { search: search.trim() })}
           </p>
         )}
-        {/* Capped on small screens, where the palette sits above the canvas. */}
-        <ul className="grid max-h-40 grid-cols-2 gap-1 overflow-y-auto sm:grid-cols-3 lg:max-h-none lg:grid-cols-1 lg:overflow-visible">
+        {/* One row to swipe through on small screens, where the palette sits above the canvas. */}
+        <ul className="flex gap-1 overflow-x-auto pb-1 lg:grid lg:grid-cols-1 lg:overflow-visible lg:pb-0">
           {shown.map((plant) => (
-            <li key={plant.id}>
+            <li key={plant.id} className="shrink-0 whitespace-nowrap lg:shrink">
               <button
                 type="button"
                 className={toggleButtonClass}

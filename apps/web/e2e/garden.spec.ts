@@ -261,6 +261,45 @@ test.describe("on a touch screen", () => {
   })
 })
 
+test.describe("on a phone", () => {
+  const SCREEN = { width: 390, height: 844 }
+  test.use({ viewport: SCREEN })
+
+  test("the garden is in view on arrival, with room to work and nothing over it", async ({
+    page,
+  }) => {
+    await page.goto("/")
+    await page.getByRole("button", { name: "See an example" }).click()
+    const canvas = page.getByTestId("garden-canvas")
+    await expect(canvas).toHaveAttribute("data-status", "ready")
+    const garden = await canvas.boundingBox()
+    if (!garden) throw new Error("The canvas is not on the page")
+
+    // Tall enough to draw on, and most of it on the first screen.
+    expect(garden.height).toBeGreaterThanOrEqual(350)
+    expect(garden.y).toBeLessThan(SCREEN.height / 2)
+
+    // The controls sit above the garden, not on it.
+    for (const control of [
+      page.getByRole("button", { name: "Undo" }),
+      page.getByRole("button", { name: "Redo" }),
+      page.getByLabel("Show the garden on"),
+    ]) {
+      const box = await control.boundingBox()
+      if (!box) throw new Error("A control is not on the page")
+      expect(box.y + box.height).toBeLessThanOrEqual(garden.y)
+    }
+
+    // What is planted is listed below, a scroll away, never cut off.
+    const plantings = page.getByRole("button", { name: /^Broad bean × 14/ }).last()
+    await plantings.scrollIntoViewIfNeeded()
+    await expect(plantings).toBeInViewport({ ratio: 1 })
+    // Nothing is wider than the screen: the plants are swiped through in their own row.
+    expect(garden.x + garden.width).toBeLessThanOrEqual(SCREEN.width)
+    await expect(page.locator("html")).toHaveJSProperty("scrollWidth", SCREEN.width)
+  })
+})
+
 test("the interface switches to Portuguese", async ({ page }) => {
   await page.goto("/")
   await page.getByRole("combobox", { name: "Language" }).selectOption("pt")
