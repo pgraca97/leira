@@ -208,6 +208,66 @@ async function emailedLink(address: string): Promise<string> {
   throw new Error(`No email with a link arrived for ${address}`)
 }
 
+test("what happened in a garden is kept, and its notes and amounts stay off a share link", async ({
+  page,
+  browser,
+}) => {
+  await page.goto("/")
+  await page.getByRole("button", { name: "New garden" }).click()
+  await page.getByRole("button", { name: "Tomato" }).click()
+  await dragOnCanvas(page, [0.4, 0.4], [0.6, 0.6])
+  const planting = page.getByRole("region", { name: "Plantings" }).getByRole("button")
+  await expect(planting).toHaveCount(1)
+
+  // A job ticked on the calendar is still done after a reload.
+  await page.getByRole("link", { name: "Calendar" }).click()
+  const plantOut = page.getByRole("checkbox", { name: "Plant out Tomato" })
+  await plantOut.check()
+  await expect(page.getByText("Saved", { exact: true })).toBeVisible()
+  await page.reload()
+  await expect(plantOut).toBeChecked()
+
+  // The planting's own panel knows it too, and takes a harvest and a note.
+  await page.getByRole("link", { name: "Plan", exact: true }).click()
+  await planting.click()
+  await expect(page.getByRole("checkbox", { name: "In the ground" })).toBeChecked()
+  await page.getByLabel("Amount").fill("1,5")
+  await page.getByRole("button", { name: "Record harvest" }).click()
+  const harvests = page.getByRole("list", { name: "Harvests" })
+  await expect(harvests).toContainText("1.5 kg")
+  // Found by role: a label's text, as Playwright reads it, takes in what its textarea holds.
+  const notes = page.getByRole("textbox", { name: "Notes", exact: true })
+  await notes.fill("Blight in August.")
+  await notes.blur()
+  await expect(page.getByText("Saved", { exact: true })).toBeVisible()
+
+  await page.reload()
+  await planting.click()
+  await expect(harvests).toContainText("1.5 kg")
+  await expect(notes).toHaveValue("Blight in August.")
+
+  await page.getByRole("button", { name: "Share" }).click()
+  const panel = page.getByRole("dialog", { name: "Share this garden" })
+  await panel.getByRole("button", { name: "Create link" }).click()
+  const link = await panel.getByRole("textbox", { name: "Link" }).inputValue()
+
+  // A visitor sees what was done, with nothing to tick.
+  const visitor = await browser.newContext()
+  const shared = await visitor.newPage()
+  await shared.goto(`${link}?view=calendar`)
+  const jobs = shared.getByRole("list", { name: "Jobs" })
+  await expect(jobs).toContainText("Plant out Tomatodone")
+  await expect(shared.getByRole("checkbox")).toHaveCount(0)
+
+  // And what the link hands over holds the harvest's day, not its amount or the note.
+  const token = link.split("/").at(-1)
+  const answer = await (await shared.request.get(`/api/shared/${token}`)).text()
+  expect(answer).toContain("harvests")
+  expect(answer).not.toContain("quantity")
+  expect(answer).not.toContain("Blight")
+  await visitor.close()
+})
+
 test("a guest keeps their gardens with an emailed link, then signs out", async ({ page }) => {
   const address = `gardener-${crypto.randomUUID()}@example.com`
   await page.goto("/")
