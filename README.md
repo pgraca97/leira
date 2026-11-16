@@ -25,11 +25,15 @@ A _leira_ is what a plot of cultivated land is called in Minho, in the north of 
   warnings from a 5-day forecast for the planted crops: frost, heat, and nights too cold for
   seedlings that have just been planted out. The garden is located by searching for its town or
   from the device's position.
-- **Time:** show the garden on any date, a yearly calendar per planting, and the jobs coming up in
-  the next 30 days. Seedlings follow the day they were actually sown, once it is recorded.
+- **Time:** show the garden on any date, a yearly calendar per planting, and the jobs of the last
+  and the next 30 days. A job is ticked off with the day it was really done, and the calendar
+  follows that day; a job that slipped stays on the list as overdue.
+- **Records:** a harvest log per planting, in kilos or units, with what the crop gave in total, and
+  free notes on a planting and on the garden for what went wrong and what to try next year.
 - **Export:** save the plan as a PNG or print a sheet with the plan and a planting table.
 - **Share:** a read-only link shows a garden's plan and calendar to anyone, with no account. The
-  owner chooses whether it says where the garden is, and can turn it off at any time.
+  owner chooses whether it says where the garden is, and can turn it off at any time. Notes and
+  harvest amounts never leave with the link.
 - **An example to look around.** A first visit can start from a ready-made garden whose crops
   follow the seasons, with a rotation mistake and good and bad neighbours to show the advice.
 - **Accounts without a sign-up wall.** A guest gets a real user straight away. Signing in with
@@ -66,11 +70,11 @@ except the weather panel.
 
 ## Tests
 
-| Command                 | What it covers                                                                                                                                  |
-| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `pnpm check`            | Lint, typecheck, unit tests and build. The database access rules run on an in-process Postgres, so no Docker.                                   |
-| `pnpm test:integration` | The gardens API, share links, the Worker's token check and the email sign-in flow against the local Supabase stack.                             |
-| `pnpm test:e2e`         | Playwright: drawing, saving, the calendar, export, sharing by link, signing in by emailed link, and that a visitor only sees their own gardens. |
+| Command                 | What it covers                                                                                                                                                          |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm check`            | Lint, typecheck, unit tests and build. The database access rules run on an in-process Postgres, so no Docker.                                                           |
+| `pnpm test:integration` | The gardens API, share links, the Worker's token check and the email sign-in flow against the local Supabase stack.                                                     |
+| `pnpm test:e2e`         | Playwright: drawing, saving, the calendar, jobs done and harvests, export, sharing by link, signing in by emailed link, and that a visitor only sees their own gardens. |
 
 The last two need `pnpm db:start` and a filled-in `.dev.vars`.
 
@@ -89,7 +93,13 @@ The last two need `pnpm db:start` and a filled-in `.dev.vars`.
 - **A shared link is a key, not an account.** The link carries a random token, and one database
   function is the only thing a visitor with no session can call: it hands over the name and the
   plan, and the location only if the owner allowed it. Opening a link therefore creates no guest
-  user, and the gardens table stays closed to everyone but its owners.
+  user, and the gardens table stays closed to everyone but its owners. The owner's notes and
+  harvest amounts are cut out by that same function, not by the Worker in front of it: whoever
+  holds a token can call the function directly.
+- **What happened lives in the plan.** Jobs done, harvests and notes are fields of the plan
+  document, not tables of their own, so they are saved, undone and checked for conflicts the same
+  way as a moved bed. The document has a version, and older ones are brought up to date as they
+  are read.
 - **A visitor cannot spend the weather quota.** The Worker counts calls per address: 60 a minute
   to the weather and place routes, and 10 a minute of those the cache cannot answer, since only
   these reach OpenWeather and write to KV.
