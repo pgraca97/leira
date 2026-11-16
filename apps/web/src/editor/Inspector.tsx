@@ -18,6 +18,7 @@ import { useTranslation } from "react-i18next"
 import { CommitField } from "../components/CommitField"
 import { dangerButtonClass, inputClass, toggleButtonClass } from "../components/ui"
 import { currentLanguage } from "../i18n"
+import { cropName } from "./cropName"
 import { PlantingMarks, PlantingRecord } from "./PlantingRecord"
 import { monthName, seasonText } from "./season"
 import { editorStore, selectedBed, selectedPlanting } from "./store"
@@ -45,6 +46,7 @@ export function Inspector({ children }: { children?: ReactNode }) {
     updateBed,
     setPlanSize,
     setPlanNotes,
+    setPlantingVariety,
   } = editorStore.getState()
   const [sizeRefused, setSizeRefused] = useState(false)
   // The planting whose last change of dates or marks was refused. Kept by id,
@@ -59,7 +61,7 @@ export function Inspector({ children }: { children?: ReactNode }) {
     return {
       planting,
       plant,
-      name: plant ? plant.name[language] : planting.plantId,
+      name: cropName(planting, plant, language),
       count: plant ? plantingFill(planting, plant).count : 0,
       // Still listed, so it can be found and selected, but marked as away.
       away: viewDate !== null && !isInGround(planting, viewDate),
@@ -198,6 +200,17 @@ export function Inspector({ children }: { children?: ReactNode }) {
                 row: planted.plant.spacing.rowCm,
               })}
             </p>
+          )}
+          {planted && (
+            <div className="mt-2">
+              <CommitField
+                label={t("inspector.variety")}
+                className="w-48"
+                maxLength={PLAN_LIMITS.maxVariety}
+                value={planted.planting.variety ?? ""}
+                onCommit={(variety) => setPlantingVariety(planted.planting.id, variety)}
+              />
+            </div>
           )}
           {planted && (
             <label className="mt-2 flex flex-col items-start text-xs text-stone-600">

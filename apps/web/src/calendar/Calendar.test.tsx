@@ -62,6 +62,15 @@ describe("the year's plantings", () => {
     ])
   })
 
+  it("names a planting's variety, on its line, in its jobs and in what to get", () => {
+    show([{ ...planting("roma", "tomato", "2026-05-01", "2026-09-30"), variety: "Roma" }])
+    expect(screen.getByRole("button", { name: /^Tomato 'Roma' × 4:/ })).toBeVisible()
+    expect(screen.getByRole("checkbox", { name: "Plant out Tomato 'Roma'" })).toBeVisible()
+    expect(
+      within(screen.getByRole("list", { name: /^To get for/ })).getByRole("listitem")
+    ).toHaveTextContent("Tomato 'Roma'4 plants")
+  })
+
   it("leaves out plantings of other years until the user goes there", async () => {
     show([TOMATOES, NEXT_YEAR])
     expect(screen.queryByRole("button", { name: /^Lettuce/ })).toBeNull()

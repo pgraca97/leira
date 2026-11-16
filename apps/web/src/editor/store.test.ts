@@ -241,6 +241,26 @@ describe("notes", () => {
   })
 })
 
+describe("setPlantingVariety", () => {
+  it("names the variety, without the space around what was typed", () => {
+    expect(state().setPlantingVariety("p1", "  Coração de Boi ")).toBe(true)
+    expect(planting()?.variety).toBe("Coração de Boi")
+  })
+
+  it("leaves no trace of a variety that was emptied", () => {
+    state().setPlantingVariety("p1", "Roma")
+    expect(state().setPlantingVariety("p1", " ")).toBe(true)
+    expect(planting()).toEqual(TOMATO)
+  })
+
+  it("refuses a name longer than the plan holds, and one that changes nothing", () => {
+    expect(state().setPlantingVariety("p1", "x".repeat(61))).toBe(false)
+    state().setPlantingVariety("p1", "Roma")
+    expect(state().setPlantingVariety("p1", "Roma ")).toBe(false)
+    expect(editorStore.temporal.getState().pastStates).toHaveLength(1)
+  })
+})
+
 describe("the view of the canvas", () => {
   // The store outlives each test: leave the view as a new canvas would find it.
   afterEach(() => {

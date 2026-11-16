@@ -319,3 +319,14 @@ describe("out of season warnings", () => {
     expect(screen.queryByRole("region", { name: "Out of season" })).toBeNull()
   })
 })
+
+describe("the variety of the selected planting", () => {
+  it("is typed in, and then names the planting wherever it is listed", async () => {
+    show([planting("tomatoes", "tomato", "2026-05-01", "2026-09-30")], "tomatoes")
+    await userEvent.type(screen.getByLabelText("Variety"), "Coração de Boi{Enter}")
+
+    expect(editorStore.getState().plan.plantings[0]?.variety).toBe("Coração de Boi")
+    const listed = within(screen.getByRole("region", { name: "Plantings" })).getByRole("button")
+    expect(listed).toHaveTextContent("Tomato 'Coração de Boi' × 4")
+  })
+})

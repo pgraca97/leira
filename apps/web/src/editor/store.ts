@@ -101,6 +101,8 @@ export interface EditorState {
   addHarvest(plantingId: string, harvest: Harvest): boolean
   /** Removes the harvest at a position in a planting's list. */
   removeHarvest(plantingId: string, index: number): boolean
+  /** Names a planting's variety. An empty name removes it. Returns false when it is too long. */
+  setPlantingVariety(plantingId: string, variety: string): boolean
   /** Stores a planting's note. An empty one removes it. Returns false when it is too long. */
   setPlantingNotes(plantingId: string, notes: string): boolean
   /** Stores the garden's note. An empty one removes it. Returns false when it is too long. */
@@ -308,6 +310,16 @@ export const editorStore = createStore<EditorState>()(
 
         removeHarvest: (plantingId, index) =>
           editPlanting(plantingId, (planting) => removeHarvest(planting, index)),
+
+        setPlantingVariety: (plantingId, variety) => {
+          const kept = variety.trim()
+          if (kept.length > PLAN_LIMITS.maxVariety) return false
+          return editPlanting(plantingId, (planting) => {
+            if ((planting.variety ?? "") === kept) return planting
+            const { variety: _previous, ...rest } = planting
+            return kept ? { ...rest, variety: kept } : rest
+          })
+        },
 
         setPlantingNotes: (plantingId, notes) => {
           const kept = notes.trimEnd()

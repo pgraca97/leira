@@ -305,6 +305,7 @@ export const pt: Translation = {
       path: "Caminho",
       structure: "Estrutura",
     },
+    variety: "Variedade",
     layoutLabel: "Disposição",
     notInGround: "fora da terra",
     spacing: "{{inRow}} cm entre plantas na linha, {{row}} cm entre linhas",

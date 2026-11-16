@@ -26,6 +26,7 @@ import {
 import { type ReactNode, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { buttonClass, inputClass, viewLinkClass } from "../components/ui"
+import { cropName } from "../editor/cropName"
 import { useEditor } from "../editor/useEditor"
 import { downloadText } from "../export/downloadFile"
 import { fileNameFor } from "../export/fileName"
@@ -133,7 +134,7 @@ export function PlanCalendar({
       }
       if (!yearSpan(whole, year)) return []
       const name = t("inspector.plantingSummary", {
-        name: plant.name[language],
+        name: cropName(planting, plant, language),
         count: plantingFill(planting, plant).count,
       })
       const stages = [
@@ -157,9 +158,13 @@ export function PlanCalendar({
   })
   const todayMark = yearSpan({ from: today, to: today }, year)
 
-  const taskText = (task: { kind: GardenTaskKind; plantId: string }) =>
+  const taskText = (task: { kind: GardenTaskKind; plantId: string; plantingId: string }) =>
     t(`calendar.task.${task.kind}`, {
-      name: getPlant(task.plantId)?.name[language] ?? task.plantId,
+      name: cropName(
+        plan.plantings.find((planting) => planting.id === task.plantingId) ?? task,
+        getPlant(task.plantId),
+        language
+      ),
     })
   // The jobs still to do from today on. One already late has no day to go on a calendar.
   const toExport = gardenTasks(plan, getPlant, {
@@ -183,7 +188,7 @@ export function PlanCalendar({
     )
 
   const needs = seedList(plan, getPlant, year)
-    .map((need) => ({ ...need, name: getPlant(need.plantId)?.name[language] ?? need.plantId }))
+    .map((need) => ({ ...need, name: cropName(need, getPlant(need.plantId), language) }))
     .sort((a, b) => a.name.localeCompare(b.name, language))
 
   // The free stretches are looked for to the end of the following year, so one
@@ -398,7 +403,7 @@ export function PlanCalendar({
           >
             {needs.map((need) => (
               <li
-                key={need.plantId}
+                key={need.name}
                 className="flex items-baseline justify-between gap-3 border-b border-stone-200 py-1"
               >
                 <span className="text-stone-900">{need.name}</span>

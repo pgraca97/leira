@@ -7,8 +7,9 @@ import { z } from "zod"
  * would drop the fields it does not know when it saves.
  *
  * 2: what happened to a planting (marks, harvests, notes) and garden notes.
+ * 3: a planting's variety as free text, in place of an id nothing ever set.
  */
-export const PLAN_SCHEMA_VERSION = 2
+export const PLAN_SCHEMA_VERSION = 3
 
 /** Upper bounds that keep a plan document small enough to store and draw. */
 export const PLAN_LIMITS = {
@@ -20,6 +21,7 @@ export const PLAN_LIMITS = {
   maxHarvestQuantity: 10_000,
   maxPlantingNotes: 2_000,
   maxPlanNotes: 5_000,
+  maxVariety: 60,
 } as const
 
 const isoDate = z.iso.date()
@@ -73,7 +75,12 @@ export type Harvest = z.infer<typeof HarvestSchema>
 export const PlantingSchema = z.object({
   id: z.uuid(),
   plantId: z.string().min(1).max(64),
-  varietyId: z.string().min(1).max(64).optional(),
+  /**
+   * The variety, as the gardener names it ("Coração de Boi"). Free text and not
+   * a pick from a catalogue: there are thousands, and the ones that matter to
+   * a garden are local.
+   */
+  variety: z.string().min(1).max(PLAN_LIMITS.maxVariety).optional(),
   rect: RectSchema,
   layout: z.enum(PLANTING_LAYOUTS),
   /** The days the crop occupies the soil, first and last day included. */

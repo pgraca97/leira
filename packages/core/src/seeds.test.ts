@@ -40,6 +40,21 @@ describe("seedList", () => {
     expect(seedList(plan, getPlant, 2027)).toEqual([{ plantId: "tomato", plants: 4, plantings: 1 }])
   })
 
+  it("keeps the varieties of a crop apart: their seeds are bought apart", () => {
+    const varieties: GardenPlan = {
+      ...emptyPlan(),
+      plantings: [
+        { ...planting("a", "tomato", "2026-05-01"), variety: "Roma" },
+        planting("b", "tomato", "2026-05-01"),
+        { ...planting("c", "tomato", "2026-05-10", 200), variety: "Roma" },
+      ],
+    }
+    expect(seedList(varieties, getPlant, 2026)).toEqual([
+      { plantId: "tomato", variety: "Roma", plants: 12, plantings: 2 },
+      { plantId: "tomato", plants: 4, plantings: 1 },
+    ])
+  })
+
   it("is empty for a year with nothing to plant", () => {
     expect(seedList(plan, getPlant, 2030)).toEqual([])
   })

@@ -251,6 +251,15 @@ describe("withoutRecords", () => {
   })
 })
 
+describe("the variety of a planting", () => {
+  const named: GardenPlan = { ...emptyPlan(), plantings: [{ ...base, variety: "Roma" }] }
+
+  it("is part of the plan: a copy keeps it, and so does a share link", () => {
+    expect(withoutRecords(named).plantings[0]?.variety).toBe("Roma")
+    expect(publicPlan(named).plantings[0]?.variety).toBe("Roma")
+  })
+})
+
 describe("publicPlan", () => {
   it("keeps marks and harvest days, and leaves out notes and amounts", () => {
     expect(publicPlan(recorded)).toEqual({

@@ -302,6 +302,7 @@ export const en = {
       path: "Path",
       structure: "Structure",
     },
+    variety: "Variety",
     layoutLabel: "Layout",
     notInGround: "not in the ground",
     spacing: "{{inRow}} cm apart in the row, {{row}} cm between rows",

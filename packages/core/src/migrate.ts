@@ -8,9 +8,14 @@ import { GardenPlanSchema } from "./schema"
  */
 export function migratePlan(document: unknown): unknown {
   if (typeof document !== "object" || document === null || Array.isArray(document)) return document
-  // Version 2 only added optional fields, so a version 1 plan already fits it.
-  if ("schemaVersion" in document && document.schemaVersion === 1) {
-    return { ...document, schemaVersion: 2 }
+  // Versions 2 and 3 only added optional fields, so an older plan already
+  // fits. Version 3 also dropped `varietyId`, which no version of the app ever
+  // wrote, so there is nothing to carry over.
+  if (
+    "schemaVersion" in document &&
+    (document.schemaVersion === 1 || document.schemaVersion === 2)
+  ) {
+    return { ...document, schemaVersion: 3 }
   }
   return document
 }

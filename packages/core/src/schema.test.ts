@@ -90,6 +90,13 @@ describe("what happened to a planting", () => {
     expect(GardenPlanSchema.parse(plan)).toEqual(plan)
   })
 
+  it("names the variety of a planting in the gardener's own words", () => {
+    const plan = withRecord({ variety: "Coração de Boi" })
+    expect(GardenPlanSchema.parse(plan)).toEqual(plan)
+    expect(GardenPlanSchema.safeParse(withRecord({ variety: "x".repeat(61) })).success).toBe(false)
+    expect(GardenPlanSchema.safeParse(withRecord({ variety: "" })).success).toBe(false)
+  })
+
   it("lets the garden carry notes of its own", () => {
     const plan = { ...samplePlan(), notes: "Water from the well ran out in July." }
     expect(GardenPlanSchema.parse(plan)).toEqual(plan)
