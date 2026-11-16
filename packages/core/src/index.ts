@@ -40,6 +40,18 @@ export {
 } from "./plan"
 export { getPlant, PLANTS } from "./plants"
 export {
+  addHarvest,
+  doneDateBounds,
+  harvestTotals,
+  publicPlan,
+  recordTask,
+  removeHarvest,
+  setCleared,
+  setPlanted,
+  withoutPlantingRecords,
+  withoutRecords,
+} from "./records"
+export {
   findRotationConflicts,
   type RotationConflict,
   type RotationOptions,

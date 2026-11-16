@@ -229,6 +229,26 @@ describe("duplicateItem", () => {
     })
   })
 
+  it("starts the copy of a planting with nothing recorded, on the same dates", () => {
+    const recorded: Planting = {
+      ...planting("recorded", 400, 100, 100, 100),
+      sowDate: "2026-02-01",
+      planted: true,
+      cleared: true,
+      harvests: [{ date: "2026-04-20", quantity: 2, unit: "kg" }],
+      notes: "Slugs.",
+    }
+    const result = duplicateItem(
+      { ...plan, plantings: [recorded] },
+      { kind: "planting", id: "recorded" },
+      "copy"
+    )
+    expect(result?.plan.plantings.at(-1)).toEqual({
+      ...planting("copy", 410, 110, 100, 100),
+      inGround: recorded.inGround,
+    })
+  })
+
   it("copies a bed, without the crops on it", () => {
     const result = duplicateItem(plan, BED, "copy")
     expect(result?.plan.beds.at(-1)).toEqual({

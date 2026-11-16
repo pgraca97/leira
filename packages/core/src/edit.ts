@@ -1,5 +1,6 @@
 import { clampRect, type Point, type Rect, snap } from "./geometry"
 import { type PlanItemRef, planBounds } from "./plan"
+import { withoutPlantingRecords } from "./records"
 import { type Bed, type GardenPlan, PLAN_LIMITS, type Planting } from "./schema"
 
 /**
@@ -192,6 +193,7 @@ export function duplicateItem(
   }
   const planting = plan.plantings.find((item) => item.id === ref.id)
   if (!planting || plan.plantings.length >= PLAN_LIMITS.maxPlantings) return null
-  const copy = { ...planting, id: newId, rect: offset(planting.rect) }
+  // A copy is a new crop on the same dates: nothing has happened to it yet.
+  const copy = { ...withoutPlantingRecords(planting), id: newId, rect: offset(planting.rect) }
   return { plan: { ...plan, plantings: [...plan.plantings, copy] }, ref: copyRef }
 }
