@@ -7,6 +7,8 @@ interface PlanSvgProps {
   locale: "pt" | "en"
   /** The garden's name: what the picture is called for someone who cannot see it. */
   title: string
+  /** Whether to write names, counts and the size. Off for a picture too small to read them. */
+  labels?: boolean
   className?: string
 }
 
@@ -20,7 +22,7 @@ const MAX_DOTS = 600
  * saving as an image, and for anywhere the editor would be too heavy. Its
  * coordinates are centimetres, like the plan's, so it scales to any size.
  */
-export function PlanSvg({ plan, locale, title, className }: PlanSvgProps) {
+export function PlanSvg({ plan, locale, title, labels = true, className }: PlanSvgProps) {
   const { widthCm, heightCm } = plan
   // Text and strokes are sized against the garden, so a large one stays readable.
   const unit = Math.max(widthCm, heightCm) / 600
@@ -65,7 +67,7 @@ export function PlanSvg({ plan, locale, title, className }: PlanSvgProps) {
               stroke={style.edge}
               strokeWidth={2 * unit}
             />
-            {bed.name && (
+            {labels && bed.name && (
               <text x={x + 4 * unit} y={y + h - 5 * unit} fill="#1c1917" {...halo(unit)}>
                 {bed.name}
               </text>
@@ -103,9 +105,11 @@ export function PlanSvg({ plan, locale, title, className }: PlanSvgProps) {
                   fill={color}
                 />
               ))}
-            <text x={x + 4 * unit} y={y + fontSize} fill="#1c1917" {...halo(unit)}>
-              {plant && fill ? `${plant.name[locale]} × ${fill.count}` : "?"}
-            </text>
+            {labels && (
+              <text x={x + 4 * unit} y={y + fontSize} fill="#1c1917" {...halo(unit)}>
+                {plant && fill ? `${plant.name[locale]} × ${fill.count}` : "?"}
+              </text>
+            )}
           </g>
         )
       })}
@@ -117,15 +121,17 @@ export function PlanSvg({ plan, locale, title, className }: PlanSvgProps) {
         stroke={GROUND_STYLE.edge}
         strokeWidth={2 * unit}
       />
-      <text
-        x={widthCm}
-        y={heightCm + MARGIN_CM - 5}
-        textAnchor="end"
-        fontSize={Math.min(fontSize, MARGIN_CM * 0.7)}
-        fill="#57534e"
-      >
-        {`${metres.format(widthCm / 100)} × ${metres.format(heightCm / 100)} m`}
-      </text>
+      {labels && (
+        <text
+          x={widthCm}
+          y={heightCm + MARGIN_CM - 5}
+          textAnchor="end"
+          fontSize={Math.min(fontSize, MARGIN_CM * 0.7)}
+          fill="#57534e"
+        >
+          {`${metres.format(widthCm / 100)} × ${metres.format(heightCm / 100)} m`}
+        </text>
+      )}
     </svg>
   )
 }

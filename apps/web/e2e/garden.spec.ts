@@ -204,6 +204,39 @@ test("a new visitor opens the example garden and finds the advice at work", asyn
   await expect(page.getByRole("button", { name: "See an example" })).toHaveCount(0)
 })
 
+test("the list pictures each garden and makes a copy that stands on its own", async ({ page }) => {
+  await page.goto("/")
+  await page.getByRole("button", { name: "See an example" }).click()
+  await expect(page.getByText("Saved", { exact: true })).toBeVisible()
+  await page.getByRole("link", { name: "All gardens" }).click()
+
+  const example = page.getByRole("listitem").filter({ hasText: "Example garden" })
+  // The picture draws the plan itself: eight plantings on two beds.
+  await expect(example.locator("svg [data-planting]")).toHaveCount(8)
+
+  await page.getByRole("button", { name: "Duplicate Example garden" }).click()
+  const copy = page.getByRole("link", { name: "Example garden (copy)" })
+  await expect(copy).toBeVisible()
+  await expect(page.getByRole("listitem")).toHaveCount(2)
+
+  // The copy has the plan, and changing it leaves the original alone.
+  await copy.click()
+  await expect(page.getByRole("region", { name: "Crop rotation" })).toBeVisible()
+  await page.getByRole("button", { name: /^Potato × 16/ }).click()
+  await page
+    .getByRole("region", { name: "Selected" })
+    .getByRole("button", { name: "Delete" })
+    .click()
+  await expect(page.getByText("Saved", { exact: true })).toBeVisible()
+  await page.getByRole("link", { name: "All gardens" }).click()
+  await expect(
+    page.getByRole("listitem").filter({ hasText: "(copy)" }).locator("svg [data-planting]")
+  ).toHaveCount(7)
+  await expect(
+    page.getByRole("listitem").filter({ hasNotText: "(copy)" }).locator("svg [data-planting]")
+  ).toHaveCount(8)
+})
+
 test("the canvas zooms with its buttons and goes back to fitting the garden", async ({ page }) => {
   await page.goto("/")
   await page.getByRole("button", { name: "New garden" }).click()

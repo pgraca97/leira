@@ -37,7 +37,15 @@ describe("gardens", () => {
       id: created.id,
       name: "Back garden",
       updatedAt: created.updatedAt,
+      plan: emptyPlan(),
     })
+  })
+
+  it("creates a garden where another one is, as a copy needs", async () => {
+    const location = { lat: 41.15, lon: -8.61, name: "Porto" }
+    const created = await aliceGardens.create("Back garden (copy)", emptyPlan(), location)
+    expect(created.location).toEqual(location)
+    expect((await aliceGardens.get(created.id)).location).toEqual(location)
   })
 
   it("saves changes and moves the version on", async () => {

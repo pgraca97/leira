@@ -51,6 +51,10 @@ export const pt: Translation = {
     confirmDelete: "Apagar “{{name}}”? Não é possível desfazer.",
     createFailed: "Não foi possível criar a horta. Tenta de novo.",
     deleteFailed: "Não foi possível apagar a horta. Tenta de novo.",
+    duplicate: "Duplicar",
+    duplicateNamed: "Duplicar {{name}}",
+    copySuffix: " (cópia)",
+    duplicateFailed: "Não foi possível duplicar a horta. Tenta de novo.",
   },
   garden: {
     back: "Todas as hortas",

@@ -58,6 +58,72 @@ describe("the gardens list", () => {
     expect(links.map((link) => link.textContent)).toEqual(["Herb spiral", "Tomato patch"])
   })
 
+  describe("with something planted", () => {
+    const PLANTED: Garden = {
+      ...TOMATOES,
+      location: { lat: 41.15, lon: -8.61, name: "Porto" },
+      plan: {
+        ...emptyPlan(),
+        plantings: [
+          {
+            id: "55555555-5555-4555-8555-555555555555",
+            plantId: "tomato",
+            rect: { x: 0, y: 0, w: 100, h: 100 },
+            layout: "block",
+            inGround: { from: "2026-05-01", to: "2026-09-30" },
+          },
+        ],
+      },
+    }
+
+    beforeEach(() => {
+      backend = fakeBackend([PLANTED, HERBS])
+    })
+
+    it("shows a small picture of each garden's plan, without words", async () => {
+      open("/")
+      await screen.findByRole("link", { name: "Tomato patch" })
+      const pictures = screen.getAllByRole("img", { hidden: true })
+      expect(pictures).toHaveLength(2)
+      // Most recently changed first: the herbs, with nothing planted, then the tomatoes.
+      expect(pictures.map((picture) => picture.querySelectorAll("[data-planting]").length)).toEqual(
+        [0, 1]
+      )
+      expect(pictures.flatMap((picture) => [...picture.querySelectorAll("text")])).toEqual([])
+    })
+
+    it("keeps the pictures out of the way of a screen reader, which has the names", async () => {
+      open("/")
+      await screen.findByRole("link", { name: "Tomato patch" })
+      expect(screen.queryAllByRole("img")).toEqual([])
+      expect(screen.getAllByRole("link", { name: /Tomato patch|Herb spiral/ })).toHaveLength(2)
+    })
+
+    it("duplicates a garden with its plan and location, and lists the copy first", async () => {
+      open("/")
+      await userEvent.click(await screen.findByRole("button", { name: "Duplicate Tomato patch" }))
+
+      const links = await screen.findAllByRole("link", { name: /Tomato patch|Herb spiral/ })
+      expect(links.map((link) => link.textContent)).toEqual([
+        "Tomato patch (copy)",
+        "Herb spiral",
+        "Tomato patch",
+      ])
+      const copy = [...backend.rows.values()].find((row) => row.name === "Tomato patch (copy)")
+      expect(copy).toMatchObject({ plan: PLANTED.plan, location: PLANTED.location, version: 1 })
+      expect(copy?.id).not.toBe(PLANTED.id)
+    })
+
+    it("says so when a garden could not be duplicated", async () => {
+      backend.gardens.create = async () => {
+        throw new Error("503")
+      }
+      open("/")
+      await userEvent.click(await screen.findByRole("button", { name: "Duplicate Tomato patch" }))
+      expect(await screen.findByRole("alert")).toHaveTextContent("could not be duplicated")
+    })
+  })
+
   it("invites the user to create a garden when there are none", async () => {
     backend = fakeBackend()
     open("/")

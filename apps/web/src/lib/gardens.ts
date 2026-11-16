@@ -7,11 +7,17 @@ import {
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { z } from "zod"
 
-/** A garden as the list shows it: no plan, so the list stays light. */
+/** A garden as the list shows it. */
 export interface GardenSummary {
   id: string
   name: string
   updatedAt: string
+  /**
+   * The plan, to draw a small picture of the garden from. Null when this
+   * version of the app cannot read it: the garden is still listed, and opening
+   * it says what is wrong.
+   */
+  plan: GardenPlan | null
 }
 
 export interface Garden extends GardenSummary {
@@ -42,6 +48,8 @@ const SummaryRowSchema = z.object({
   id: z.string(),
   name: z.string(),
   updated_at: z.string(),
+  // Checked on its own, so one unreadable plan does not hide the whole list.
+  plan: z.unknown().optional(),
 })
 
 const GardenRowSchema = SummaryRowSchema.extend({
@@ -56,7 +64,16 @@ export function parseGardenSummary(row: unknown): GardenSummary {
   const parsed = SummaryRowSchema.safeParse(row)
   if (!parsed.success) throw new GardenFormatError("Unreadable garden row")
   const { id, name, updated_at } = parsed.data
-  return { id, name, updatedAt: updated_at }
+  const plan = GardenPlanSchema.safeParse(parsed.data.plan)
+  return { id, name, updatedAt: updated_at, plan: plan.success ? plan.data : null }
+}
+
+/**
+ * The name for a copy of a garden: the original's with `suffix` after it, cut
+ * short where needed so the whole still fits in a garden's name.
+ */
+export function gardenCopyName(name: string, suffix: string): string {
+  return name.slice(0, Math.max(0, GARDEN_NAME_MAX - suffix.length)).trimEnd() + suffix
 }
 
 export function parseGarden(row: unknown): Garden {
@@ -66,7 +83,7 @@ export function parseGarden(row: unknown): Garden {
   return { id, name, updatedAt: updated_at, location, plan, version }
 }
 
-const SUMMARY_COLUMNS = "id, name, updated_at"
+const SUMMARY_COLUMNS = "id, name, plan, updated_at"
 const GARDEN_COLUMNS = "id, name, location, plan, version, updated_at"
 
 /** The fields a save may change. Absent fields are left as they are. */
@@ -107,10 +124,15 @@ export function gardensApi(client: SupabaseClient) {
       return parseGarden(data)
     },
 
-    async create(name: string, plan: GardenPlan): Promise<Garden> {
+    /** A new garden. A copy of another one also takes its `location`. */
+    async create(
+      name: string,
+      plan: GardenPlan,
+      location: GardenLocation | null = null
+    ): Promise<Garden> {
       const { data, error } = await client
         .from("gardens")
-        .insert({ name, plan })
+        .insert({ name, plan, location })
         .select(GARDEN_COLUMNS)
         .single()
       if (error) throw new Error(error.message)

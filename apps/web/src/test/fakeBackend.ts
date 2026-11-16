@@ -48,16 +48,21 @@ export function fakeBackend(seed: Garden[] = []): FakeBackend {
     async list() {
       return [...rows.values()]
         .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-        .map(({ id, name, updatedAt }) => ({ id, name, updatedAt }))
+        .map(({ id, name, updatedAt, plan }) => ({
+          id,
+          name,
+          updatedAt,
+          plan: structuredClone(plan),
+        }))
     },
     async get(id) {
       const garden = rows.get(id)
       if (!garden) throw new GardenNotFoundError(id)
       return structuredClone(garden)
     },
-    async create(name, plan) {
+    async create(name, plan, location = null) {
       const id = `00000000-0000-4000-8000-${String(nextId++).padStart(12, "0")}`
-      const garden: Garden = { id, name, plan, location: null, version: 1, updatedAt: now() }
+      const garden: Garden = { id, name, plan, location, version: 1, updatedAt: now() }
       rows.set(id, garden)
       return structuredClone(garden)
     },

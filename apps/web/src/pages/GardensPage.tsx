@@ -5,10 +5,11 @@ import { useEffect } from "react"
 import { useTranslation } from "react-i18next"
 import { AppHeader } from "../components/AppHeader"
 import { Notice } from "../components/Notice"
-import { dangerButtonClass, primaryButtonClass } from "../components/ui"
+import { buttonClass, dangerButtonClass, primaryButtonClass } from "../components/ui"
+import { PlanSvg } from "../export/PlanSvg"
 import { currentLanguage } from "../i18n"
 import { useBackend } from "../lib/backend"
-import type { GardenSummary } from "../lib/gardens"
+import { type GardenSummary, gardenCopyName } from "../lib/gardens"
 
 const GARDENS_KEY = ["gardens"]
 
@@ -32,6 +33,15 @@ export function GardensPage() {
     onSuccess: (garden) => navigate({ to: "/gardens/$gardenId", params: { gardenId: garden.id } }),
   })
 
+  const duplicate = useMutation({
+    // Read again at the moment of the press: the list may be older than the garden.
+    mutationFn: async (garden: GardenSummary) => {
+      const { name, plan, location } = await backend.gardens.get(garden.id)
+      return backend.gardens.create(gardenCopyName(name, t("gardens.copySuffix")), plan, location)
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: GARDENS_KEY }),
+  })
+
   const remove = useMutation({
     mutationFn: (garden: GardenSummary) => backend.gardens.remove(garden.id),
     onSettled: () => queryClient.invalidateQueries({ queryKey: GARDENS_KEY }),
@@ -44,9 +54,11 @@ export function GardensPage() {
   const dates = new Intl.DateTimeFormat(currentLanguage(), { dateStyle: "medium" })
   const failed = create.isError
     ? t("gardens.createFailed")
-    : remove.isError
-      ? t("gardens.deleteFailed")
-      : null
+    : duplicate.isError
+      ? t("gardens.duplicateFailed")
+      : remove.isError
+        ? t("gardens.deleteFailed")
+        : null
 
   return (
     <div className="flex h-full flex-col">
@@ -97,9 +109,31 @@ export function GardensPage() {
             {gardens.data.map((garden) => (
               <li
                 key={garden.id}
-                className="flex items-center gap-3 rounded-md border border-stone-200 bg-white px-3 py-2"
+                className="flex flex-wrap items-center gap-3 rounded-md border border-stone-200 bg-white px-3 py-2"
               >
-                <div className="min-w-0 flex-1">
+                {/*
+                  A way in for the mouse and the finger. The name beside it is
+                  the link everyone else uses, so this one stays out of their way.
+                */}
+                <Link
+                  to="/gardens/$gardenId"
+                  params={{ gardenId: garden.id }}
+                  tabIndex={-1}
+                  aria-hidden="true"
+                  className="block h-14 w-20 shrink-0 overflow-hidden rounded-sm bg-stone-100"
+                >
+                  {garden.plan && (
+                    <PlanSvg
+                      plan={garden.plan}
+                      locale={currentLanguage()}
+                      title={garden.name}
+                      labels={false}
+                      className="size-full"
+                    />
+                  )}
+                </Link>
+                {/* Wide enough to read: on a narrow screen that sends the buttons to a line of their own. */}
+                <div className="min-w-40 flex-1">
                   <Link
                     to="/gardens/$gardenId"
                     params={{ gardenId: garden.id }}
@@ -111,19 +145,30 @@ export function GardensPage() {
                     {t("gardens.updated", { date: dates.format(new Date(garden.updatedAt)) })}
                   </p>
                 </div>
-                <button
-                  type="button"
-                  className={dangerButtonClass}
-                  aria-label={t("gardens.deleteNamed", { name: garden.name })}
-                  disabled={remove.isPending}
-                  onClick={() => {
-                    if (window.confirm(t("gardens.confirmDelete", { name: garden.name }))) {
-                      remove.mutate(garden)
-                    }
-                  }}
-                >
-                  {t("gardens.delete")}
-                </button>
+                <div className="ml-auto flex gap-2">
+                  <button
+                    type="button"
+                    className={buttonClass}
+                    aria-label={t("gardens.duplicateNamed", { name: garden.name })}
+                    disabled={duplicate.isPending}
+                    onClick={() => duplicate.mutate(garden)}
+                  >
+                    {t("gardens.duplicate")}
+                  </button>
+                  <button
+                    type="button"
+                    className={dangerButtonClass}
+                    aria-label={t("gardens.deleteNamed", { name: garden.name })}
+                    disabled={remove.isPending}
+                    onClick={() => {
+                      if (window.confirm(t("gardens.confirmDelete", { name: garden.name }))) {
+                        remove.mutate(garden)
+                      }
+                    }}
+                  >
+                    {t("gardens.delete")}
+                  </button>
+                </div>
               </li>
             ))}
           </ul>

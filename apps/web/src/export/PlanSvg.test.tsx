@@ -82,4 +82,13 @@ describe("PlanSvg", () => {
     const svg = draw(emptyPlan())
     expect(svg.querySelectorAll("[data-kind], [data-planting]")).toHaveLength(0)
   })
+
+  it("leaves out every word when asked for a picture too small to read", () => {
+    const { container } = render(
+      <PlanSvg plan={plan} locale="en" title="Allotment 12" labels={false} />
+    )
+    expect(container.querySelector("text")).toBeNull()
+    // The plan itself is still all there.
+    expect(container.querySelectorAll("[data-planting]")).toHaveLength(2)
+  })
 })

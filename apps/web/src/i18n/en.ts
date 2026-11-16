@@ -50,6 +50,10 @@ export const en = {
     confirmDelete: "Delete “{{name}}”? This cannot be undone.",
     createFailed: "The garden could not be created. Try again.",
     deleteFailed: "The garden could not be deleted. Try again.",
+    duplicate: "Duplicate",
+    duplicateNamed: "Duplicate {{name}}",
+    copySuffix: " (copy)",
+    duplicateFailed: "The garden could not be duplicated. Try again.",
   },
   garden: {
     back: "All gardens",

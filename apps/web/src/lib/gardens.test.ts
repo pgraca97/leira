@@ -1,6 +1,12 @@
 import { emptyPlan } from "@leira/core"
 import { describe, expect, it } from "vitest"
-import { GardenFormatError, parseGarden, parseGardenSummary } from "./gardens"
+import {
+  GARDEN_NAME_MAX,
+  GardenFormatError,
+  gardenCopyName,
+  parseGarden,
+  parseGardenSummary,
+} from "./gardens"
 
 const ROW = {
   id: "0b0e0c7e-3a53-4f5c-9a43-3a4f6a1c2b10",
@@ -38,12 +44,36 @@ describe("parseGarden", () => {
 })
 
 describe("parseGardenSummary", () => {
-  it("reads the list columns without needing the plan", () => {
-    const { id, name, updated_at } = ROW
-    expect(parseGardenSummary({ id, name, updated_at })).toEqual({
+  const { id, name, updated_at, plan } = ROW
+
+  it("reads the list columns, with the plan to draw a picture from", () => {
+    expect(parseGardenSummary({ id, name, updated_at, plan })).toEqual({
       id,
       name,
       updatedAt: updated_at,
+      plan,
     })
+  })
+
+  it("still lists a garden whose plan it cannot read, without the plan", () => {
+    const newer = { ...emptyPlan(), schemaVersion: 999 }
+    expect(parseGardenSummary({ id, name, updated_at, plan: newer }).plan).toBeNull()
+    expect(parseGardenSummary({ id, name, updated_at }).plan).toBeNull()
+  })
+
+  it("rejects a row that is not a garden", () => {
+    expect(() => parseGardenSummary({ name })).toThrow(GardenFormatError)
+  })
+})
+
+describe("gardenCopyName", () => {
+  it("adds the suffix to the name", () => {
+    expect(gardenCopyName("Back garden", " (copy)")).toBe("Back garden (copy)")
+  })
+
+  it("cuts a long name so the copy's name still fits", () => {
+    const copy = gardenCopyName("a".repeat(GARDEN_NAME_MAX), " (copy)")
+    expect(copy).toHaveLength(GARDEN_NAME_MAX)
+    expect(copy.endsWith(" (copy)")).toBe(true)
   })
 })
