@@ -142,6 +142,55 @@ test("a visitor only sees their own gardens", async ({ browser }) => {
   await second.close()
 })
 
+test("a garden opens from its share link with no account, until sharing stops", async ({
+  page,
+  browser,
+}) => {
+  await page.goto("/")
+  await page.getByRole("button", { name: "New garden" }).click()
+  await page.getByRole("textbox", { name: "Garden name" }).fill("Shared allotment")
+  await page.getByRole("button", { name: "Bed", exact: true }).click()
+  await dragOnCanvas(page, [0.4, 0.4], [0.6, 0.6])
+  await expect(page.getByText("Saved", { exact: true })).toBeVisible()
+
+  await page.getByRole("button", { name: "Share" }).click()
+  const panel = page.getByRole("dialog", { name: "Share this garden" })
+  await panel.getByRole("button", { name: "Create link" }).click()
+  const link = await panel.getByRole("textbox", { name: "Link" }).inputValue()
+  expect(link).toMatch(/\/shared\/[0-9a-f-]{36}$/)
+
+  // Someone else, in a browser that has never been here.
+  const visitor = await browser.newContext()
+  const shared = await visitor.newPage()
+  await shared.goto(link)
+  await expect(shared.getByRole("heading", { name: "Shared allotment" })).toBeVisible()
+  await expect(
+    shared.getByRole("img", { name: "Shared allotment" }).locator("[data-kind]")
+  ).toHaveCount(1)
+  await expect(shared.getByRole("textbox", { name: "Garden name" })).toHaveCount(0)
+  // Looking did not sign the visitor in: Supabase left nothing in their browser.
+  const sessionKeys = await shared.evaluate(() =>
+    Object.keys(localStorage).filter((key) => key.startsWith("sb-"))
+  )
+  expect(sessionKeys).toEqual([])
+
+  await shared.getByRole("link", { name: "Calendar" }).click()
+  await expect(shared.getByRole("heading", { name: "Coming up" })).toBeVisible()
+
+  // Sharing did not disturb the editor: the garden still saves.
+  await page.keyboard.press("Escape")
+  await page.getByRole("textbox", { name: "Garden name" }).fill("Private again")
+  await expect(page.getByText("Saved", { exact: true })).toBeVisible()
+
+  await page.getByRole("button", { name: "Share" }).click()
+  await panel.getByRole("button", { name: "Stop sharing" }).click()
+  await expect(panel.getByRole("button", { name: "Create link" })).toBeVisible()
+  await shared.reload()
+  await expect(shared.getByText(/does not open a garden/)).toBeVisible()
+
+  await visitor.close()
+})
+
 /** The local stack catches every email it sends in Mailpit. Returns the link in the newest one. */
 async function emailedLink(address: string): Promise<string> {
   const mailpit = "http://127.0.0.1:54324/api/v1"

@@ -13,3 +13,6 @@ export const dangerButtonClass = `inline-flex items-center justify-center gap-2 
 export const toggleButtonClass = `flex w-full items-center gap-2 rounded-md border border-transparent px-3 py-1.5 text-left text-sm text-stone-800 hover:bg-stone-200 aria-pressed:border-emerald-700 aria-pressed:bg-emerald-50 aria-pressed:font-semibold aria-pressed:text-emerald-900 ${focusRing}`
 
 export const inputClass = `rounded-md border border-stone-300 bg-white px-2 py-1 text-sm text-stone-900 placeholder:text-stone-400 ${focusRing}`
+
+/** A link in a row of views of the same thing. The router marks the current one with `aria-current`. */
+export const viewLinkClass = `rounded-md px-2 py-1 text-sm font-medium text-stone-700 hover:bg-stone-100 aria-[current=page]:bg-emerald-50 aria-[current=page]:text-emerald-900 ${focusRing}`

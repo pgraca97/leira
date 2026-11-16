@@ -52,6 +52,7 @@ let lookupLimit: ReturnType<typeof fakeLimiter>
 let current: ReturnType<typeof vi.fn<WeatherProvider["current"]>>
 let forecast: ReturnType<typeof vi.fn<WeatherProvider["forecast"]>>
 let places: ReturnType<typeof vi.fn<WeatherProvider["places"]>>
+let sharedGarden: ReturnType<typeof vi.fn<AppDeps["sharedGarden"]>>
 let deps: AppDeps
 
 function request(path: string, headers: Record<string, string> = SIGNED_IN) {
@@ -70,9 +71,11 @@ beforeEach(() => {
   current = vi.fn<WeatherProvider["current"]>(async () => READING)
   forecast = vi.fn<WeatherProvider["forecast"]>(async () => FORECAST)
   places = vi.fn<WeatherProvider["places"]>(async () => PLACES)
+  sharedGarden = vi.fn<AppDeps["sharedGarden"]>(async () => null)
   deps = {
     verifyToken: async (_env, token) => (token === VALID_TOKEN ? "user-1" : null),
     weatherProvider: () => ({ current, forecast, places }),
+    sharedGarden,
   }
   vi.spyOn(console, "error").mockImplementation(() => {})
   vi.spyOn(console, "warn").mockImplementation(() => {})
@@ -434,5 +437,82 @@ describe("GET /api/places", () => {
     expect(response.status).toBe(502)
     expect(await response.json()).toEqual({ error: "weather_unavailable" })
     expect(cache.kv.put).not.toHaveBeenCalled()
+  })
+})
+
+describe("GET /api/shared/:token", () => {
+  const TOKEN = "33333333-3333-4333-8333-333333333333"
+  const PLAN = {
+    schemaVersion: 1,
+    widthCm: 600,
+    heightCm: 400,
+    cellCm: 10,
+    beds: [],
+    plantings: [],
+  }
+  const ROW = {
+    name: "Allotment 12",
+    plan: PLAN,
+    location: null,
+    updated_at: "2026-11-16T10:00:00+00:00",
+  }
+
+  it("opens a shared garden for a visitor with no session, and is never kept", async () => {
+    sharedGarden.mockResolvedValue(ROW)
+    const response = await request(`/api/shared/${TOKEN}`, {})
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({
+      name: "Allotment 12",
+      plan: PLAN,
+      location: null,
+      updatedAt: "2026-11-16T10:00:00+00:00",
+    })
+    // The owner may stop sharing at any moment: no copy should outlive that.
+    expect(response.headers.get("Cache-Control")).toBe("no-store")
+    expect(sharedGarden).toHaveBeenCalledExactlyOnceWith(expect.anything(), TOKEN)
+  })
+
+  it("passes on the location when the database gives one", async () => {
+    const location = { lat: 41.55, lon: -8.43, name: "Braga" }
+    sharedGarden.mockResolvedValue({ ...ROW, location })
+    const response = await request(`/api/shared/${TOKEN}`, {})
+    expect(await response.json()).toMatchObject({ location })
+  })
+
+  it("answers 404 for a link nobody made", async () => {
+    const response = await request(`/api/shared/${TOKEN}`, {})
+    expect(response.status).toBe(404)
+    expect(await response.json()).toEqual({ error: "not_found" })
+  })
+
+  it.each([
+    ["a word", "allotment"],
+    ["a token cut short", TOKEN.slice(0, -1)],
+  ])("answers 404 for %s without asking the database", async (_case, token) => {
+    const response = await request(`/api/shared/${token}`, {})
+    expect(response.status).toBe(404)
+    expect(await response.json()).toEqual({ error: "not_found" })
+    expect(sharedGarden).not.toHaveBeenCalled()
+  })
+
+  it("answers 502 when the database cannot be asked, without echoing the failure", async () => {
+    sharedGarden.mockRejectedValue(new Error("connection refused"))
+    const response = await request(`/api/shared/${TOKEN}`, {})
+    expect(response.status).toBe(502)
+    expect(await response.json()).toEqual({ error: "shared_unavailable" })
+  })
+
+  it("answers 502 when the database answers with something else", async () => {
+    sharedGarden.mockResolvedValue({ title: "Allotment 12" })
+    const response = await request(`/api/shared/${TOKEN}`, {})
+    expect(response.status).toBe(502)
+  })
+
+  it("refuses a visitor who asks too often, before asking the database", async () => {
+    apiLimit.limit.mockResolvedValue({ success: false })
+    const response = await request(`/api/shared/${TOKEN}`, { "CF-Connecting-IP": "203.0.113.7" })
+    expect(response.status).toBe(429)
+    expect(apiLimit.limit).toHaveBeenCalledExactlyOnceWith({ key: "203.0.113.7" })
+    expect(sharedGarden).not.toHaveBeenCalled()
   })
 })

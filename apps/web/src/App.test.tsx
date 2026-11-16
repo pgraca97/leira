@@ -39,7 +39,14 @@ let backend: FakeBackend
 
 function open(path: string, connect: () => Promise<FakeBackend> = async () => backend) {
   const history = createMemoryHistory({ initialEntries: [path] })
-  render(<App connect={connect} history={history} autosaveDelayMs={10} />)
+  render(
+    <App
+      connect={connect}
+      publicBackend={backend.publicBackend}
+      history={history}
+      autosaveDelayMs={10}
+    />
+  )
   return history
 }
 
@@ -735,5 +742,179 @@ describe("the garden's calendar", () => {
 
     expect(editorStore.getState().plan.beds).toHaveLength(1)
     await waitFor(() => expect(backend.rows.get(TOMATOES.id)?.plan.beds).toHaveLength(1))
+  })
+})
+
+describe("sharing a garden", () => {
+  const PORTO_PATCH: Garden = { ...TOMATOES, location: { lat: 41.15, lon: -8.61, name: "Porto" } }
+  const TOKEN = "aaaaaaaa-aaaa-4aaa-8aaa-000000000001"
+
+  async function openSharePanel(garden: Garden = TOMATOES) {
+    open(`/gardens/${garden.id}`)
+    await userEvent.click(await screen.findByRole("button", { name: "Share" }))
+    return screen.findByRole("dialog", { name: "Share this garden" })
+  }
+
+  it("makes a link that anyone can open, and shows it", async () => {
+    const panel = await openSharePanel()
+    expect(within(panel).getByText(/Anyone with the link can see/)).toBeVisible()
+
+    await userEvent.click(await within(panel).findByRole("button", { name: "Create link" }))
+    const link = await within(panel).findByRole("textbox", { name: "Link" })
+    expect(link).toHaveValue(`${window.location.origin}/shared/${TOKEN}`)
+    expect(link).toHaveAttribute("readonly")
+    expect(backend.shares.get(TOMATOES.id)).toEqual({ token: TOKEN, showLocation: false })
+  })
+
+  it("does not touch the garden itself, so the editor keeps saving", async () => {
+    const panel = await openSharePanel()
+    await userEvent.click(await within(panel).findByRole("button", { name: "Create link" }))
+    await within(panel).findByRole("textbox", { name: "Link" })
+    expect(backend.rows.get(TOMATOES.id)?.version).toBe(1)
+  })
+
+  it("copies the link", async () => {
+    const writeText = vi.fn(async (_text: string) => {})
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true })
+    backend.shares.set(TOMATOES.id, { token: TOKEN, showLocation: false })
+
+    const panel = await openSharePanel()
+    await userEvent.click(await within(panel).findByRole("button", { name: "Copy link" }))
+    expect(writeText).toHaveBeenCalledExactlyOnceWith(`${window.location.origin}/shared/${TOKEN}`)
+    expect(await within(panel).findByText("Copied")).toBeVisible()
+  })
+
+  it("keeps the location out of the link unless the owner ticks the box", async () => {
+    backend = fakeBackend([PORTO_PATCH])
+    const panel = await openSharePanel(PORTO_PATCH)
+    const box = await within(panel).findByRole("checkbox", {
+      name: "Also show where the garden is",
+    })
+    expect(box).not.toBeChecked()
+
+    await userEvent.click(box)
+    await userEvent.click(within(panel).getByRole("button", { name: "Create link" }))
+    await within(panel).findByRole("textbox", { name: "Link" })
+    expect(backend.shares.get(PORTO_PATCH.id)).toEqual({ token: TOKEN, showLocation: true })
+
+    // With the link made, the box changes it at once and the link stays the same.
+    await userEvent.click(within(panel).getByRole("checkbox"))
+    await waitFor(() =>
+      expect(backend.shares.get(PORTO_PATCH.id)).toEqual({ token: TOKEN, showLocation: false })
+    )
+  })
+
+  it("does not ask about the location of a garden that has none", async () => {
+    const panel = await openSharePanel()
+    await within(panel).findByRole("button", { name: "Create link" })
+    expect(within(panel).queryByRole("checkbox")).not.toBeInTheDocument()
+  })
+
+  it("stops sharing, and offers to make a new link", async () => {
+    backend.shares.set(TOMATOES.id, { token: TOKEN, showLocation: false })
+    const panel = await openSharePanel()
+
+    await userEvent.click(await within(panel).findByRole("button", { name: "Stop sharing" }))
+    expect(await within(panel).findByRole("button", { name: "Create link" })).toBeVisible()
+    expect(within(panel).queryByRole("textbox", { name: "Link" })).not.toBeInTheDocument()
+    expect(backend.shares.size).toBe(0)
+  })
+
+  it("says when the link could not be made", async () => {
+    backend.failNextShare()
+    const panel = await openSharePanel()
+    await userEvent.click(await within(panel).findByRole("button", { name: "Create link" }))
+    expect(await within(panel).findByRole("alert")).toHaveTextContent(/did not work/)
+    expect(backend.shares.size).toBe(0)
+  })
+
+  it("closes with Escape", async () => {
+    await openSharePanel()
+    await userEvent.keyboard("{Escape}")
+    expect(screen.queryByRole("dialog", { name: "Share this garden" })).not.toBeInTheDocument()
+  })
+})
+
+describe("a shared garden", () => {
+  const TOKEN = "bbbbbbbb-bbbb-4bbb-8bbb-000000000001"
+  // The calendar opens on the current year, so the planting is in it.
+  const year = new Date().getFullYear()
+  const PATCH: Garden = {
+    ...TOMATOES,
+    location: { lat: 41.15, lon: -8.61, name: "Porto" },
+    plan: {
+      ...emptyPlan(),
+      plantings: [
+        {
+          id: "55555555-5555-4555-8555-555555555555",
+          plantId: "tomato",
+          rect: { x: 0, y: 0, w: 100, h: 100 },
+          layout: "block",
+          inGround: { from: `${year}-05-01`, to: `${year}-09-30` },
+        },
+      ],
+    },
+  }
+
+  /** Fails the test if the page asks for a session: a link must open without one. */
+  const noSession = vi.fn(async (): Promise<FakeBackend> => {
+    throw new Error("a shared garden must not connect")
+  })
+
+  beforeEach(() => {
+    noSession.mockClear()
+    backend = fakeBackend([PATCH])
+    backend.shares.set(PATCH.id, { token: TOKEN, showLocation: false })
+  })
+
+  it("opens from its link with no session, to look at and not to change", async () => {
+    open(`/shared/${TOKEN}`, noSession)
+    expect(await screen.findByRole("heading", { name: "Tomato patch" })).toBeVisible()
+    const picture = screen.getByRole("img", { name: "Tomato patch" })
+    expect(picture.querySelectorAll("[data-planting]")).toHaveLength(1)
+    expect(screen.getByText(/read-only/)).toBeVisible()
+
+    expect(noSession).not.toHaveBeenCalled()
+    expect(screen.queryByRole("textbox", { name: "Garden name" })).not.toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Share" })).not.toBeInTheDocument()
+    expect(document.title).toBe("Tomato patch")
+  })
+
+  it("shows the calendar too, with nothing to press on its rows", async () => {
+    open(`/shared/${TOKEN}`, noSession)
+    await userEvent.click(await screen.findByRole("link", { name: "Calendar" }))
+
+    const rows = await screen.findByRole("list", { name: /Plantings in/ })
+    expect(within(rows).getByText(/Tomato.*in the ground/)).toBeInTheDocument()
+    expect(within(rows).queryByRole("button")).not.toBeInTheDocument()
+    expect(noSession).not.toHaveBeenCalled()
+  })
+
+  it("does not say where the garden is", async () => {
+    open(`/shared/${TOKEN}`, noSession)
+    await screen.findByRole("heading", { name: "Tomato patch" })
+    expect(screen.queryByText(/Porto/)).not.toBeInTheDocument()
+  })
+
+  it("says where the garden is when its owner chose to", async () => {
+    backend.shares.set(PATCH.id, { token: TOKEN, showLocation: true })
+    open(`/shared/${TOKEN}`, noSession)
+    expect(await screen.findByText(/Porto/)).toBeVisible()
+  })
+
+  it("explains a link that opens nothing", async () => {
+    backend.shares.clear()
+    open(`/shared/${TOKEN}`, noSession)
+    expect(await screen.findByText(/does not open a garden/)).toBeVisible()
+    expect(screen.getByRole("link", { name: "Plan your own garden" })).toHaveAttribute("href", "/")
+    expect(noSession).not.toHaveBeenCalled()
+  })
+
+  it("leads on to the visitor's own gardens, which is when they get a session", async () => {
+    const connect = vi.fn(async () => backend)
+    open(`/shared/${TOKEN}`, connect)
+    await userEvent.click(await screen.findByRole("link", { name: "Plan your own garden" }))
+    expect(await screen.findByRole("button", { name: "New garden" })).toBeVisible()
+    expect(connect).toHaveBeenCalledTimes(1)
   })
 })

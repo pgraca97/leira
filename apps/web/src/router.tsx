@@ -3,18 +3,35 @@ import {
   createRoute,
   createRouter,
   Link,
+  Outlet,
   type RouterHistory,
 } from "@tanstack/react-router"
 import { useTranslation } from "react-i18next"
 import { AppHeader } from "./components/AppHeader"
+import { Connected } from "./components/Connected"
 import { Notice } from "./components/Notice"
 import { GardenPage } from "./pages/GardenPage"
 import { GardensPage } from "./pages/GardensPage"
+import { SharedGardenPage } from "./pages/SharedGardenPage"
 
 const rootRoute = createRootRoute({ notFoundComponent: PageNotFound })
 
-const gardensRoute = createRoute({
+/**
+ * The pages that need a session. Connecting signs a new visitor in as a
+ * guest, so a page that works without one stays outside this route.
+ */
+const sessionRoute = createRoute({
   getParentRoute: () => rootRoute,
+  id: "session",
+  component: () => (
+    <Connected>
+      <Outlet />
+    </Connected>
+  ),
+})
+
+const gardensRoute = createRoute({
+  getParentRoute: () => sessionRoute,
   path: "/",
   component: GardensPage,
 })
@@ -22,13 +39,15 @@ const gardensRoute = createRoute({
 /** The ways to look at a garden. The plan is the default and has no search parameter. */
 export type GardenView = "plan" | "calendar"
 
+const validateView = (search: Record<string, unknown>): { view?: "calendar" } =>
+  search.view === "calendar" ? { view: "calendar" } : {}
+
 export const gardenRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => sessionRoute,
   path: "/gardens/$gardenId",
   // A search parameter rather than a child route: both views share the loaded
   // garden and its autosave, which must not restart when the view changes.
-  validateSearch: (search: Record<string, unknown>): { view?: "calendar" } =>
-    search.view === "calendar" ? { view: "calendar" } : {},
+  validateSearch: validateView,
   component: function GardenRoute() {
     const { gardenId } = gardenRoute.useParams()
     const { view = "plan" } = gardenRoute.useSearch()
@@ -37,7 +56,22 @@ export const gardenRoute = createRoute({
   },
 })
 
-const routeTree = rootRoute.addChildren([gardensRoute, gardenRoute])
+/** A garden opened from its share link: read-only, and with no session. */
+export const sharedGardenRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/shared/$token",
+  validateSearch: validateView,
+  component: function SharedGardenRoute() {
+    const { token } = sharedGardenRoute.useParams()
+    const { view = "plan" } = sharedGardenRoute.useSearch()
+    return <SharedGardenPage key={token} token={token} view={view} />
+  },
+})
+
+const routeTree = rootRoute.addChildren([
+  sessionRoute.addChildren([gardensRoute, gardenRoute]),
+  sharedGardenRoute,
+])
 
 export function createAppRouter(history?: RouterHistory) {
   return createRouter({ routeTree, history })

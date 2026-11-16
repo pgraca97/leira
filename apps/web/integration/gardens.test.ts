@@ -1,4 +1,5 @@
 import { emptyPlan } from "@leira/core"
+import { createClient } from "@supabase/supabase-js"
 import { beforeAll, describe, expect, it } from "vitest"
 import {
   GardenConflictError,
@@ -7,6 +8,7 @@ import {
   gardensApi,
 } from "../src/lib/gardens"
 import { verifySupabaseToken } from "../worker/auth"
+import { fetchSharedGarden } from "../worker/shared"
 import { signInVisitor, stackSettings } from "./localStack"
 
 /**
@@ -96,12 +98,91 @@ describe("gardens", () => {
   })
 })
 
-describe("the Worker's token check", () => {
-  const env = {
-    SUPABASE_URL: settings.url,
-    SUPABASE_PUBLISHABLE_KEY: settings.publishableKey,
-  } as Env
+const env = {
+  SUPABASE_URL: settings.url,
+  SUPABASE_PUBLISHABLE_KEY: settings.publishableKey,
+} as Env
 
+describe("sharing a garden", () => {
+  const location = { lat: 41.15, lon: -8.61, name: "Porto" }
+
+  it("gives a garden a link the Worker can open with no session, without its location", async () => {
+    const garden = await aliceGardens.create("Shared plot", emptyPlan(), location)
+    expect(await aliceGardens.getShare(garden.id)).toBeNull()
+
+    const share = await aliceGardens.share(garden.id, false)
+    expect(share.showLocation).toBe(false)
+    expect(await aliceGardens.getShare(garden.id)).toEqual(share)
+
+    expect(await fetchSharedGarden(env, share.token)).toEqual({
+      name: "Shared plot",
+      plan: emptyPlan(),
+      location: null,
+      updated_at: expect.any(String),
+    })
+    // Sharing is not a save: the editor's copy of the garden is still current.
+    expect((await aliceGardens.get(garden.id)).version).toBe(1)
+  })
+
+  it("shows the location once the owner says so, on the same link", async () => {
+    const garden = await aliceGardens.create("Located plot", emptyPlan(), location)
+    const share = await aliceGardens.share(garden.id, false)
+
+    const changed = await aliceGardens.share(garden.id, true)
+    expect(changed).toEqual({ token: share.token, showLocation: true })
+    expect(await fetchSharedGarden(env, share.token)).toMatchObject({ location })
+  })
+
+  it("stops opening when the owner stops sharing, and a new link is a different one", async () => {
+    const garden = await aliceGardens.create("Briefly shared", emptyPlan())
+    const first = await aliceGardens.share(garden.id, false)
+    await aliceGardens.unshare(garden.id)
+
+    expect(await fetchSharedGarden(env, first.token)).toBeNull()
+    expect(await aliceGardens.getShare(garden.id)).toBeNull()
+
+    const second = await aliceGardens.share(garden.id, false)
+    expect(second.token).not.toBe(first.token)
+    expect(await fetchSharedGarden(env, first.token)).toBeNull()
+  })
+
+  it("opens nothing for a token nobody was given", async () => {
+    expect(await fetchSharedGarden(env, "11111111-1111-4111-8111-111111111111")).toBeNull()
+  })
+
+  it("keeps a garden's link out of other users' hands", async () => {
+    const garden = await aliceGardens.create("Alice's shared plot", emptyPlan())
+    const share = await aliceGardens.share(garden.id, false)
+
+    expect(await bobGardens.getShare(garden.id)).toBeNull()
+    await expect(bobGardens.share(garden.id, true)).rejects.toThrow(/row-level security/)
+    await bobGardens.unshare(garden.id)
+    expect(await aliceGardens.getShare(garden.id)).toEqual(share)
+  })
+
+  it("lets a visitor with no session reach the shared garden and nothing else", async () => {
+    const garden = await aliceGardens.create("Open to read", emptyPlan())
+    const share = await aliceGardens.share(garden.id, false)
+    const visitor = createClient(settings.url, settings.publishableKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    })
+
+    const opened = await visitor.rpc("shared_garden", { share_token: share.token })
+    expect(opened.data).toHaveLength(1)
+    expect((await visitor.from("gardens").select("id")).data ?? []).toEqual([])
+    expect((await visitor.from("garden_shares").select("token")).data ?? []).toEqual([])
+  })
+
+  it("is opened by the Worker only, not by a signed-in user directly", async () => {
+    const garden = await aliceGardens.create("Not for Bob", emptyPlan())
+    const share = await aliceGardens.share(garden.id, false)
+    const direct = await bob.client.rpc("shared_garden", { share_token: share.token })
+    expect(direct.data).toBeNull()
+    expect(direct.error).not.toBeNull()
+  })
+})
+
+describe("the Worker's token check", () => {
   it("resolves a visitor's access token to their user id", async () => {
     expect(await verifySupabaseToken(env, alice.accessToken)).toBe(alice.userId)
   })

@@ -6,6 +6,7 @@ import {
   gardenCopyName,
   parseGarden,
   parseGardenSummary,
+  parseSharedGarden,
 } from "./gardens"
 
 const ROW = {
@@ -75,5 +76,29 @@ describe("gardenCopyName", () => {
     const copy = gardenCopyName("a".repeat(GARDEN_NAME_MAX), " (copy)")
     expect(copy).toHaveLength(GARDEN_NAME_MAX)
     expect(copy.endsWith(" (copy)")).toBe(true)
+  })
+})
+
+describe("parseSharedGarden", () => {
+  const SHARED = {
+    name: "Back garden",
+    location: null,
+    plan: emptyPlan(),
+    updatedAt: "2026-11-10T21:07:02.123456+00:00",
+  }
+
+  it("accepts what the Worker answers for a share link", () => {
+    expect(parseSharedGarden(SHARED)).toEqual(SHARED)
+    const location = { lat: 41.15, lon: -8.61, name: "Porto" }
+    expect(parseSharedGarden({ ...SHARED, location }).location).toEqual(location)
+  })
+
+  it.each([
+    ["a plan this version cannot read", { ...SHARED, plan: { schemaVersion: 99 } }],
+    ["a location off the globe", { ...SHARED, location: { lat: 123, lon: 0 } }],
+    ["no name", { ...SHARED, name: undefined }],
+    ["nothing", null],
+  ])("refuses %s", (_case, body) => {
+    expect(() => parseSharedGarden(body)).toThrow(GardenFormatError)
   })
 })

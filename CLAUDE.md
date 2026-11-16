@@ -15,8 +15,12 @@ See `README.md` for the layout, setup and commands.
 - Gardening logic and schemas go in `packages/core`: pure functions, no React, no I/O.
 - Pages reach the server only through `Backend` (`apps/web/src/lib/backend.tsx`). Tests use
   `fakeBackend`; keep it following the same rules as the real one (version check, ownership).
+- A page that must work with no session (the shared garden) uses `PublicBackend` instead and sits
+  outside the session route in `src/router.tsx`: connecting `Backend` signs the visitor in as a
+  guest.
 - Every write to a garden goes through the editor's autosave, so it carries the loaded version.
-  Do not call `gardens.save` from a component.
+  Do not call `gardens.save` from a component. A share link is a row of its own
+  (`gardens.share`), so it does not move the version on.
 - The editor store (`apps/web/src/editor/store.ts`) is framework-free: React and the Phaser scene
   both subscribe to it and do not know about each other.
 - Every string the user sees comes from `src/i18n/en.ts` and `pt.ts` (European Portuguese).

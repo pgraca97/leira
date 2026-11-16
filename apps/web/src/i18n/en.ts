@@ -63,6 +63,28 @@ export const en = {
     notFound: "This garden does not exist, or it belongs to someone else.",
     unreadable: "This garden was saved by a newer version of the app. Reload the page to update.",
   },
+  share: {
+    button: "Share",
+    panel: "Share this garden",
+    explain:
+      "Anyone with the link can see this garden's plan and calendar, without an account. They cannot change it.",
+    create: "Create link",
+    link: "Link",
+    copy: "Copy link",
+    copied: "Copied",
+    showLocation: "Also show where the garden is",
+    stop: "Stop sharing",
+    stopHint: "The link stops working at once. Sharing again makes a different link.",
+    loading: "Loading…",
+    loadFailed: "The sharing settings could not be loaded.",
+    failed: "That did not work. Try again.",
+  },
+  shared: {
+    readOnly: "A shared garden, read-only.",
+    own: "Plan your own garden",
+    notFound:
+      "This link does not open a garden. Its owner may have stopped sharing it, or the link is incomplete.",
+  },
   save: {
     saved: "Saved",
     pending: "Unsaved changes",

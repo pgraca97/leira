@@ -27,12 +27,29 @@ export interface Garden extends GardenSummary {
   version: number
 }
 
+/** A garden's read-only link. */
+export interface GardenShare {
+  /** What the link ends in. Anyone who has it can see the garden. */
+  token: string
+  /** Whether the link also says where the garden is. */
+  showLocation: boolean
+}
+
+/** A garden as someone with its link sees it: no id, no owner, nothing to save. */
+export interface SharedGarden {
+  name: string
+  /** Null unless the owner chose to show it. */
+  location: GardenLocation | null
+  plan: GardenPlan
+  updatedAt: string
+}
+
 /** The row holds something this version of the app cannot read. */
 export class GardenFormatError extends Error {
   override name = "GardenFormatError"
 }
 
-/** The garden does not exist, or belongs to someone else. */
+/** The garden does not exist, belongs to someone else, or its link opens nothing. */
 export class GardenNotFoundError extends Error {
   override name = "GardenNotFoundError"
 }
@@ -56,6 +73,15 @@ const GardenRowSchema = SummaryRowSchema.extend({
   location: GardenLocationSchema.nullable(),
   plan: GardenPlanSchema,
   version: z.int(),
+})
+
+const ShareRowSchema = z.object({ token: z.string(), show_location: z.boolean() })
+
+const SharedGardenSchema = z.object({
+  name: z.string(),
+  location: GardenLocationSchema.nullable(),
+  plan: GardenPlanSchema,
+  updatedAt: z.string(),
 })
 
 const SavedRowSchema = z.object({ version: z.int(), updated_at: z.string() })
@@ -83,8 +109,21 @@ export function parseGarden(row: unknown): Garden {
   return { id, name, updatedAt: updated_at, location, plan, version }
 }
 
+/** Checks what the Worker answered for a share link. */
+export function parseSharedGarden(body: unknown): SharedGarden {
+  const parsed = SharedGardenSchema.safeParse(body)
+  if (!parsed.success) throw new GardenFormatError("Unreadable shared garden")
+  return parsed.data
+}
+
+function parseShare(row: unknown): GardenShare {
+  const { token, show_location } = ShareRowSchema.parse(row)
+  return { token, showLocation: show_location }
+}
+
 const SUMMARY_COLUMNS = "id, name, plan, updated_at"
 const GARDEN_COLUMNS = "id, name, location, plan, version, updated_at"
+const SHARE_COLUMNS = "token, show_location"
 
 /** The fields a save may change. Absent fields are left as they are. */
 export interface GardenChanges {
@@ -99,8 +138,9 @@ export interface SavedGarden {
 }
 
 /**
- * Reads and writes the signed-in user's gardens. Row level security already
- * limits every query to the owner, so nothing here filters by user.
+ * Reads and writes the signed-in user's gardens and their share links. Row
+ * level security already limits every query to the owner, so nothing here
+ * filters by user.
  */
 export function gardensApi(client: SupabaseClient) {
   return {
@@ -160,6 +200,51 @@ export function gardensApi(client: SupabaseClient) {
 
     async remove(id: string): Promise<void> {
       const { error } = await client.from("gardens").delete().eq("id", id)
+      if (error) throw new Error(error.message)
+    },
+
+    /** The garden's read-only link, or null when it has none. */
+    async getShare(id: string): Promise<GardenShare | null> {
+      const { data, error } = await client
+        .from("garden_shares")
+        .select(SHARE_COLUMNS)
+        .eq("garden_id", id)
+        .maybeSingle()
+      if (error) throw new Error(error.message)
+      return data ? parseShare(data) : null
+    },
+
+    /**
+     * Gives the garden a read-only link, or changes whether the link it has
+     * shows the location. The link itself stays the same until `unshare`.
+     *
+     * A share is a row of its own, so this does not go through the editor's
+     * autosave and does not move the garden's version on.
+     */
+    async share(id: string, showLocation: boolean): Promise<GardenShare> {
+      // Two steps, not an upsert: an upsert would also write the token's
+      // garden, which a client may set once and never change.
+      const changed = await client
+        .from("garden_shares")
+        .update({ show_location: showLocation })
+        .eq("garden_id", id)
+        .select(SHARE_COLUMNS)
+        .maybeSingle()
+      if (changed.error) throw new Error(changed.error.message)
+      if (changed.data) return parseShare(changed.data)
+
+      const created = await client
+        .from("garden_shares")
+        .insert({ garden_id: id, show_location: showLocation })
+        .select(SHARE_COLUMNS)
+        .single()
+      if (created.error) throw new Error(created.error.message)
+      return parseShare(created.data)
+    },
+
+    /** Turns the garden's link off for good. Sharing again makes a different link. */
+    async unshare(id: string): Promise<void> {
+      const { error } = await client.from("garden_shares").delete().eq("garden_id", id)
       if (error) throw new Error(error.message)
     },
   }

@@ -65,6 +65,28 @@ export const pt: Translation = {
     unreadable:
       "Esta horta foi guardada por uma versão mais recente da aplicação. Recarrega a página para atualizar.",
   },
+  share: {
+    button: "Partilhar",
+    panel: "Partilhar esta horta",
+    explain:
+      "Quem tiver o link pode ver o plano e o calendário desta horta, sem conta. Não a pode alterar.",
+    create: "Criar link",
+    link: "Link",
+    copy: "Copiar link",
+    copied: "Copiado",
+    showLocation: "Mostrar também onde fica a horta",
+    stop: "Deixar de partilhar",
+    stopHint: "O link deixa de funcionar de imediato. Voltar a partilhar cria um link diferente.",
+    loading: "A carregar…",
+    loadFailed: "Não foi possível carregar as definições de partilha.",
+    failed: "Não resultou. Tenta de novo.",
+  },
+  shared: {
+    readOnly: "Uma horta partilhada, só para ver.",
+    own: "Planeia a tua horta",
+    notFound:
+      "Este link não abre nenhuma horta. Quem a partilhou pode ter deixado de o fazer, ou o link está incompleto.",
+  },
   save: {
     saved: "Guardado",
     pending: "Alterações por guardar",

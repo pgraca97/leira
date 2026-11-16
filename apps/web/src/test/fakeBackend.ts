@@ -1,15 +1,22 @@
 import type { Forecast, Place, WeatherNow } from "@leira/core"
-import type { Backend } from "../lib/backend"
+import type { Backend, PublicBackend } from "../lib/backend"
 import {
   type Garden,
   GardenConflictError,
   GardenNotFoundError,
+  type GardenShare,
   type GardensApi,
 } from "../lib/gardens"
 
 export interface FakeBackend extends Backend {
   /** The stored gardens, to seed and to inspect. */
   rows: Map<string, Garden>
+  /** The share links, by garden id, to seed and to inspect. */
+  shares: Map<string, GardenShare>
+  /** Makes the next change to a share link fail. */
+  failNextShare(): void
+  /** What a visitor with no session can reach: the gardens above, through their links. */
+  publicBackend: PublicBackend
   /** Makes the next save of this kind fail. */
   failNextSave(error: Error): void
   /** What `weather` answers: a reading, or an error to throw. */
@@ -41,8 +48,16 @@ export function fakeBackend(seed: Garden[] = []): FakeBackend {
     clock += 1000
     return new Date(clock).toISOString()
   }
+  const shares = new Map<string, GardenShare>()
   let saveFailure: Error | null = null
+  let shareFailure = false
   let nextId = 1
+  let nextToken = 1
+  const failingShare = () => {
+    if (!shareFailure) return
+    shareFailure = false
+    throw new Error("database down")
+  }
 
   const gardens: GardensApi = {
     async list() {
@@ -80,6 +95,35 @@ export function fakeBackend(seed: Garden[] = []): FakeBackend {
     },
     async remove(id) {
       rows.delete(id)
+      // The real share is deleted with its garden.
+      shares.delete(id)
+    },
+    async getShare(id) {
+      return shares.get(id) ?? null
+    },
+    async share(id, showLocation) {
+      failingShare()
+      // The real backend refuses a share for a garden that is not the user's.
+      if (!rows.has(id)) throw new Error("new row violates row-level security policy")
+      const token =
+        shares.get(id)?.token ?? `aaaaaaaa-aaaa-4aaa-8aaa-${String(nextToken++).padStart(12, "0")}`
+      const share = { token, showLocation }
+      shares.set(id, share)
+      return { ...share }
+    },
+    async unshare(id) {
+      failingShare()
+      shares.delete(id)
+    },
+  }
+
+  const publicBackend: PublicBackend = {
+    async sharedGarden(token) {
+      const [gardenId, share] = [...shares].find(([, share]) => share.token === token) ?? []
+      const garden = gardenId ? rows.get(gardenId) : undefined
+      if (!garden || !share) throw new GardenNotFoundError(token)
+      const { name, plan, location, updatedAt } = structuredClone(garden)
+      return { name, plan, location: share.showLocation ? location : null, updatedAt }
     },
   }
 
@@ -118,10 +162,16 @@ export function fakeBackend(seed: Garden[] = []): FakeBackend {
         backend.email = null
         // The real backend starts over as a new guest, who owns no gardens.
         rows.clear()
+        shares.clear()
       },
     },
     rows,
     gardens,
+    shares,
+    failNextShare() {
+      shareFailure = true
+    },
+    publicBackend,
     failNextSave(error) {
       saveFailure = error
     },

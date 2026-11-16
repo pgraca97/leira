@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next"
 import { Calendar } from "../calendar/Calendar"
 import { AppHeader } from "../components/AppHeader"
 import { Notice } from "../components/Notice"
-import { inputClass } from "../components/ui"
+import { inputClass, viewLinkClass } from "../components/ui"
 import { Editor } from "../editor/Editor"
 import { SaveIndicator } from "../editor/SaveIndicator"
 import { editorStore } from "../editor/store"
@@ -20,6 +20,7 @@ import {
   GardenNotFoundError,
 } from "../lib/gardens"
 import type { GardenView } from "../router"
+import { ShareControls } from "../share/ShareControls"
 import { WeatherPanel } from "../weather/WeatherPanel"
 
 /** One garden: loads it, then hands it to the editor or the calendar. */
@@ -99,7 +100,14 @@ function LoadedGarden({ garden, view, onReload }: LoadedGardenProps) {
 
   return (
     <div className="flex h-full flex-col">
-      <AppHeader secondary={<ExportControls gardenName={name} />}>
+      <AppHeader
+        secondary={
+          <>
+            <ShareControls gardenId={garden.id} hasLocation={location !== null} />
+            <ExportControls gardenName={name} />
+          </>
+        }
+      >
         <BackLink />
         <ViewSwitch gardenId={garden.id} />
         <NameField name={name} onRename={setName} />
@@ -121,9 +129,6 @@ function LoadedGarden({ garden, view, onReload }: LoadedGardenProps) {
     </div>
   )
 }
-
-const viewLinkClass =
-  "rounded-md px-2 py-1 text-sm font-medium text-stone-700 hover:bg-stone-100 aria-[current=page]:bg-emerald-50 aria-[current=page]:text-emerald-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
 
 /**
  * Switches between the plan and the calendar of the same garden. The router

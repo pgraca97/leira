@@ -1,6 +1,7 @@
 import {
   addDays,
   type DateRange,
+  type GardenPlan,
   gardenTasks,
   getPlant,
   type IsoDate,
@@ -12,7 +13,7 @@ import {
   toIsoDate,
   yearOf,
 } from "@leira/core"
-import { useState } from "react"
+import { type ReactNode, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { buttonClass } from "../components/ui"
 import { useEditor } from "../editor/useEditor"
@@ -32,13 +33,26 @@ interface Row {
 }
 
 /**
- * A garden's year at a glance: one line per planting with its time indoors,
- * in the ground and in harvest, and the jobs coming up next. It reads the
- * plan from the editor store, so it always shows what the editor holds.
+ * The calendar of the garden being edited. It reads the plan from the editor
+ * store, so it always shows what the editor holds.
  */
 export function Calendar({ onOpenPlanting }: { onOpenPlanting(plantingId: string): void }) {
-  const { t } = useTranslation()
   const plan = useEditor((state) => state.plan)
+  return <PlanCalendar plan={plan} onOpenPlanting={onOpenPlanting} />
+}
+
+interface PlanCalendarProps {
+  plan: GardenPlan
+  /** Opens a planting from its line. Without it the lines are only to read. */
+  onOpenPlanting?(plantingId: string): void
+}
+
+/**
+ * A plan's year at a glance: one line per planting with its time indoors,
+ * in the ground and in harvest, and the jobs coming up next.
+ */
+export function PlanCalendar({ plan, onOpenPlanting }: PlanCalendarProps) {
+  const { t } = useTranslation()
   const language = currentLanguage()
   const today = toIsoDate(new Date())
   const [year, setYear] = useState(() => yearOf(today))
@@ -135,11 +149,9 @@ export function Calendar({ onOpenPlanting }: { onOpenPlanting(plantingId: string
               <ul aria-label={t("calendar.rowsLabel", { year })}>
                 {rows.map((row) => (
                   <li key={row.planting.id} className="border-b border-stone-100 last:border-b-0">
-                    <button
-                      type="button"
-                      aria-label={row.label}
-                      className="grid w-full grid-cols-[10rem_1fr] items-center text-left hover:bg-stone-50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-emerald-700"
-                      onClick={() => onOpenPlanting(row.planting.id)}
+                    <RowFrame
+                      label={row.label}
+                      onOpen={onOpenPlanting && (() => onOpenPlanting(row.planting.id))}
                     >
                       <span className="truncate px-3 py-2 text-sm text-stone-800">
                         {row.label.slice(0, row.label.indexOf(":"))}
@@ -171,7 +183,7 @@ export function Calendar({ onOpenPlanting }: { onOpenPlanting(plantingId: string
                           />
                         )}
                       </span>
-                    </button>
+                    </RowFrame>
                   </li>
                 ))}
               </ul>
@@ -221,6 +233,45 @@ function stageStyle(stage: Stage, color: string): React.CSSProperties {
     }
   }
   return { backgroundColor: stage === "inGround" ? `${color}55` : color }
+}
+
+const rowClass = "grid w-full grid-cols-[10rem_1fr] items-center text-left"
+
+/**
+ * One line of the calendar: a button when it opens its planting, plain
+ * content when there is nothing to open. Either way the label says in words
+ * what the bars draw.
+ */
+function RowFrame({
+  label,
+  onOpen,
+  children,
+}: {
+  label: string
+  onOpen?: () => void
+  children: ReactNode
+}) {
+  if (onOpen) {
+    return (
+      <button
+        type="button"
+        aria-label={label}
+        className={`${rowClass} hover:bg-stone-50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-emerald-700`}
+        onClick={onOpen}
+      >
+        {children}
+      </button>
+    )
+  }
+  return (
+    <div className={rowClass}>
+      <span className="sr-only">{label}</span>
+      {/* Hidden from screen readers: the words above already say all of it. */}
+      <span aria-hidden="true" className="contents">
+        {children}
+      </span>
+    </div>
+  )
 }
 
 function Bar({

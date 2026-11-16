@@ -11,6 +11,11 @@ export interface AppDeps {
   verifyToken(env: Env, token: string): Promise<string | null>
   /** The weather provider to use, or null when none is configured. */
   weatherProvider(env: Env): WeatherProvider | null
+  /**
+   * The garden a share link opens, as the database hands it over, or null
+   * when no link has that token. Throws when the database cannot be asked.
+   */
+  sharedGarden(env: Env, token: string): Promise<unknown>
 }
 
 type AppEnv = { Bindings: Env }
@@ -45,6 +50,14 @@ const PlaceQuerySchema = z.object({
     .string()
     .transform((text) => text.trim().replace(/\s+/g, " "))
     .pipe(z.string().min(2).max(80)),
+})
+
+/** A shared garden as the database hands it over. The browser checks the plan itself. */
+const SharedGardenRowSchema = z.object({
+  name: z.string(),
+  plan: z.unknown(),
+  location: z.unknown(),
+  updated_at: z.string(),
 })
 
 export function createApp(deps: AppDeps) {
@@ -198,6 +211,40 @@ export function createApp(deps: AppDeps) {
       ttlSeconds: PLACES_TTL_SECONDS,
       browserMaxAgeSeconds: PLACES_BROWSER_MAX_AGE_SECONDS,
       load: (provider) => provider.places(name),
+    })
+  })
+
+  /**
+   * The garden behind a share link, for anyone who has the link: this is the
+   * one route with data that asks for no session, so opening a link does not
+   * create a guest account. The token is the permission, and a wrong one
+   * looks the same as none.
+   */
+  app.get("/api/shared/:token", limitVisitor, async (c) => {
+    const token = z.uuid().safeParse(c.req.param("token"))
+    if (!token.success) return c.json({ error: "not_found" }, 404)
+
+    let row: unknown
+    try {
+      row = await deps.sharedGarden(c.env, token.data)
+    } catch (error) {
+      console.error(
+        "Shared garden lookup failed:",
+        error instanceof Error ? error.message : "unknown"
+      )
+      return c.json({ error: "shared_unavailable" }, 502)
+    }
+    if (row === null) return c.json({ error: "not_found" }, 404)
+
+    const shared = SharedGardenRowSchema.safeParse(row)
+    if (!shared.success) {
+      console.error("Shared garden lookup returned an unexpected row")
+      return c.json({ error: "shared_unavailable" }, 502)
+    }
+    const { name, plan, location, updated_at } = shared.data
+    // Not kept anywhere: the owner may stop sharing at any moment.
+    return c.json({ name, plan, location: location ?? null, updatedAt: updated_at }, 200, {
+      "Cache-Control": "no-store",
     })
   })
 
