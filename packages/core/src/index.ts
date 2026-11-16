@@ -59,6 +59,7 @@ export {
 export { samplePlan } from "./samplePlan"
 export {
   type DateRange,
+  defaultDoneDate,
   type GardenTask,
   type GardenTaskKind,
   gardenTasks,

@@ -1,4 +1,5 @@
 import { addDays, type IsoDate } from "./dates"
+import { doneDateBounds } from "./records"
 import type { GardenPlan, Plant, Planting } from "./schema"
 
 /** A stretch of days, first and last included. */
@@ -20,8 +21,9 @@ export interface PlantingSchedule {
 /**
  * Works out a planting's stages. Seedlings start the crop's usual number of
  * weeks before planting out, unless the planting records the day it was
- * actually sown. Picking starts at the crop's earliest days-to-harvest and
- * lasts for as long as the crop stays in the ground.
+ * actually sown. Picking starts at the crop's earliest days-to-harvest, or on
+ * the day of the first harvest once one is recorded, and lasts for as long as
+ * the crop stays in the ground.
  */
 export function plantingSchedule(planting: Planting, plant: Plant): PlantingSchedule {
   const { inGround, sowDate } = planting
@@ -30,7 +32,7 @@ export function plantingSchedule(planting: Planting, plant: Plant): PlantingSche
   if (sowDate && sowDate < inGround.from) indoorsFrom = sowDate
   else if (plant.indoorsWeeks) indoorsFrom = addDays(inGround.from, -7 * plant.indoorsWeeks)
 
-  const harvestFrom = addDays(inGround.from, plant.daysToHarvest[0])
+  const harvestFrom = planting.harvests?.[0]?.date ?? addDays(inGround.from, plant.daysToHarvest[0])
   return {
     indoors: indoorsFrom ? { from: indoorsFrom, to: addDays(inGround.from, -1) } : null,
     inGround,
@@ -56,16 +58,22 @@ export function plantingsInGround(plan: GardenPlan, date: IsoDate): GardenPlan {
 export type GardenTaskKind = "sow-indoors" | "transplant" | "sow" | "harvest" | "clear"
 
 export interface GardenTask {
+  /** The day the job is planned for, or the day it was done once that is recorded. */
   date: IsoDate
   kind: GardenTaskKind
   plantingId: string
   plantId: string
+  /** Whether the planting records the job as done. */
+  done: boolean
 }
 
 /**
  * The jobs a plan implies between two days, both included, in date order.
  * Plantings of a crop the lookup does not know are skipped: without the crop
  * there is no telling when to sow or pick it.
+ *
+ * A job that is not done is left out once a later stage of its planting is
+ * done: a crop already in the ground has no seedlings left to sow.
  */
 export function gardenTasks(
   plan: GardenPlan,
@@ -77,16 +85,50 @@ export function gardenTasks(
     const plant = getPlant(planting.plantId)
     if (!plant) continue
     const schedule = plantingSchedule(planting, plant)
-    const add = (date: IsoDate, kind: GardenTaskKind) => {
-      if (range.from <= date && date <= range.to) {
-        tasks.push({ date, kind, plantingId: planting.id, plantId: plant.id })
-      }
+    // In the order they happen, so "a later stage" is one further down the list.
+    const stages: Pick<GardenTask, "date" | "kind" | "done">[] = []
+    if (schedule.indoors) {
+      stages.push({
+        date: schedule.indoors.from,
+        kind: "sow-indoors",
+        done: schedule.indoors.from === planting.sowDate,
+      })
     }
-    if (schedule.indoors) add(schedule.indoors.from, "sow-indoors")
-    add(schedule.inGround.from, schedule.indoors ? "transplant" : "sow")
-    if (schedule.harvest) add(schedule.harvest.from, "harvest")
-    add(schedule.inGround.to, "clear")
+    stages.push({
+      date: schedule.inGround.from,
+      kind: schedule.indoors ? "transplant" : "sow",
+      done: planting.planted === true,
+    })
+    if (schedule.harvest) {
+      stages.push({
+        date: schedule.harvest.from,
+        kind: "harvest",
+        done: (planting.harvests?.length ?? 0) > 0,
+      })
+    }
+    stages.push({ date: schedule.inGround.to, kind: "clear", done: planting.cleared === true })
+
+    const lastDone = stages.map((stage) => stage.done).lastIndexOf(true)
+    stages.forEach((stage, position) => {
+      const overtaken = !stage.done && position < lastDone
+      if (overtaken || stage.date < range.from || stage.date > range.to) return
+      tasks.push({ ...stage, plantingId: planting.id, plantId: plant.id })
+    })
   }
   // Array.prototype.sort is stable, so tasks on the same day keep the plan's order.
   return tasks.sort((a, b) => a.date.localeCompare(b.date))
+}
+
+/**
+ * The day to record a job on when it is only ticked off: today where the
+ * planting's other dates allow it, otherwise the day it was planned for. A
+ * sowing of seedlings ticked after they went out, say, was not done today.
+ */
+export function defaultDoneDate(
+  planting: Planting,
+  task: Pick<GardenTask, "kind" | "date">,
+  today: IsoDate
+): IsoDate {
+  const { min, max } = doneDateBounds(planting, task.kind)
+  return (!min || min <= today) && (!max || today <= max) ? today : task.date
 }
