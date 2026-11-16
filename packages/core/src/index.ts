@@ -1,3 +1,4 @@
+export { type BedSeason, bedOfPlanting, bedSeasons, cropsThatFit } from "./beds"
 export {
   type CompanionOptions,
   type CompanionPair,
