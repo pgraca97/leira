@@ -47,6 +47,8 @@ const PLATFORM = `
   );
   create function auth.uid() returns uuid language sql stable
     as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
+  create function auth.jwt() returns jsonb language sql stable
+    as $$ select nullif(current_setting('request.jwt.claims', true), '')::jsonb $$;
   grant usage on schema public, auth to anon, authenticated, service_role;
 `
 
@@ -70,16 +72,23 @@ let alice: string
 let bob: string
 let gardenId: string
 
-/** Acts as a signed-in user, the way the Data API does for each request. */
-async function signInAs(userId: string): Promise<void> {
+/**
+ * Acts as a signed-in user, the way the Data API does for each request. The
+ * token's claims name the session it was issued for, when there is one.
+ */
+async function signInAs(userId: string, sessionId?: string): Promise<void> {
   await db.exec("reset role")
   await db.query("select set_config('request.jwt.claim.sub', $1, false)", [userId])
+  await db.query("select set_config('request.jwt.claims', $1, false)", [
+    JSON.stringify({ sub: userId, role: "authenticated", session_id: sessionId }),
+  ])
   await db.exec("set role authenticated")
 }
 
 async function signOut(): Promise<void> {
   await db.exec("reset role")
   await db.query("select set_config('request.jwt.claim.sub', '', false)")
+  await db.query("select set_config('request.jwt.claims', '', false)")
   await db.exec("set role anon")
 }
 
@@ -1182,5 +1191,255 @@ describe("sweep of the auth audit log", () => {
     await expect(db.query("select private.forget_departed_in_audit_log()")).rejects.toThrow(
       /permission denied/
     )
+  })
+})
+
+describe("a deletion that waits 30 days", () => {
+  /** A session of `userId`'s, started `minutes` minutes from now: before it when negative. */
+  async function sessionOf(userId: string, minutes: number): Promise<string> {
+    await db.exec("reset role")
+    const result = await db.query<{ id: string }>(
+      "insert into auth.sessions (user_id, created_at) values ($1, now() + make_interval(mins => $2)) returning id",
+      [userId, minutes]
+    )
+    return result.rows[0]!.id
+  }
+
+  /** Alice signed in on a session of her own, started a minute ago. */
+  async function aliceOnSession(): Promise<string> {
+    const session = await sessionOf(alice, -1)
+    await signInAs(alice, session)
+    return session
+  }
+
+  /** `userId` asked for their deletion `days` days ago. */
+  async function askedDaysAgo(userId: string, days: number): Promise<void> {
+    await db.exec("reset role")
+    await db.query(
+      "insert into private.deletion_requests (user_id, requested_at) values ($1, now() - make_interval(days => $2))",
+      [userId, days]
+    )
+  }
+
+  /** The moment `days` days from now, as the database sees it. */
+  async function inDays(days: number): Promise<Date> {
+    const result = await db.query<{ at: Date }>("select now() + make_interval(days => $1) as at", [
+      days,
+    ])
+    return result.rows[0]!.at
+  }
+
+  async function requestDeletion(): Promise<Date> {
+    const result = await db.query<{ due: Date }>("select public.request_account_deletion() as due")
+    return result.rows[0]!.due
+  }
+
+  async function resume(): Promise<Date | null> {
+    const result = await db.query<{ due: Date | null }>("select public.resume_account() as due")
+    return result.rows[0]!.due
+  }
+
+  async function waiting(): Promise<string[]> {
+    await db.exec("reset role")
+    const result = await db.query<{ user_id: string }>(
+      "select user_id from private.deletion_requests order by requested_at"
+    )
+    return result.rows.map((row) => row.user_id)
+  }
+
+  async function sessionsLeft(): Promise<string[]> {
+    await db.exec("reset role")
+    const result = await db.query<{ id: string }>("select id from auth.sessions order by id")
+    return result.rows.map((row) => row.id)
+  }
+
+  async function users(): Promise<string[]> {
+    await db.exec("reset role")
+    const result = await db.query<{ id: string }>("select id from auth.users")
+    return result.rows.map((row) => row.id)
+  }
+
+  it("is asked for by the account itself, and ends its sessions everywhere, nobody else's", async () => {
+    const older = await sessionOf(alice, -60 * 24 * 3)
+    await sessionOf(alice, -5)
+    const bobs = await sessionOf(bob, -5)
+    await signInAs(alice, older)
+
+    expect(await requestDeletion()).toEqual(await inDays(30))
+    expect(await waiting()).toEqual([alice])
+    expect(await sessionsLeft()).toEqual([bobs])
+    // Nothing is deleted yet.
+    expect(await users()).toEqual(expect.arrayContaining([alice, bob]))
+    const gardens = await db.query<{ id: string }>("select id from public.gardens")
+    expect(gardens.rows).toEqual([{ id: gardenId }])
+  })
+
+  it("keeps the date of the first request when asked again", async () => {
+    await askedDaysAgo(alice, 3)
+    await aliceOnSession()
+    expect(await requestDeletion()).toEqual(await inDays(27))
+    expect(await waiting()).toEqual([alice])
+  })
+
+  it("is refused to a guest, who deletes theirs at once instead", async () => {
+    await db.exec("reset role")
+    const guest = await db.query<{ id: string }>(
+      "insert into auth.users (is_anonymous) values (true) returning id"
+    )
+    await signInAs(guest.rows[0]!.id)
+    await expect(requestDeletion()).rejects.toThrow(/only an account/)
+  })
+
+  it("is refused to visitors who are not signed in", async () => {
+    await signOut()
+    await expect(requestDeletion()).rejects.toThrow(/permission denied/)
+  })
+
+  it("cannot be cancelled by visitors who are not signed in", async () => {
+    await signOut()
+    await expect(resume()).rejects.toThrow(/permission denied/)
+  })
+
+  it("keeps the list of requests out of the users' reach", async () => {
+    await aliceOnSession()
+    await requestDeletion()
+    await signInAs(alice)
+    await expect(db.query("select * from private.deletion_requests")).rejects.toThrow(
+      /permission denied/
+    )
+  })
+
+  it("is cancelled by signing in again, which says when the account would have gone", async () => {
+    await aliceOnSession()
+    const due = await requestDeletion()
+    const signedInAgain = await sessionOf(alice, 1)
+    await signInAs(alice, signedInAgain)
+
+    expect(await resume()).toEqual(due)
+    expect(await waiting()).toEqual([])
+    expect(await resume()).toBeNull()
+  })
+
+  it("is not cancelled by an ended session, an older one or someone else's", async () => {
+    const ended = await aliceOnSession()
+    await requestDeletion()
+    expect(await resume()).toBeNull()
+
+    await signInAs(alice, await sessionOf(alice, -10))
+    expect(await resume()).toBeNull()
+
+    await signInAs(alice, await sessionOf(bob, 1))
+    expect(await resume()).toBeNull()
+
+    await signInAs(alice)
+    expect(await resume()).toBeNull()
+
+    expect(await waiting()).toEqual([alice])
+    expect(await sessionsLeft()).not.toContain(ended)
+  })
+
+  it("leaves nothing to cancel for an account that asked for nothing", async () => {
+    await signInAs(alice, await sessionOf(alice, 1))
+    expect(await resume()).toBeNull()
+  })
+
+  it("hides the account's share links while it waits, and shows them again once kept", async () => {
+    const shared = await db.query<{ token: string }>(
+      "insert into public.garden_shares (garden_id) values ($1) returning token",
+      [gardenId]
+    )
+    const token = shared.rows[0]!.token
+    const open = () => db.query("select * from public.shared_garden($1)", [token])
+
+    await aliceOnSession()
+    await requestDeletion()
+    await signOut()
+    expect((await open()).rows).toEqual([])
+
+    await signInAs(alice, await sessionOf(alice, 1))
+    await resume()
+    await signOut()
+    expect((await open()).rows).toHaveLength(1)
+  })
+
+  it("is in the account's data, with the day it was asked for", async () => {
+    const exported = async () => {
+      const result = await db.query<{ data: { account: { deletionRequestedAt: string | null } } }>(
+        "select public.export_my_data() as data"
+      )
+      return result.rows[0]!.data.account.deletionRequestedAt
+    }
+    expect(await exported()).toBeNull()
+
+    await askedDaysAgo(alice, 3)
+    await signInAs(alice)
+    expect(new Date((await exported())!)).toEqual(await inDays(-3))
+  })
+
+  it("goes with the account when the account is deleted at once", async () => {
+    await askedDaysAgo(alice, 3)
+    await signInAs(alice)
+    await db.query("select public.delete_account()")
+    expect(await waiting()).toEqual([])
+  })
+
+  describe("carried out", () => {
+    async function purge(batch?: number): Promise<number> {
+      await db.exec("reset role")
+      const result = await db.query<{ purged: number }>(
+        batch === undefined
+          ? "select private.purge_deletion_requests() as purged"
+          : "select private.purge_deletion_requests($1) as purged",
+        batch === undefined ? [] : [batch]
+      )
+      return result.rows[0]!.purged
+    }
+
+    it("deletes the accounts asked for more than 30 days ago, with everything of theirs", async () => {
+      await db.query("insert into public.garden_shares (garden_id) values ($1)", [gardenId])
+      await db.query("insert into public.templates (name, items) values ('Rotation', $1)", [
+        JSON.stringify({ format: 1, beds: [], plantings: [] }),
+      ])
+      await db.query("select public.record_visit()")
+      await audited(alice)
+      await audited(bob)
+      await askedDaysAgo(alice, 31)
+      await askedDaysAgo(bob, 29)
+
+      expect(await purge()).toBe(1)
+      expect(await users()).toEqual([bob])
+      expect(await waiting()).toEqual([bob])
+      for (const table of [
+        "public.gardens",
+        "public.garden_shares",
+        "public.templates",
+        "private.activity_days",
+      ]) {
+        expect((await db.query(`select * from ${table}`)).rows).toEqual([])
+      }
+      expect((await db.query("select id from public.profiles")).rows).toEqual([{ id: bob }])
+      expect(await auditedUsers()).toEqual([bob])
+    })
+
+    it("deletes at most a batch at a time, the oldest request first", async () => {
+      await db.exec("reset role")
+      const carol = await createUser()
+      await askedDaysAgo(alice, 40)
+      await askedDaysAgo(bob, 31)
+      await askedDaysAgo(carol, 35)
+
+      expect(await purge(1)).toBe(1)
+      expect(await users()).not.toContain(alice)
+      expect(await purge(1)).toBe(1)
+      expect(await users()).toEqual([bob])
+      expect(await purge(1)).toBe(1)
+      expect(await purge(1)).toBe(0)
+    })
+
+    it("cannot be run by users", async () => {
+      await expect(db.query("select private.purge_deletion_requests()")).rejects.toThrow(
+        /permission denied/
+      )
+    })
   })
 })
