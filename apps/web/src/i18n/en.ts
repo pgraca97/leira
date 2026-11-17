@@ -472,7 +472,7 @@ export const en = {
         "<policy>Supabase</policy> keeps the database and signs you in. Your data is stored in Ireland.",
       cloudflare: "<policy>Cloudflare</policy> serves the app, runs Turnstile and counts visits.",
       google:
-        "<policy>Google</policy> signs you in when you choose Google, and carries the sign-in emails, which are sent from a Gmail account.",
+        "<policy>Google</policy> signs you in when you choose Google, and carries the app's emails, which are sent from a Gmail account: the sign-in links, and the confirmation when you ask to delete your account.",
       weather:
         "<openweather>OpenWeather</openweather> and <openmeteo>Open-Meteo</openmeteo> give the weather and the soil temperature. They get the garden's area rounded to about 11 km, and OpenWeather also the town names you search for. Leira's server asks them, never your browser, so they do not see your IP address.",
       transfers:

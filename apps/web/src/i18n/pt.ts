@@ -477,7 +477,7 @@ export const pt: Translation = {
       cloudflare:
         "A <policy>Cloudflare</policy> serve a app, corre o Turnstile e conta as visitas.",
       google:
-        "O <policy>Google</policy> faz a entrada quando escolhes o Google, e leva os emails com o link de entrada, que saem de uma conta Gmail.",
+        "O <policy>Google</policy> faz a entrada quando escolhes o Google, e leva os emails da app, que saem de uma conta Gmail: os links de entrada, e a confirmação quando pedes para apagar a conta.",
       weather:
         "O <openweather>OpenWeather</openweather> e o <openmeteo>Open-Meteo</openmeteo> dão a meteorologia e a temperatura do solo. Recebem a zona da horta arredondada a cerca de 11 km, e o OpenWeather também os nomes de terras que pesquisas. Quem lhes pede é o servidor da Leira, nunca o teu browser, por isso não veem o teu endereço IP.",
       transfers:
