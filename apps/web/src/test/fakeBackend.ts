@@ -65,6 +65,9 @@ export function fakeBackend(seed: Garden[] = []): FakeBackend {
     return new Date(clock).toISOString()
   }
   const shares = new Map<string, GardenShare>()
+  // When each garden made here was created. A seeded one counts as created
+  // when it was last changed.
+  const createdAt = new Map<string, string>()
   let saveFailure: Error | null = null
   let shareFailure = false
   let nextId = 1
@@ -95,6 +98,7 @@ export function fakeBackend(seed: Garden[] = []): FakeBackend {
       const id = `00000000-0000-4000-8000-${String(nextId++).padStart(12, "0")}`
       const garden: Garden = { id, name, plan, location, version: 1, updatedAt: now() }
       rows.set(id, garden)
+      createdAt.set(id, garden.updatedAt)
       return structuredClone(garden)
     },
     async save(id, version, changes) {
@@ -202,17 +206,37 @@ export function fakeBackend(seed: Garden[] = []): FakeBackend {
           exportFailure = false
           throw new Error("database down")
         }
-        // The real document has more in it; the gardens are what tests look at.
+        // The shape of the real document, so an import can be tested against it.
         return {
           format: 1,
-          account: { email: backend.email },
-          gardens: [...rows.values()].map(({ name, plan, location, version, updatedAt }) => ({
-            name,
-            plan: structuredClone(plan),
-            location,
-            version,
-            updatedAt,
+          exportedAt: now(),
+          account: {
+            email: backend.email,
+            createdAt: "2026-11-01T09:00:00.000Z",
+            signInMethods: [],
+            fromSignIn: {},
+            sessions: [],
+          },
+          profile: { displayName: null, locale: "en" },
+          // Oldest first, as the real one orders them.
+          gardens: [...rows.values()].map(({ id, name, plan, location, version, updatedAt }) => {
+            const share = shares.get(id)
+            return {
+              name,
+              plan: structuredClone(plan),
+              location,
+              version,
+              createdAt: createdAt.get(id) ?? updatedAt,
+              updatedAt,
+              share: share ? { token: share.token, showLocation: share.showLocation } : null,
+            }
+          }),
+          templates: backend.savedTemplates.map((template) => ({
+            name: template.name,
+            items: structuredClone(template.items),
+            createdAt: template.createdAt,
           })),
+          activityDays: [],
         }
       },
       async deleteAccount() {
