@@ -52,6 +52,9 @@ A _leira_ is what a plot of cultivated land is called in Minho, in the north of 
   Google or an emailed link attaches to that same user, so the gardens made as a guest are kept.
 - **A privacy page** at `/privacy`, linked from the account panel, says what is kept, who else
   handles it, for how long and how to take it away or delete it. Reading it makes nobody a guest.
+- **A landing page** at `/`, in English at `/en/`, written as plain HTML when the app is built, so
+  search engines and link previews read it whole. Someone who already used the app in that browser
+  goes straight on to their gardens at `/gardens`.
 - **Portuguese and English** interface.
 
 ## Tech stack
@@ -86,11 +89,11 @@ locally needs a network.
 
 ## Tests
 
-| Command                 | What it covers                                                                                                                                                          |
-| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `pnpm check`            | Lint, typecheck, unit tests and build. The database access rules run on an in-process Postgres, so no Docker.                                                           |
-| `pnpm test:integration` | The gardens API, share links, the Worker's token check, the captcha and the email sign-in flow against the local Supabase stack.                                        |
-| `pnpm test:e2e`         | Playwright: drawing, saving, the calendar, jobs done and harvests, export, sharing by link, signing in by emailed link, and that a visitor only sees their own gardens. |
+| Command                 | What it covers                                                                                                                                                                                                           |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `pnpm check`            | Lint, typecheck, unit tests and build. The database access rules run on an in-process Postgres, so no Docker.                                                                                                            |
+| `pnpm test:integration` | The gardens API, share links, the Worker's token check, the captcha and the email sign-in flow against the local Supabase stack.                                                                                         |
+| `pnpm test:e2e`         | Playwright: the landing page and who it sends on to the app, drawing, saving, the calendar, jobs done and harvests, export, sharing by link, signing in by emailed link, and that a visitor only sees their own gardens. |
 
 The last two need `pnpm db:start` and a filled-in `.dev.vars`.
 
@@ -141,11 +144,18 @@ The last two need `pnpm db:start` and a filled-in `.dev.vars`.
   page `/stats` shows those numbers and the free plan limits to the admins listed in
   `private.admins`, whose own use is left out. It is there to say when paying for a domain or a
   bigger plan would be worth it.
-- **Bots are stopped before they become guests.** Every visit without a session signs in a new
-  guest, and each one counts toward the 50,000 monthly active users of Supabase's free plan, which
-  counts whoever signed in during the month. Deleting a guest later does not give that back. So
-  the auth server asks for a Cloudflare Turnstile token (free) before it makes a guest or emails a
-  link to an existing account. The challenge is invisible and shows a box only when Cloudflare is
+- **The front door is a static page.** The landing page and the 404 pages are rendered from the
+  app's own components and strings when it is built (`src/site`), and send no React to the
+  browser. Search engines and link previews read them whole, serving them costs the Worker
+  nothing, and arriving makes nobody a guest. Cloudflare's single-page fallback always serves the
+  root `index.html`, so the app shell is `app.html` instead: the Worker hands it out for the app's
+  paths, listed in `run_worker_first` (a test checks the router against that list), with
+  `noindex` on all but the privacy page. Any other address gets a real 404.
+- **Bots are stopped before they become guests.** Every visit to the app without a session signs in
+  a new guest, and each one counts toward the 50,000 monthly active users of Supabase's free plan,
+  which counts whoever signed in during the month. Deleting a guest later does not give that back.
+  So the auth server asks for a Cloudflare Turnstile token (free) before it makes a guest or emails
+  a link to an existing account. The challenge is invisible and shows a box only when Cloudflare is
   unsure. Google sign-in needs none.
 - **Guests nobody will come back to are cleared.** Bots that got through, bounced visits and the
   fresh guest made after each sign-out stay in the database for good otherwise, and in `/stats`.
@@ -166,12 +176,12 @@ The last two need `pnpm db:start` and a filled-in `.dev.vars`.
 
 ## Repository layout
 
-| Path                | What it is                                                                 |
-| ------------------- | -------------------------------------------------------------------------- |
-| `apps/web`          | The React app (`src`) and the Worker that serves it and `/api` (`worker`). |
-| `packages/core`     | The plan schema and the gardening logic.                                   |
-| `packages/tsconfig` | Shared TypeScript settings.                                                |
-| `supabase`          | Migrations, local stack settings and tests of the access rules.            |
+| Path                | What it is                                                                                                |
+| ------------------- | --------------------------------------------------------------------------------------------------------- |
+| `apps/web`          | The React app (`src`), its static pages (`src/site`) and the Worker that serves it and `/api` (`worker`). |
+| `packages/core`     | The plan schema and the gardening logic.                                                                  |
+| `packages/tsconfig` | Shared TypeScript settings.                                                                               |
+| `supabase`          | Migrations, local stack settings and tests of the access rules.                                           |
 
 ## Deploying
 
@@ -201,7 +211,7 @@ migrations and then publishes the Worker. It needs three secrets in the GitHub r
 | `CLOUDFLARE_ACCOUNT_ID` | The id of the Cloudflare account the Worker is in.                       |
 | `SUPABASE_ACCESS_TOKEN` | A Supabase access token that may write to the project's database.        |
 
-Three steps are by hand, once:
+Four steps are by hand, once:
 
 - **The captcha.** Do these in this order, or nobody can sign in. In the Cloudflare dashboard,
   open Turnstile and add a widget for the Worker's hostname, in Managed mode. Set its site key
@@ -216,3 +226,8 @@ Three steps are by hand, once:
   works the same, uncounted.
 - **The stats page.** In the Supabase SQL editor, make your account an admin:
   `insert into private.admins (user_id) select id from auth.users where email = '<your email>';`
+- **Search engines**, optional. In Google Search Console, add a URL-prefix property for the
+  Worker's address (a domain property needs a domain of your own), verify it with the HTML file
+  Google gives, saved in `apps/web/public`, and submit `/sitemap.xml`. Bing Webmaster Tools can
+  import the site from there. The address the pages give as their own is `SITE_URL` in
+  `apps/web/src/site/site.ts`.
