@@ -773,3 +773,82 @@ describe("helper functions", () => {
     await expect(db.query("select private.set_updated_at()")).rejects.toThrow(/permission denied/)
   })
 })
+
+describe("templates", () => {
+  const ITEMS = JSON.stringify({ format: 1, beds: [], plantings: [] })
+
+  async function saveTemplate(name = "Tomatoes and basil", items = ITEMS) {
+    const saved = await db.query<{ id: string; owner_id: string }>(
+      "insert into public.templates (name, items) values ($1, $2) returning id, owner_id",
+      [name, items]
+    )
+    return saved.rows[0]!
+  }
+
+  it("belong to the user who saved them", async () => {
+    const saved = await saveTemplate()
+    expect(saved.owner_id).toBe(alice)
+    const mine = await db.query<{ name: string }>("select name from public.templates")
+    expect(mine.rows).toEqual([{ name: "Tomatoes and basil" }])
+  })
+
+  it("are invisible to other users, who cannot delete them either", async () => {
+    await saveTemplate()
+    await signInAs(bob)
+    expect((await db.query("select id from public.templates")).rows).toEqual([])
+    expect((await db.query("delete from public.templates returning id")).rows).toEqual([])
+  })
+
+  it("can be deleted by their owner", async () => {
+    const saved = await saveTemplate()
+    await db.query("delete from public.templates where id = $1", [saved.id])
+    expect((await db.query("select id from public.templates")).rows).toEqual([])
+  })
+
+  it("cannot be saved on behalf of someone else", async () => {
+    await expect(
+      db.query("insert into public.templates (name, items, owner_id) values ('x', $1, $2)", [
+        ITEMS,
+        bob,
+      ])
+    ).rejects.toThrow(/permission denied/)
+  })
+
+  it("cannot be changed once saved", async () => {
+    await saveTemplate()
+    await expect(db.query("update public.templates set name = 'Renamed'")).rejects.toThrow(
+      /permission denied/
+    )
+  })
+
+  it("need a name", async () => {
+    await expect(saveTemplate("")).rejects.toThrow(/templates_name_check/)
+  })
+
+  it("hold an object of at most 256 KB", async () => {
+    await expect(saveTemplate("List", "[]")).rejects.toThrow(/templates_items_check/)
+  })
+
+  it("stop at fifty a user", async () => {
+    for (let index = 0; index < 50; index++) await saveTemplate(`Template ${index}`)
+    await expect(saveTemplate("One too many")).rejects.toThrow(/at most 50 templates/)
+  })
+
+  it("are closed to visitors who are not signed in", async () => {
+    await signOut()
+    await expect(db.query("select id from public.templates")).rejects.toThrow(/permission denied/)
+  })
+
+  it("go with the account, and come along in the export", async () => {
+    await saveTemplate()
+    const exported = await db.query<{ data: { templates: { name: string }[] } }>(
+      "select public.export_my_data() as data"
+    )
+    expect(exported.rows[0]?.data.templates.map((template) => template.name)).toEqual([
+      "Tomatoes and basil",
+    ])
+    await db.query("select public.delete_account()")
+    await db.exec("reset role")
+    expect((await db.query("select id from public.templates")).rows).toEqual([])
+  })
+})
