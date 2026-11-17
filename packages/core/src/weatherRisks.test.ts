@@ -23,8 +23,8 @@ function planWith(...plantings: Planting[]): GardenPlan {
   return { ...emptyPlan(), plantings }
 }
 
-function day(date: string, minC: number, maxC: number): ForecastDay {
-  return { date, minC, maxC, condition: "clear" }
+function day(date: string, minC: number, maxC: number, soilC?: number): ForecastDay {
+  return { date, minC, maxC, condition: "clear", ...(soilC === undefined ? {} : { soilC }) }
 }
 
 // Tomato is tender and suffers above 35 °C. Lettuce is half-hardy, onion hardy.
@@ -35,6 +35,10 @@ const onions = planting("onions", "onion", "2026-04-01", "2026-08-30")
 describe("ForecastDaySchema", () => {
   it("accepts a day of forecast", () => {
     expect(ForecastDaySchema.safeParse(day("2026-04-10", 3.5, 14)).success).toBe(true)
+  })
+
+  it("accepts a day that also gives the soil temperature", () => {
+    expect(ForecastDaySchema.parse(day("2026-04-10", 3.5, 14, 9.2)).soilC).toBe(9.2)
   })
 
   it("rejects a day whose low is above its high", () => {
@@ -147,5 +151,52 @@ describe("cold nights for transplants", () => {
     expect(findWeatherRisks(planWith(goingOut), getPlant, forecast)).toEqual([
       { plantingId: "going-out", plantId: "tomato", kind: "frost", date: "2026-05-04", tempC: 1 },
     ])
+  })
+})
+
+describe("cold soil for sowing", () => {
+  // Green beans are sown in place and need the soil at 15 °C to come up.
+  const beans = planting("beans", "green-bean", "2026-05-04", "2026-08-15")
+
+  it("warns when the soil is too cold on the day a crop is sown in place", () => {
+    const forecast = [day("2026-05-03", 9, 20, 16), day("2026-05-04", 10, 21, 13.4)]
+    expect(findWeatherRisks(planWith(beans), getPlant, forecast)).toEqual([
+      {
+        plantingId: "beans",
+        plantId: "green-bean",
+        kind: "coldSoil",
+        date: "2026-05-04",
+        tempC: 13.4,
+      },
+    ])
+  })
+
+  it("stays quiet when the soil is as warm as the seed needs", () => {
+    const forecast = [day("2026-05-04", 10, 21, 15)]
+    expect(findWeatherRisks(planWith(beans), getPlant, forecast)).toEqual([])
+  })
+
+  it("only looks at the day of sowing: the seed is not in the ground before", () => {
+    const forecast = [day("2026-05-03", 9, 20, 11), day("2026-05-04", 10, 21, 16)]
+    expect(findWeatherRisks(planWith(beans), getPlant, forecast)).toEqual([])
+  })
+
+  it("says nothing once the crop is marked as sown", () => {
+    const sown = { ...beans, planted: true as const }
+    expect(findWeatherRisks(planWith(sown), getPlant, [day("2026-05-04", 10, 21, 11)])).toEqual([])
+  })
+
+  it("leaves out crops raised under cover: they go out as seedlings", () => {
+    const tomato = planting("tomato", "tomato", "2026-05-04", "2026-09-30")
+    expect(findWeatherRisks(planWith(tomato), getPlant, [day("2026-05-04", 12, 21, 8)])).toEqual([])
+  })
+
+  it("says nothing when the forecast has no soil temperature", () => {
+    expect(findWeatherRisks(planWith(beans), getPlant, [day("2026-05-04", 10, 21)])).toEqual([])
+  })
+
+  it("says nothing for a crop with no known soil minimum", () => {
+    const garlic = planting("garlic", "garlic", "2026-05-04", "2026-07-30")
+    expect(findWeatherRisks(planWith(garlic), getPlant, [day("2026-05-04", 10, 21, 3)])).toEqual([])
   })
 })

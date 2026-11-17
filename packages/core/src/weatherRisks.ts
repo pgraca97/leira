@@ -1,5 +1,5 @@
 import { addDays, type IsoDate } from "./dates"
-import { isInGround } from "./schedule"
+import { isInGround, plantingSchedule } from "./schedule"
 import type { ForecastDay, FrostTolerance, GardenPlan, Plant } from "./schema"
 
 /**
@@ -28,12 +28,13 @@ export interface WeatherRisk {
   /**
    * `frost`: the night is too cold for the crop. `heat`: the day is hotter
    * than it tolerates. `cold`: the night is too cold for a seedling that has
-   * just been, or is about to be, planted out.
+   * just been, or is about to be, planted out. `coldSoil`: the soil is too
+   * cold for the seed on the day it is due to be sown in place.
    */
-  kind: "frost" | "heat" | "cold"
+  kind: "frost" | "heat" | "cold" | "coldSoil"
   /** The first day at risk, so there is time to act. */
   date: IsoDate
-  /** That day's low for frost and cold, or high for heat. */
+  /** That day's low for frost and cold, high for heat, or soil temperature for cold soil. */
   tempC: number
 }
 
@@ -41,7 +42,8 @@ export interface WeatherRisk {
  * Compares a forecast with what is in the ground. Each planting gets at most
  * one warning about cold nights and one about heat, for the first day at risk.
  * Frost outranks a merely cold night: a crop facing both only gets the frost
- * warning. Warnings come in date order. Crops the lookup does not know are
+ * warning. A crop sown in place also gets a warning when the soil is too cold
+ * on its sowing day. Warnings come in date order. Crops the lookup does not know are
  * skipped.
  */
 export function findWeatherRisks(
@@ -68,6 +70,21 @@ export function findWeatherRisks(
       const settled = addDays(planting.inGround.from, SETTLING_DAYS)
       const cold = exposed.find((day) => day.date <= settled && day.minC < minNightC)
       if (cold) risks.push({ ...ids, kind: "cold", date: cold.date, tempC: cold.minC })
+    }
+
+    // Seed sown in place only: a seedling raised under cover has already come
+    // up, and its nights are the cold check's business. Once it is marked as
+    // sown, the warning is too late to act on.
+    const germMinSoilC = plant.temps.germMinSoilC
+    if (
+      germMinSoilC !== undefined &&
+      !planting.planted &&
+      !plantingSchedule(planting, plant).indoors
+    ) {
+      const sowing = days.find((day) => day.date === planting.inGround.from)
+      if (sowing?.soilC !== undefined && sowing.soilC < germMinSoilC) {
+        risks.push({ ...ids, kind: "coldSoil", date: sowing.date, tempC: sowing.soilC })
+      }
     }
 
     const maxDayC = plant.temps.maxDayC

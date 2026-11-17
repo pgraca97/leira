@@ -259,6 +259,11 @@ export const ForecastDaySchema = z
     minC: z.number(),
     maxC: z.number(),
     condition: z.enum(WEATHER_CONDITIONS),
+    /**
+     * The soil's mean temperature that day, 6 cm down, where most seeds sit.
+     * Absent when no provider gave one: the air forecast stands without it.
+     */
+    soilC: z.number().optional(),
   })
   .refine((day) => day.minC <= day.maxC, { error: "minC must not exceed maxC" })
 export type ForecastDay = z.infer<typeof ForecastDaySchema>
