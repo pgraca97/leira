@@ -6,6 +6,7 @@ import { WeatherProviderError } from "./weather/provider"
 
 const VALID_TOKEN = "valid-token"
 const SIGNED_IN = { Authorization: `Bearer ${VALID_TOKEN}` }
+const ALICE = { id: "user-1", email: "alice@example.com", isAnonymous: false }
 
 const READING: WeatherNow = {
   tempC: 18.3,
@@ -86,7 +87,7 @@ beforeEach(() => {
   soilTemperature = vi.fn<SoilProvider["soilTemperature"]>(async () => SOIL)
   sharedGarden = vi.fn<AppDeps["sharedGarden"]>(async () => null)
   deps = {
-    verifyToken: async (_env, token) => (token === VALID_TOKEN ? "user-1" : null),
+    verifyToken: async (_env, token) => (token === VALID_TOKEN ? ALICE : null),
     weatherProvider: () => ({ current, forecast, places }),
     soilProvider: () => ({ soilTemperature }),
     sharedGarden,

@@ -11,10 +11,18 @@ import { createMiddleware } from "hono/factory"
 import { z } from "zod"
 import type { SoilDay, SoilProvider, WeatherProvider } from "./weather/provider"
 
+/** Who an access token belongs to, as its claims say. */
+export interface VerifiedUser {
+  id: string
+  /** Null for a guest, who has none. */
+  email: string | null
+  isAnonymous: boolean
+}
+
 /** What the routes need from the outside world. Tests pass fakes. */
 export interface AppDeps {
-  /** Resolves an access token to a user id, or null when it is not valid. */
-  verifyToken(env: Env, token: string): Promise<string | null>
+  /** Resolves an access token to its user, or null when it is not valid. */
+  verifyToken(env: Env, token: string): Promise<VerifiedUser | null>
   /** The weather provider to use, or null when none is configured. */
   weatherProvider(env: Env): WeatherProvider | null
   /** Where soil temperatures come from, or null when nowhere. */
@@ -26,7 +34,11 @@ export interface AppDeps {
   sharedGarden(env: Env, token: string): Promise<unknown>
 }
 
-type AppEnv = { Bindings: Env }
+type AppEnv = {
+  Bindings: Env
+  /** Set by `requireUser` for the routes behind it. */
+  Variables: { user: VerifiedUser; accessToken: string }
+}
 
 /** A reading of the current weather goes stale within the hour. */
 const WEATHER_TTL_SECONDS = 3600
@@ -83,8 +95,10 @@ export function createApp(deps: AppDeps) {
 
   const requireUser = createMiddleware<AppEnv>(async (c, next) => {
     const token = c.req.header("Authorization")?.match(/^Bearer (\S+)$/)?.[1]
-    const userId = token ? await deps.verifyToken(c.env, token) : null
-    if (!userId) return c.json({ error: "unauthorized" }, 401)
+    const user = token ? await deps.verifyToken(c.env, token) : null
+    if (!token || !user) return c.json({ error: "unauthorized" }, 401)
+    c.set("user", user)
+    c.set("accessToken", token)
     await next()
   })
 

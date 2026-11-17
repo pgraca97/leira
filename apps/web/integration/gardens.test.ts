@@ -224,8 +224,12 @@ describe("sharing a garden", () => {
 })
 
 describe("the Worker's token check", () => {
-  it("resolves a visitor's access token to their user id", async () => {
-    expect(await verifySupabaseToken(env, alice.accessToken)).toBe(alice.userId)
+  it("resolves a visitor's access token to their user, a guest with no email", async () => {
+    expect(await verifySupabaseToken(env, alice.accessToken)).toEqual({
+      id: alice.userId,
+      email: null,
+      isAnonymous: true,
+    })
   })
 
   it("rejects a token that was tampered with", async () => {
