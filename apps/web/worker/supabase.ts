@@ -22,3 +22,17 @@ export function supabaseClient(env: Env): SupabaseClient | null {
   }
   return cached.client
 }
+
+/**
+ * A client that acts as the user whose access token it carries, so the
+ * database applies that user's rules and its functions act on them alone.
+ * Made per request and never kept: it belongs to one caller.
+ */
+export function userClient(env: Env, accessToken: string): SupabaseClient | null {
+  const { SUPABASE_URL: url, SUPABASE_PUBLISHABLE_KEY: key } = env
+  if (!url || !key) return null
+  return createClient(url, key, {
+    global: { headers: { Authorization: `Bearer ${accessToken}` } },
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+  })
+}

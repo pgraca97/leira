@@ -1,12 +1,25 @@
 import type { Forecast, Place, WeatherNow } from "@leira/core"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { type AppDeps, createApp } from "./app"
+import { type AppDeps, createApp, type VerifiedUser } from "./app"
+import type { Mailer } from "./mail"
 import type { SoilProvider, WeatherProvider } from "./weather/provider"
 import { WeatherProviderError } from "./weather/provider"
 
 const VALID_TOKEN = "valid-token"
 const SIGNED_IN = { Authorization: `Bearer ${VALID_TOKEN}` }
 const ALICE = { id: "user-1", email: "alice@example.com", isAnonymous: false }
+const GUEST_TOKEN = "guest-token"
+const NO_EMAIL_TOKEN = "no-email-token"
+
+/** The tokens the fake token check knows, and who each one belongs to. */
+const USERS: Record<string, VerifiedUser> = {
+  [VALID_TOKEN]: ALICE,
+  [GUEST_TOKEN]: { id: "guest-1", email: null, isAnonymous: true },
+  [NO_EMAIL_TOKEN]: { id: "user-2", email: null, isAnonymous: false },
+}
+
+/** When the database says Alice's account will be deleted. */
+const DELETE_ON = new Date("2026-12-17T10:00:00.000Z")
 
 const READING: WeatherNow = {
   tempC: 18.3,
@@ -66,15 +79,20 @@ let forecast: ReturnType<typeof vi.fn<WeatherProvider["forecast"]>>
 let places: ReturnType<typeof vi.fn<WeatherProvider["places"]>>
 let soilTemperature: ReturnType<typeof vi.fn<SoilProvider["soilTemperature"]>>
 let sharedGarden: ReturnType<typeof vi.fn<AppDeps["sharedGarden"]>>
+let requestDeletion: ReturnType<typeof vi.fn<AppDeps["requestDeletion"]>>
+let sendMail: ReturnType<typeof vi.fn<Mailer["send"]>>
 let deps: AppDeps
 
-function request(path: string, headers: Record<string, string> = SIGNED_IN) {
-  const env = {
+function bindings() {
+  return {
     CACHE: cache.binding,
     API_LIMIT: apiLimit.binding,
     LOOKUP_LIMIT: lookupLimit.binding,
   } as Env
-  return createApp(deps).request(path, { headers }, env)
+}
+
+function request(path: string, headers: Record<string, string> = SIGNED_IN) {
+  return createApp(deps).request(path, { headers }, bindings())
 }
 
 beforeEach(() => {
@@ -86,11 +104,15 @@ beforeEach(() => {
   places = vi.fn<WeatherProvider["places"]>(async () => PLACES)
   soilTemperature = vi.fn<SoilProvider["soilTemperature"]>(async () => SOIL)
   sharedGarden = vi.fn<AppDeps["sharedGarden"]>(async () => null)
+  requestDeletion = vi.fn<AppDeps["requestDeletion"]>(async () => DELETE_ON)
+  sendMail = vi.fn<Mailer["send"]>(async () => {})
   deps = {
-    verifyToken: async (_env, token) => (token === VALID_TOKEN ? ALICE : null),
+    verifyToken: async (_env, token) => USERS[token] ?? null,
     weatherProvider: () => ({ current, forecast, places }),
     soilProvider: () => ({ soilTemperature }),
     sharedGarden,
+    requestDeletion,
+    mailer: () => ({ send: sendMail }),
   }
   vi.spyOn(console, "error").mockImplementation(() => {})
   vi.spyOn(console, "warn").mockImplementation(() => {})
@@ -667,5 +689,185 @@ describe("GET /api/shared/:token", () => {
     expect(response.status).toBe(429)
     expect(apiLimit.limit).toHaveBeenCalledExactlyOnceWith({ key: "203.0.113.7" })
     expect(sharedGarden).not.toHaveBeenCalled()
+  })
+})
+
+describe("POST /api/account/deletion", () => {
+  function askToDelete(body?: unknown, headers: Record<string, string> = SIGNED_IN) {
+    return createApp(deps).request(
+      "https://leira.test/api/account/deletion",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...headers },
+        body: body === undefined ? undefined : JSON.stringify(body),
+      },
+      bindings()
+    )
+  }
+
+  it("asks for the deletion as the caller and emails them the date, in their language", async () => {
+    const response = await askToDelete({ locale: "pt" })
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ deleteOn: "2026-12-17T10:00:00.000Z", emailed: true })
+    expect(requestDeletion).toHaveBeenCalledExactlyOnceWith(expect.anything(), VALID_TOKEN)
+    expect(sendMail).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        to: "alice@example.com",
+        subject: "A tua conta do Leira vai ser apagada a 17 de dezembro de 2026",
+      })
+    )
+  })
+
+  it("writes in English when asked", async () => {
+    await askToDelete({ locale: "en" })
+    expect(sendMail).toHaveBeenCalledWith(
+      expect.objectContaining({ subject: "Your Leira account will be deleted on 17 December 2026" })
+    )
+  })
+
+  it.each([
+    ["no body", undefined],
+    ["no language", {}],
+  ])("writes in English with %s", async (_case, body) => {
+    const response = await askToDelete(body)
+    expect(response.status).toBe(200)
+    expect(sendMail).toHaveBeenCalledWith(
+      expect.objectContaining({ subject: expect.stringContaining("17 December 2026") })
+    )
+  })
+
+  it("links to the gardens of the site it was asked on, where signing in keeps the account", async () => {
+    await askToDelete({ locale: "en" })
+    const [message] = sendMail.mock.calls[0]!
+    expect(message.text).toContain("https://leira.test/gardens")
+    expect(message.html).toContain('href="https://leira.test/gardens"')
+  })
+
+  it("rejects a language the app does not have, without asking the database", async () => {
+    const response = await askToDelete({ locale: "fr" })
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual({ error: "invalid_body" })
+    expect(requestDeletion).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ["no Authorization header", {}],
+    ["a token that does not verify", { Authorization: "Bearer forged" }],
+  ])("rejects %s before touching anything", async (_case, headers) => {
+    const response = await askToDelete({ locale: "en" }, headers)
+    expect(response.status).toBe(401)
+    expect(await response.json()).toEqual({ error: "unauthorized" })
+    expect(requestDeletion).not.toHaveBeenCalled()
+    expect(sendMail).not.toHaveBeenCalled()
+  })
+
+  // A guest has no email and no way to sign in again: it deletes at once instead.
+  it("refuses a guest, without asking the database", async () => {
+    const response = await askToDelete({ locale: "en" }, { Authorization: `Bearer ${GUEST_TOKEN}` })
+    expect(response.status).toBe(403)
+    expect(await response.json()).toEqual({ error: "guest" })
+    expect(requestDeletion).not.toHaveBeenCalled()
+    expect(sendMail).not.toHaveBeenCalled()
+  })
+
+  it("refuses an account with no email address to write to", async () => {
+    const response = await askToDelete(
+      { locale: "en" },
+      { Authorization: `Bearer ${NO_EMAIL_TOKEN}` }
+    )
+    expect(response.status).toBe(403)
+    expect(await response.json()).toEqual({ error: "no_email" })
+    expect(requestDeletion).not.toHaveBeenCalled()
+  })
+
+  // Asking ends every session, so afterwards the token may no longer say who this is.
+  it("reads who the caller is before the database ends their sessions", async () => {
+    const steps: string[] = []
+    deps.verifyToken = async (_env, token) => {
+      steps.push("verify")
+      return USERS[token] ?? null
+    }
+    requestDeletion.mockImplementation(async () => {
+      steps.push("request")
+      return DELETE_ON
+    })
+    sendMail.mockImplementation(async () => {
+      steps.push("email")
+    })
+
+    await askToDelete({ locale: "en" })
+    expect(steps).toEqual(["verify", "request", "email"])
+  })
+
+  it("answers 502 and sends nothing when the database refuses", async () => {
+    requestDeletion.mockRejectedValue(new Error("connection refused"))
+    const response = await askToDelete({ locale: "en" })
+    expect(response.status).toBe(502)
+    expect(await response.json()).toEqual({ error: "deletion_failed" })
+    expect(sendMail).not.toHaveBeenCalled()
+  })
+
+  it("keeps the request and says so when the email cannot be sent", async () => {
+    sendMail.mockRejectedValue(new Error("550 Invalid RCPT TO: <alice@example.com>"))
+    const response = await askToDelete({ locale: "en" })
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ deleteOn: "2026-12-17T10:00:00.000Z", emailed: false })
+    expect(console.error).toHaveBeenCalled()
+    // The logs keep no email addresses, even when the server quotes one back.
+    expect(vi.mocked(console.error).mock.calls.flat().join(" ")).not.toContain("alice@example.com")
+  })
+
+  it("asks for the deletion but sends nothing when no mail server is set up", async () => {
+    deps.mailer = () => null
+    const response = await askToDelete({ locale: "en" })
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ deleteOn: "2026-12-17T10:00:00.000Z", emailed: false })
+    expect(requestDeletion).toHaveBeenCalledTimes(1)
+  })
+
+  // The token keeps working for up to an hour after its session ends, and
+  // every email spends the quota of the account that sends the sign-in links.
+  it("emails one request once, however often it is asked", async () => {
+    await askToDelete({ locale: "en" })
+    const again = await askToDelete({ locale: "en" })
+    expect(await again.json()).toEqual({ deleteOn: "2026-12-17T10:00:00.000Z", emailed: true })
+    expect(requestDeletion).toHaveBeenCalledTimes(2)
+    expect(sendMail).toHaveBeenCalledTimes(1)
+  })
+
+  it("remembers the email until a day after the account goes", async () => {
+    vi.useFakeTimers({ now: new Date("2026-11-17T10:00:00.000Z"), toFake: ["Date"] })
+    try {
+      await askToDelete({ locale: "en" })
+    } finally {
+      vi.useRealTimers()
+    }
+    expect(cache.kv.put).toHaveBeenCalledExactlyOnceWith(
+      "deletion-email:v1:user-1:2026-12-17T10:00:00.000Z",
+      "true",
+      { expirationTtl: 31 * 24 * 3600 }
+    )
+  })
+
+  it("tries the email again on the next request when it failed", async () => {
+    sendMail.mockRejectedValueOnce(new Error("timeout"))
+    await askToDelete({ locale: "en" })
+    const again = await askToDelete({ locale: "en" })
+    expect(await again.json()).toMatchObject({ emailed: true })
+    expect(sendMail).toHaveBeenCalledTimes(2)
+  })
+
+  it("refuses a visitor who asks too often, before checking the session", async () => {
+    const verifyToken = vi.spyOn(deps, "verifyToken")
+    apiLimit.limit.mockResolvedValue({ success: false })
+    const response = await askToDelete(
+      { locale: "en" },
+      { ...SIGNED_IN, "CF-Connecting-IP": "203.0.113.7" }
+    )
+    expect(response.status).toBe(429)
+    expect(apiLimit.limit).toHaveBeenCalledExactlyOnceWith({ key: "203.0.113.7" })
+    expect(verifyToken).not.toHaveBeenCalled()
+    expect(requestDeletion).not.toHaveBeenCalled()
+    expect(sendMail).not.toHaveBeenCalled()
   })
 })

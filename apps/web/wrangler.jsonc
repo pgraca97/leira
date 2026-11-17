@@ -28,7 +28,8 @@
       "/privacy"
     ]
   },
-  // Caches weather readings. The id is filled in when the namespace is first created on deploy.
+  // Caches weather readings, and marks the deletion requests already emailed.
+  // The id is filled in when the namespace is first created on deploy.
   "kv_namespaces": [{ "binding": "CACHE" }],
   // Both count per visitor address. A namespace id is any number not yet used in the account.
   "ratelimits": [

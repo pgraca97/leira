@@ -9,6 +9,9 @@ import type { Context } from "hono"
 import { Hono } from "hono"
 import { createMiddleware } from "hono/factory"
 import { z } from "zod"
+import { LANGUAGES, type Language } from "../src/i18n/languages"
+import { deletionEmail } from "./deletionEmail"
+import type { Mailer } from "./mail"
 import type { SoilDay, SoilProvider, WeatherProvider } from "./weather/provider"
 
 /** Who an access token belongs to, as its claims say. */
@@ -32,6 +35,14 @@ export interface AppDeps {
    * when no link has that token. Throws when the database cannot be asked.
    */
   sharedGarden(env: Env, token: string): Promise<unknown>
+  /**
+   * Asks the database, as the owner of the access token, to delete their
+   * account after the grace period, and resolves to when it will be. Throws
+   * when it cannot.
+   */
+  requestDeletion(env: Env, accessToken: string): Promise<Date>
+  /** Where the Worker's emails go out, or null when no mail server is configured. */
+  mailer(env: Env): Mailer | null
 }
 
 type AppEnv = {
@@ -53,6 +64,11 @@ const PLACES_TTL_SECONDS = 30 * 24 * 3600
 const PLACES_BROWSER_MAX_AGE_SECONDS = 24 * 3600
 /** The window both rate limiters count over, as set in wrangler.jsonc. */
 const RATE_LIMIT_PERIOD_SECONDS = 60
+/**
+ * How long the mark of a confirmation email outlives the date the account
+ * goes: the nightly job that deletes it may run up to a day later.
+ */
+const DELETION_EMAIL_MARK_EXTRA_SECONDS = 24 * 3600
 
 const decimal = z
   .string()
@@ -71,6 +87,12 @@ const PlaceQuerySchema = z.object({
     .transform((text) => text.trim().replace(/\s+/g, " "))
     .pipe(z.string().min(2).max(80)),
 })
+
+/**
+ * What the browser sends with a request to delete the account: the language
+ * to write the email in. English, the app's own fallback, when it says none.
+ */
+const DeletionRequestSchema = z.object({ locale: z.enum(LANGUAGES).default("en") })
 
 /** A shared garden as the database hands it over. The browser checks the plan itself. */
 const SharedGardenRowSchema = z.object({
@@ -294,6 +316,84 @@ export function createApp(deps: AppDeps) {
   })
 
   /**
+   * Asks for the caller's account to be deleted after the grace period, and
+   * emails them the date and how to keep it. Who the caller is comes from the
+   * token before the database is asked, since asking ends all their sessions.
+   * A guest is refused: with no email and no way to sign in again, it deletes
+   * its user at once from the browser. An email that fails does not undo the
+   * request; the answer says whether it went.
+   */
+  app.post("/api/account/deletion", limitVisitor, requireUser, async (c) => {
+    const user = c.get("user")
+    if (user.isAnonymous) return c.json({ error: "guest" }, 403)
+    if (!user.email) return c.json({ error: "no_email" }, 403)
+
+    // No body, or one that is not JSON, names no language.
+    const body = DeletionRequestSchema.safeParse(await c.req.json().catch(() => ({})))
+    if (!body.success) return c.json({ error: "invalid_body" }, 400)
+
+    let deleteOn: Date
+    try {
+      deleteOn = await deps.requestDeletion(c.env, c.get("accessToken"))
+    } catch (error) {
+      console.error("Deletion request failed:", error instanceof Error ? error.message : "unknown")
+      return c.json({ error: "deletion_failed" }, 502)
+    }
+
+    const emailed = await emailDeletion(c, {
+      userId: user.id,
+      to: user.email,
+      language: body.data.locale,
+      deleteOn,
+    })
+    return c.json({ deleteOn: deleteOn.toISOString(), emailed })
+  })
+
+  /**
+   * Emails the confirmation of a deletion request, once per request. The
+   * token can still be used for up to an hour after its session ends, and
+   * every email spends the daily quota of the Gmail account that also sends
+   * the sign-in links: without the mark, one person could use it all up.
+   * True when the email has gone, now or on an earlier call.
+   */
+  async function emailDeletion(
+    c: Context<AppEnv>,
+    request: { userId: string; to: string; language: Language; deleteOn: Date }
+  ): Promise<boolean> {
+    const mailer = deps.mailer(c.env)
+    if (!mailer) return false
+
+    const mark = `deletion-email:v1:${request.userId}:${request.deleteOn.toISOString()}`
+    if ((await readCache(c.env.CACHE, mark)) !== null) return true
+
+    try {
+      await mailer.send({
+        to: request.to,
+        ...deletionEmail({
+          language: request.language,
+          deleteOn: request.deleteOn,
+          // The site the request came to, so a local stack's email points at itself.
+          gardensUrl: new URL("/gardens", c.req.url).href,
+        }),
+      })
+    } catch (error) {
+      console.error("Deletion email failed:", withoutAddresses(error))
+      return false
+    }
+
+    const secondsLeft = Math.ceil((request.deleteOn.getTime() - Date.now()) / 1000)
+    try {
+      await c.env.CACHE.put(mark, "true", {
+        // KV keeps nothing for less than a minute.
+        expirationTtl: Math.max(60, secondsLeft + DELETION_EMAIL_MARK_EXTRA_SECONDS),
+      })
+    } catch {
+      console.warn("Could not mark the deletion email as sent")
+    }
+    return true
+  }
+
+  /**
    * The app's own pages. The landing page and the 404 pages are static files,
    * so the app shell cannot be the `index.html` that a single-page app falls
    * back to: it is `app.html`, and `run_worker_first` in wrangler.jsonc sends
@@ -373,6 +473,15 @@ function ipv6Block(address: string): string {
   const groups = [...head, ...Array<string>(missing).fill("0"), ...(tail ?? [])]
   const block = groups.slice(0, 4).map((group) => group.replace(/^0+(?=.)/, ""))
   return `${block.join(":")}::/64`
+}
+
+/**
+ * An error's message with any email address taken out. An SMTP server may
+ * quote the recipient back, and the logs keep no email addresses.
+ */
+function withoutAddresses(error: unknown): string {
+  const message = error instanceof Error ? error.message : "unknown"
+  return message.replace(/[^\s<>@]+@[^\s<>@]+/g, "<address>")
 }
 
 /** A limiter that is down lets requests through: it must not take the endpoint down with it. */
