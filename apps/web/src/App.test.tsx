@@ -694,6 +694,37 @@ describe("taking the plan out of the app", () => {
     expect(fileName).toBe("tomato-patch.png")
   })
 
+  it("saves the garden as a file to import again, with everything recorded in it", async () => {
+    const recorded = { ...plan, notes: "The well ran dry in July." }
+    const location = { lat: 41.15, lon: -8.61, name: "Porto" }
+    backend = fakeBackend([{ ...TOMATOES, plan: recorded, location }])
+    vi.mocked(downloadText).mockClear()
+    vi.useFakeTimers({ now: new Date("2026-11-17T10:00:00Z"), toFake: ["Date"] })
+    try {
+      open(`/gardens/${TOMATOES.id}`)
+      await userEvent.click(await screen.findByRole("button", { name: "Save file" }))
+
+      expect(downloadText).toHaveBeenCalledOnce()
+      const [text, type, fileName] = vi.mocked(downloadText).mock.calls[0]!
+      expect(type).toBe("application/json")
+      expect(fileName).toBe("tomato-patch.json")
+      expect(JSON.parse(text)).toEqual({
+        format: 1,
+        exportedAt: "2026-11-17T10:00:00.000Z",
+        gardens: [
+          {
+            name: "Tomato patch",
+            plan: recorded,
+            location,
+            updatedAt: "2026-11-17T10:00:00.000Z",
+          },
+        ],
+      })
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it("says so when the picture could not be saved", async () => {
     vi.mocked(downloadPng).mockRejectedValueOnce(new Error("canvas is tainted"))
     open(`/gardens/${TOMATOES.id}`)

@@ -280,6 +280,7 @@ export const pt: Translation = {
     saveImage: "Guardar imagem",
     print: "Imprimir",
     imageFailed: "Não foi possível guardar a imagem.",
+    file: "Guardar ficheiro",
     plant: "Planta",
     plants: "Plantas",
   },

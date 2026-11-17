@@ -105,7 +105,7 @@ function LoadedGarden({ garden, view, onReload }: LoadedGardenProps) {
         secondary={
           <>
             <ShareControls gardenId={garden.id} hasLocation={location !== null} />
-            <ExportControls gardenName={name} />
+            <ExportControls gardenName={name} location={location} />
           </>
         }
       >

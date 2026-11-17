@@ -277,6 +277,7 @@ export const en = {
     saveImage: "Save image",
     print: "Print",
     imageFailed: "The image could not be saved.",
+    file: "Save file",
     plant: "Plant",
     plants: "Plants",
   },
