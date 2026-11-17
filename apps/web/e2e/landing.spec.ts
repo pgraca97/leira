@@ -1,0 +1,73 @@
+import { expect, type Page, test } from "@playwright/test"
+
+/** Counts the guests the auth server is asked to make while the page is open. */
+function countSignUps(page: Page): string[] {
+  const signUps: string[] = []
+  page.on("request", (request) => {
+    if (request.url().includes("/auth/v1/signup")) signUps.push(request.url())
+  })
+  return signUps
+}
+
+test("a newcomer reads the landing page without becoming a guest, then starts", async ({
+  page,
+}) => {
+  const signUps = countSignUps(page)
+  await page.goto("/")
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Planeia a tua horta, canteiro a canteiro" })
+  ).toBeVisible()
+  await expect(page.getByRole("img", { name: /horta de exemplo/ })).toBeVisible()
+  expect(signUps).toEqual([])
+
+  // The page is in Portuguese, but this browser asks for English: the page wins.
+  await page.getByRole("link", { name: "Começar a planear" }).first().click()
+  await expect(page).toHaveURL(/\/gardens$/)
+  await expect(page.getByRole("button", { name: "Nova horta" })).toBeVisible()
+  expect(signUps).toHaveLength(1)
+})
+
+test("the landing page is in English at /en/", async ({ page }) => {
+  await page.goto("/en/")
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Plan your vegetable garden, bed by bed" })
+  ).toBeVisible()
+  await page.getByRole("link", { name: "Português" }).first().click()
+  await expect(page).toHaveURL(/\/$/)
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    "Planeia a tua horta, canteiro a canteiro"
+  )
+})
+
+test("someone who used the app goes straight back to it, unless they came from it", async ({
+  page,
+}) => {
+  await page.goto("/gardens")
+  await expect(page.getByRole("button", { name: "New garden" })).toBeVisible()
+
+  // Typed in, or from a bookmark or a search: no referrer from this site.
+  await page.goto("/")
+  await expect(page).toHaveURL(/\/gardens$/)
+  await expect(page.getByRole("button", { name: "New garden" })).toBeVisible()
+
+  // The app's own name leads to the landing page, and it stays there.
+  await page.getByRole("link", { name: "Leira" }).click()
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible()
+  await expect(page).toHaveURL(/\/$/)
+})
+
+test("the app's pages stay out of search results", async ({ request }) => {
+  for (const path of ["/gardens", "/gardens/missing", "/shared/missing", "/stats"]) {
+    const response = await request.get(path)
+    expect(response.status(), path).toBe(200)
+    expect(response.headers()["x-robots-tag"], path).toBe("noindex")
+  }
+  const privacy = await request.get("/privacy")
+  expect(privacy.headers()["x-robots-tag"]).toBeUndefined()
+
+  const landing = await request.get("/")
+  expect(landing.headers()["x-robots-tag"]).toBeUndefined()
+  expect(await landing.text()).toContain('<link rel="canonical"')
+  // An unknown address gets the 404 page only once built: the dev server
+  // hands it to the Worker. The renderer's tests cover that page.
+})
