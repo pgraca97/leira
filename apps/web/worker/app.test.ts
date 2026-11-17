@@ -835,17 +835,14 @@ describe("POST /api/account/deletion", () => {
     expect(sendMail).toHaveBeenCalledTimes(1)
   })
 
-  it("remembers the email until a day after the account goes", async () => {
-    vi.useFakeTimers({ now: new Date("2026-11-17T10:00:00.000Z"), toFake: ["Date"] })
-    try {
-      await askToDelete({ locale: "en" })
-    } finally {
-      vi.useRealTimers()
-    }
+  // Only the old session's access token can ask again for the same request,
+  // and it expires within the hour: the mark need not keep the user id longer.
+  it("remembers the email for two hours, while the old token can still ask", async () => {
+    await askToDelete({ locale: "en" })
     expect(cache.kv.put).toHaveBeenCalledExactlyOnceWith(
       "deletion-email:v1:user-1:2026-12-17T10:00:00.000Z",
       "true",
-      { expirationTtl: 31 * 24 * 3600 }
+      { expirationTtl: 2 * 3600 }
     )
   })
 

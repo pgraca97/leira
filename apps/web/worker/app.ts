@@ -65,10 +65,12 @@ const PLACES_BROWSER_MAX_AGE_SECONDS = 24 * 3600
 /** The window both rate limiters count over, as set in wrangler.jsonc. */
 const RATE_LIMIT_PERIOD_SECONDS = 60
 /**
- * How long the mark of a confirmation email outlives the date the account
- * goes: the nightly job that deletes it may run up to a day later.
+ * How long the mark of a confirmation email is kept. Asking again for the
+ * same request takes the old session's access token, which expires within
+ * the hour (a new sign-in cancels the request instead), so twice that is
+ * enough, and the user id is not kept for the month the account waits.
  */
-const DELETION_EMAIL_MARK_EXTRA_SECONDS = 24 * 3600
+const DELETION_EMAIL_MARK_SECONDS = 2 * 3600
 
 const decimal = z
   .string()
@@ -381,12 +383,8 @@ export function createApp(deps: AppDeps) {
       return false
     }
 
-    const secondsLeft = Math.ceil((request.deleteOn.getTime() - Date.now()) / 1000)
     try {
-      await c.env.CACHE.put(mark, "true", {
-        // KV keeps nothing for less than a minute.
-        expirationTtl: Math.max(60, secondsLeft + DELETION_EMAIL_MARK_EXTRA_SECONDS),
-      })
+      await c.env.CACHE.put(mark, "true", { expirationTtl: DELETION_EMAIL_MARK_SECONDS })
     } catch {
       console.warn("Could not mark the deletion email as sent")
     }
