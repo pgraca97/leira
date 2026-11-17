@@ -1,6 +1,7 @@
 import { ForecastSchema, PlacesSchema, WeatherNowSchema } from "@leira/core"
 import { createClient, type SupabaseClient } from "@supabase/supabase-js"
-import type { z } from "zod"
+import { z } from "zod"
+import { currentLanguage } from "../i18n"
 import { accountApi, authErrorCode, IDENTITY_TAKEN } from "./account"
 import type { Backend } from "./backend"
 import { type CaptchaSolver, captchaSolver } from "./captcha"
@@ -30,6 +31,27 @@ async function accessToken(client: SupabaseClient, captcha: CaptchaSolver): Prom
   return signedIn.data.session.access_token
 }
 
+/** What the Worker answers to a request to delete the account. */
+const DeletionAnswerSchema = z.object({
+  deleteOn: z.iso.datetime({ offset: true }),
+  emailed: z.boolean(),
+})
+
+/**
+ * Asks the Worker to delete the account after the grace period. It asks the
+ * database as the user, then emails them the date and how to keep the
+ * account, in the language the app is in.
+ */
+async function askWorkerToDelete(accessToken: string): Promise<Date> {
+  const response = await fetch("/api/account/deletion", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ locale: currentLanguage() }),
+  })
+  if (!response.ok) throw new Error(`/api/account/deletion failed: ${response.status}`)
+  return new Date(DeletionAnswerSchema.parse(await response.json()).deleteOn)
+}
+
 /** Connects to Supabase and makes sure there is a session before any page loads data. */
 export async function connectBackend(): Promise<Backend> {
   const config = await loadConfig()
@@ -45,7 +67,10 @@ export async function connectBackend(): Promise<Backend> {
   if (refusal) window.history.replaceState(null, "", window.location.pathname)
 
   // Signing in comes back to the gardens: `/` is the landing page, which knows nothing of sessions.
-  const account = accountApi(client, `${window.location.origin}/gardens`, { captcha })
+  const account = accountApi(client, `${window.location.origin}/gardens`, {
+    captcha,
+    askDeletion: askWorkerToDelete,
+  })
   if (refusal === IDENTITY_TAKEN) {
     // The guest chose a Google account that is already registered here, so
     // it cannot be attached to them: sign in to that account instead. The

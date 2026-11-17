@@ -37,7 +37,11 @@ interface Answer {
 /** Stands in for the parts of the Supabase client that a deletion uses, and records the calls. */
 function fakeClient({
   answer = { data: null, error: null } as Answer,
-  session = { user: { is_anonymous: false } } as { user: { is_anonymous: boolean } } | null,
+  session = { access_token: "token-1", user: { is_anonymous: false } } as {
+    access_token: string
+    user: { is_anonymous: boolean }
+  } | null,
+  askDeletion = undefined as ((accessToken: string) => Promise<Date>) | undefined,
 } = {}) {
   const calls: string[] = []
   const client = {
@@ -53,7 +57,10 @@ function fakeClient({
       }),
     },
   }
-  return { account: accountApi(client as never, "https://app.example/gardens"), calls }
+  return {
+    account: accountApi(client as never, "https://app.example/gardens", { askDeletion }),
+    calls,
+  }
 }
 
 describe("asking to delete an account", () => {
@@ -69,6 +76,32 @@ describe("asking to delete an account", () => {
     const { account, calls } = fakeClient({ answer: { data: null, error: { message: "down" } } })
     await expect(account.requestDeletion()).rejects.toThrow("down")
     expect(calls).toEqual(["request_account_deletion"])
+  })
+
+  // The app asks the Worker, which also emails the date. It needs the
+  // session's token, since the request ends the session.
+  it("asks the Worker with the session's token when it is given one", async () => {
+    const askDeletion = vi.fn(async () => new Date("2026-12-17T10:00:00Z"))
+    const { account, calls } = fakeClient({ askDeletion })
+    expect(await account.requestDeletion()).toEqual(new Date("2026-12-17T10:00:00Z"))
+    expect(askDeletion).toHaveBeenCalledExactlyOnceWith("token-1")
+    expect(calls).toEqual(["signOut:local"])
+  })
+
+  it("stays signed in when the Worker refuses", async () => {
+    const askDeletion = vi.fn(async () => {
+      throw new Error("/api/account/deletion failed: 502")
+    })
+    const { account, calls } = fakeClient({ askDeletion })
+    await expect(account.requestDeletion()).rejects.toThrow("502")
+    expect(calls).toEqual([])
+  })
+
+  it("asks nothing when there is no session", async () => {
+    const askDeletion = vi.fn(async () => new Date())
+    const { account } = fakeClient({ askDeletion, session: null })
+    await expect(account.requestDeletion()).rejects.toThrow()
+    expect(askDeletion).not.toHaveBeenCalled()
   })
 })
 
@@ -87,7 +120,9 @@ describe("keeping an account by signing in again", () => {
   })
 
   it("does not ask for a guest, who cannot have asked for a deletion", async () => {
-    const { account, calls } = fakeClient({ session: { user: { is_anonymous: true } } })
+    const { account, calls } = fakeClient({
+      session: { access_token: "token-2", user: { is_anonymous: true } },
+    })
     expect(await account.resume()).toBeNull()
     expect(calls).toEqual([])
   })

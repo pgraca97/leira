@@ -101,14 +101,31 @@ interface AccountOptions {
    * emailing a sign-in link. Going to Google needs no captcha.
    */
   captcha?: CaptchaSolver
+  /**
+   * Asks, with the session's access token, for the account to be deleted
+   * after the grace period, and resolves to when it will be. The app asks
+   * the Worker, which also emails the date. Without it the database is asked
+   * directly and nothing is emailed, as in the integration tests, which run
+   * with no Worker.
+   */
+  askDeletion?: (accessToken: string) => Promise<Date>
 }
 
 /** `appUrl` is where an emailed link or Google sends the user back to. */
 export function accountApi(
   client: SupabaseClient,
   appUrl: string,
-  { navigate = (url) => window.location.assign(url), captcha }: AccountOptions = {}
+  { navigate = (url) => window.location.assign(url), captcha, askDeletion }: AccountOptions = {}
 ): SupabaseAccountApi {
+  /** Asks the database itself, as the user, when there is no Worker to ask. */
+  async function askDatabase(): Promise<Date> {
+    const { data, error } = await client.rpc("request_account_deletion")
+    if (error) throw new Error(error.message)
+    const due = dueDate(data)
+    if (!due) throw new Error("The database gave no date for the deletion")
+    return due
+  }
+
   // The client would navigate by itself, but only in a browser. Asking for
   // the address instead behaves the same everywhere, tests included.
   const options = { redirectTo: appUrl, skipBrowserRedirect: true }
@@ -173,10 +190,16 @@ export function accountApi(
     },
 
     async requestDeletion() {
-      const { data, error } = await client.rpc("request_account_deletion")
-      if (error) throw new Error(error.message)
-      const due = dueDate(data)
-      if (!due) throw new Error("The database gave no date for the deletion")
+      let due: Date
+      if (askDeletion) {
+        const { data: signedIn, error } = await client.auth.getSession()
+        if (error) throw new Error(error.message)
+        const accessToken = signedIn.session?.access_token
+        if (!accessToken) throw new Error("There is no session to ask with")
+        due = await askDeletion(accessToken)
+      } else {
+        due = await askDatabase()
+      }
       // The database ended every session of the account, this one too: only
       // this browser's copy is left to forget.
       const local = await client.auth.signOut({ scope: "local" })
