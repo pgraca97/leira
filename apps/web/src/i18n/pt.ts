@@ -437,7 +437,7 @@ export const pt: Translation = {
   },
   privacy: {
     title: "Privacidade",
-    updated: "Alterada pela última vez a 17 de novembro de 2026.",
+    updated: "Alterada pela última vez a 18 de novembro de 2026.",
     intro:
       "A Leira é um planeador de hortas gratuito, feito e mantido por uma pessoa, como projeto pessoal. Não mostra anúncios e não vende nada, nem os teus dados. Esta página diz o que se guarda sobre ti e porquê, quem mais trata esses dados, durante quanto tempo e o que podes fazer.",
     who: {
@@ -489,7 +489,8 @@ export const pt: Translation = {
     },
     retention: {
       heading: "Durante quanto tempo",
-      account: "Uma conta, as suas hortas e o registo das entradas: até apagares a conta.",
+      account:
+        "Uma conta, as suas hortas e o registo das entradas: até apagares a conta. Uma conta desaparece 30 dias depois do dia em que o pedes. Até lá ninguém a pode usar, os links de partilha não mostram nada, e voltar a entrar mantém-na.",
       guests:
         "Um convidado que não guardou nada é apagado 30 dias depois da última vez que foi visto, e um convidado com uma horta ou um modelo ao fim de um ano (visto quer dizer que abriu a app, entrou na conta ou guardou uma horta). Um convidado não tem email, por isso não há aviso antes: entra numa conta para guardar as hortas por mais tempo.",
       logs: "Registos: 1 dia no Supabase, 3 dias na Cloudflare. O Open-Meteo guarda os registos do seu próprio servidor, que podem ter a zona da horta, durante 90 dias.",
@@ -501,7 +502,7 @@ export const pt: Translation = {
     },
     rights: {
       heading: "Os teus direitos",
-      body: "No painel da conta podes descarregar as tuas hortas, modelos, dados da conta, sessões e dias de visita, num ficheiro que outro serviço consegue ler, e apagar a conta com tudo isso. Podes alterar as tuas hortas na app a qualquer momento. Podes também pedir qualquer destas coisas, ou opor-te ou pedir que se limite o que se faz com os teus dados, por <email>leiragarden@gmail.com</email>. Se achares que os teus dados estão a ser mal tratados, podes queixar-te à autoridade portuguesa de proteção de dados, a <cnpd>CNPD</cnpd>.",
+      body: "No painel da conta podes descarregar as tuas hortas, modelos, dados da conta, sessões e dias de visita, num ficheiro que outro serviço consegue ler, e apagar a conta com tudo isso: um convidado logo, uma conta 30 dias depois, a não ser que voltes a entrar antes disso. Podes alterar as tuas hortas na app a qualquer momento. Podes também pedir qualquer destas coisas, ou opor-te ou pedir que se limite o que se faz com os teus dados, por <email>leiragarden@gmail.com</email>. Se achares que os teus dados estão a ser mal tratados, podes queixar-te à autoridade portuguesa de proteção de dados, a <cnpd>CNPD</cnpd>.",
     },
     changes: {
       heading: "Alterações",

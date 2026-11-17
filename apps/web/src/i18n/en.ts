@@ -432,7 +432,7 @@ export const en = {
   },
   privacy: {
     title: "Privacy",
-    updated: "Last changed on 17 November 2026.",
+    updated: "Last changed on 18 November 2026.",
     intro:
       "Leira is a free garden planner, made and run by one person as a personal project. It shows no ads and sells nothing, your data included. This page says what is kept about you and why, who else handles it, for how long, and what you can do about it.",
     who: {
@@ -484,7 +484,8 @@ export const en = {
     },
     retention: {
       heading: "How long it is kept",
-      account: "An account, its gardens and its sign-in log: until you delete the account.",
+      account:
+        "An account, its gardens and its sign-in log: until you delete the account. An account goes 30 days from the day you ask. Until then nobody can use it, its share links show nothing, and signing in again keeps it.",
       guests:
         "A guest who kept nothing is deleted 30 days after they were last seen, and a guest with a garden or a template after a year (seen means opening the app, signing in or saving a garden). A guest has no email address, so there is no warning first: sign in to keep your gardens for longer.",
       logs: "Logs: 1 day at Supabase, 3 days at Cloudflare. Open-Meteo keeps its own server logs, which may hold the garden's area, for 90 days.",
@@ -496,7 +497,7 @@ export const en = {
     },
     rights: {
       heading: "Your rights",
-      body: "In the account panel you can download your gardens, templates, account details, sessions and days of visits, as a file another service can read, and delete your account with all of it. You can change your gardens in the app at any time. You can also ask for any of this, or object to or ask to limit what is done with your data, at <email>leiragarden@gmail.com</email>. If you think your data is mishandled, you can complain to the Portuguese data protection authority, the <cnpd>CNPD</cnpd>.",
+      body: "In the account panel you can download your gardens, templates, account details, sessions and days of visits, as a file another service can read, and delete your account with all of it: a guest at once, an account 30 days later unless you sign in again before then. You can change your gardens in the app at any time. You can also ask for any of this, or object to or ask to limit what is done with your data, at <email>leiragarden@gmail.com</email>. If you think your data is mishandled, you can complain to the Portuguese data protection authority, the <cnpd>CNPD</cnpd>.",
     },
     changes: {
       heading: "Changes",

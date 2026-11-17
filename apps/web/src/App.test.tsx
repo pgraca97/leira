@@ -1607,6 +1607,13 @@ describe("the privacy page", () => {
     expect(screen.getByText(/after a year/)).toBeVisible()
   })
 
+  it("says an account waits 30 days to be deleted, and how to keep it", async () => {
+    open("/privacy", noSession)
+    expect(await screen.findByText(/goes 30 days from the day you ask/)).toHaveTextContent(
+      /signing in again keeps it/
+    )
+  })
+
   it("reads in Portuguese too", async () => {
     open("/privacy", noSession)
     try {
