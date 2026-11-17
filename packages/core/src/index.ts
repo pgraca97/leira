@@ -8,12 +8,16 @@ export {
 export { addDays, addMonths, daysBetween, type IsoDate, toIsoDate, yearOf } from "./dates"
 export {
   duplicateItem,
+  duplicateItems,
   handleAt,
   handlePoints,
   itemRect,
+  itemsWithin,
   moveItem,
+  moveItems,
   RESIZE_HANDLES,
   type ResizeHandle,
+  removeItems,
   resizeItem,
   resizePlan,
   visibleHandles,

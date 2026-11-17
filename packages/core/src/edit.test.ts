@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest"
 import {
   duplicateItem,
+  duplicateItems,
   handleAt,
   itemRect,
+  itemsWithin,
   moveItem,
+  moveItems,
+  removeItems,
   resizeItem,
   resizePlan,
   visibleHandles,
@@ -29,6 +33,7 @@ const plan: GardenPlan = {
 
 const BED = { kind: "bed", id: "bed" } as const
 const BESIDE = { kind: "planting", id: "beside" } as const
+const ON_BED = { kind: "planting", id: "on-bed" } as const
 
 describe("itemRect", () => {
   it("finds the ground an item takes", () => {
@@ -277,5 +282,128 @@ describe("duplicateItem", () => {
   it("returns null when the plan is full", () => {
     const full = { ...plan, beds: Array.from({ length: 500 }, () => plan.beds[0]!) }
     expect(duplicateItem(full, BED, "copy")).toBeNull()
+  })
+})
+
+describe("moveItems", () => {
+  it("moves several items by the same distance, keeping their places", () => {
+    const moved = moveItems(plan, [BED, BESIDE], 50, 100)
+    expect(itemRect(moved, BED)).toEqual({ x: 150, y: 200, w: 200, h: 100 })
+    expect(itemRect(moved, BESIDE)).toEqual({ x: 450, y: 200, w: 100, h: 100 })
+  })
+
+  it("stops the whole group at the garden's edge, without squeezing it together", () => {
+    const moved = moveItems(plan, [BED, BESIDE], 200, 0)
+    // The group spans 100 to 500, so it can only go 100 further in a 600 cm garden.
+    expect(itemRect(moved, BED)).toMatchObject({ x: 200 })
+    expect(itemRect(moved, BESIDE)).toMatchObject({ x: 500 })
+    expect(itemRect(moved, ON_BED)).toMatchObject({ x: 210 })
+  })
+
+  it("moves a crop on a moving bed once, even when it is chosen too", () => {
+    const moved = moveItems(plan, [BED, ON_BED], 50, 0)
+    expect(itemRect(moved, BED)).toMatchObject({ x: 150 })
+    expect(itemRect(moved, ON_BED)).toMatchObject({ x: 160 })
+  })
+
+  it("skips items that are gone", () => {
+    const moved = moveItems(plan, [{ kind: "bed", id: "nope" }, BESIDE], 100, 0)
+    expect(itemRect(moved, BESIDE)).toMatchObject({ x: 500 })
+  })
+
+  it("returns the same plan when nothing moves", () => {
+    expect(moveItems(plan, [BED, BESIDE], 4, -3)).toBe(plan)
+    expect(moveItems(plan, [], 100, 100)).toBe(plan)
+    expect(moveItems(plan, [{ kind: "bed", id: "nope" }], 100, 100)).toBe(plan)
+  })
+})
+
+describe("duplicateItems", () => {
+  const ids = () => {
+    let next = 0
+    return () => `copy-${++next}`
+  }
+
+  it("copies several items one cell down and to the right, keeping their layout", () => {
+    const result = duplicateItems(plan, [BESIDE, BED], ids())
+    expect(result?.refs).toEqual([
+      { kind: "bed", id: "copy-1" },
+      { kind: "planting", id: "copy-2" },
+    ])
+    expect(result?.plan.beds.at(-1)?.rect).toEqual({ x: 110, y: 110, w: 200, h: 100 })
+    expect(result?.plan.plantings.at(-1)).toMatchObject({
+      id: "copy-2",
+      rect: { x: 410, y: 110, w: 100, h: 100 },
+    })
+  })
+
+  it("copies the crops on a bed only when they are chosen too", () => {
+    const alone = duplicateItems(plan, [BED], ids())
+    expect(alone?.plan.plantings).toHaveLength(2)
+    const together = duplicateItems(plan, [BED, ON_BED], ids())
+    expect(together?.plan.plantings).toHaveLength(3)
+    expect(together?.plan.plantings.at(-1)?.rect).toEqual({ x: 120, y: 120, w: 80, h: 60 })
+  })
+
+  it("keeps the copies inside the garden as one block", () => {
+    const corner = planting("corner", 500, 300, 100, 100)
+    const next = planting("next", 400, 300, 100, 100)
+    const result = duplicateItems(
+      { ...plan, plantings: [next, corner] },
+      [
+        { kind: "planting", id: "next" },
+        { kind: "planting", id: "corner" },
+      ],
+      ids()
+    )
+    expect(result?.plan.plantings.slice(2).map((item) => item.rect)).toEqual([
+      next.rect,
+      corner.rect,
+    ])
+  })
+
+  it("makes no copy at all when the plan cannot hold every one", () => {
+    const nearlyFull = {
+      ...plan,
+      beds: Array.from({ length: 499 }, (_, index) => ({ ...plan.beds[0]!, id: `bed-${index}` })),
+    }
+    const twoBeds = [
+      { kind: "bed", id: "bed-0" },
+      { kind: "bed", id: "bed-1" },
+    ] as const
+    expect(duplicateItems(nearlyFull, twoBeds, ids())).toBeNull()
+  })
+
+  it("returns null when none of the items is there", () => {
+    expect(duplicateItems(plan, [], ids())).toBeNull()
+    expect(duplicateItems(plan, [{ kind: "bed", id: "nope" }], ids())).toBeNull()
+  })
+})
+
+describe("removeItems", () => {
+  it("removes the chosen items and leaves the crops on a removed bed", () => {
+    const left = removeItems(plan, [BED, BESIDE])
+    expect(left.beds).toEqual([])
+    expect(left.plantings.map((item) => item.id)).toEqual(["on-bed"])
+  })
+
+  it("returns the same plan when there is nothing to remove", () => {
+    expect(removeItems(plan, [])).toBe(plan)
+    expect(removeItems(plan, [{ kind: "planting", id: "nope" }])).toBe(plan)
+  })
+})
+
+describe("itemsWithin", () => {
+  it("finds the items wholly inside an area, beds first", () => {
+    expect(itemsWithin(plan, { x: 0, y: 0, w: 600, h: 400 })).toEqual([BED, ON_BED, BESIDE])
+  })
+
+  it("leaves out an item the area only partly covers", () => {
+    // Drawn inside the bed, around the crop on it: the bed itself is not wholly inside.
+    expect(itemsWithin(plan, { x: 105, y: 105, w: 100, h: 80 })).toEqual([ON_BED])
+  })
+
+  it("finds nothing in an empty area", () => {
+    expect(itemsWithin(plan, { x: 0, y: 300, w: 100, h: 100 })).toEqual([])
   })
 })

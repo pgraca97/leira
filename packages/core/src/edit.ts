@@ -36,36 +36,102 @@ function contains(outer: Rect, inner: Rect): boolean {
   )
 }
 
+/** The smallest rectangle around all the given ones, which must not be empty. */
+function boundsOf(rects: readonly Rect[]): Rect {
+  const left = Math.min(...rects.map((rect) => rect.x))
+  const top = Math.min(...rects.map((rect) => rect.y))
+  const right = Math.max(...rects.map((rect) => rect.x + rect.w))
+  const bottom = Math.max(...rects.map((rect) => rect.y + rect.h))
+  return { x: left, y: top, w: right - left, h: bottom - top }
+}
+
+function shifted<T extends Bed | Planting>(item: T, dx: number, dy: number): T {
+  return { ...item, rect: { ...item.rect, x: item.rect.x + dx, y: item.rect.y + dy } }
+}
+
+/** The beds and plantings the refs point at, in plan order. Refs to items that are gone are skipped. */
+function chosenItems(plan: GardenPlan, refs: readonly PlanItemRef[]) {
+  const bedIds = new Set(refs.filter((ref) => ref.kind === "bed").map((ref) => ref.id))
+  const plantingIds = new Set(refs.filter((ref) => ref.kind === "planting").map((ref) => ref.id))
+  return {
+    beds: plan.beds.filter((bed) => bedIds.has(bed.id)),
+    plantings: plan.plantings.filter((planting) => plantingIds.has(planting.id)),
+  }
+}
+
 /**
- * Moves an item by a distance in centimetres. The item lands on the grid,
- * keeps its size and stays inside the garden, so it may travel less far than
- * asked. Crops that lie wholly on a bed travel with it, the way they would if
- * the bed were a real box; a crop moved on its own leaves the bed behind.
+ * Moves several items together by a distance in centimetres, as one block:
+ * the block lands on the grid and stays inside the garden as a whole, so the
+ * items keep their places relative to each other and may travel less far than
+ * asked. Crops that lie wholly on a moving bed travel with it, the way they
+ * would if the bed were a real box, and only once when they are chosen too.
  */
-export function moveItem(plan: GardenPlan, ref: PlanItemRef, dx: number, dy: number): GardenPlan {
-  const rect = itemRect(plan, ref)
-  if (!rect) return plan
+export function moveItems(
+  plan: GardenPlan,
+  refs: readonly PlanItemRef[],
+  dx: number,
+  dy: number
+): GardenPlan {
+  const chosen = chosenItems(plan, refs)
+  const plantings = plan.plantings.filter(
+    (planting) =>
+      chosen.plantings.includes(planting) ||
+      chosen.beds.some((bed) => contains(bed.rect, planting.rect))
+  )
+  const rects = [...chosen.beds, ...plantings].map((item) => item.rect)
+  if (rects.length === 0) return plan
+
+  const block = boundsOf(rects)
   const target = clampRect(
-    { ...rect, x: snap(rect.x + dx, plan.cellCm), y: snap(rect.y + dy, plan.cellCm) },
+    { ...block, x: snap(block.x + dx, plan.cellCm), y: snap(block.y + dy, plan.cellCm) },
     planBounds(plan)
   )
-  if (sameRect(rect, target)) return plan
+  const shiftX = target.x - block.x
+  const shiftY = target.y - block.y
+  if (shiftX === 0 && shiftY === 0) return plan
 
-  const moved = withRect(plan, ref, target)
-  if (ref.kind !== "bed") return moved
-  const shiftX = target.x - rect.x
-  const shiftY = target.y - rect.y
   return {
-    ...moved,
-    plantings: moved.plantings.map((planting) =>
-      contains(rect, planting.rect)
-        ? {
-            ...planting,
-            rect: { ...planting.rect, x: planting.rect.x + shiftX, y: planting.rect.y + shiftY },
-          }
-        : planting
+    ...plan,
+    beds: plan.beds.map((bed) => (chosen.beds.includes(bed) ? shifted(bed, shiftX, shiftY) : bed)),
+    plantings: plan.plantings.map((planting) =>
+      plantings.includes(planting) ? shifted(planting, shiftX, shiftY) : planting
     ),
   }
+}
+
+/** Moves one item, as `moveItems` does: a bed takes the crops on it along. */
+export function moveItem(plan: GardenPlan, ref: PlanItemRef, dx: number, dy: number): GardenPlan {
+  return moveItems(plan, [ref], dx, dy)
+}
+
+/**
+ * Removes the chosen items. Crops on a removed bed stay: they are separate
+ * items, and the gardener may still want them there.
+ */
+export function removeItems(plan: GardenPlan, refs: readonly PlanItemRef[]): GardenPlan {
+  const chosen = chosenItems(plan, refs)
+  if (chosen.beds.length === 0 && chosen.plantings.length === 0) return plan
+  return {
+    ...plan,
+    beds: plan.beds.filter((bed) => !chosen.beds.includes(bed)),
+    plantings: plan.plantings.filter((planting) => !chosen.plantings.includes(planting)),
+  }
+}
+
+/**
+ * The items lying wholly inside an area, beds first, each in plan order. An
+ * item the area only partly covers is left out, so an area drawn inside a bed
+ * picks the crops on it and not the bed.
+ */
+export function itemsWithin(plan: GardenPlan, area: Rect): PlanItemRef[] {
+  return [
+    ...plan.beds
+      .filter((bed) => contains(area, bed.rect))
+      .map((bed): PlanItemRef => ({ kind: "bed", id: bed.id })),
+    ...plan.plantings
+      .filter((planting) => contains(area, planting.rect))
+      .map((planting): PlanItemRef => ({ kind: "planting", id: planting.id })),
+  ]
 }
 
 /** The eight places an item can be grabbed to resize it, named like compass points. */
@@ -172,28 +238,60 @@ export function resizePlan(plan: GardenPlan, widthCm: number, heightCm: number):
 }
 
 /**
- * Adds a copy of an item, one cell down and to the right so it does not hide
- * the original, and on top of the others. A copied bed comes without crops.
- * Returns null when the item is gone or the plan is full.
+ * Adds a copy of each chosen item, one cell down and to the right so the copies
+ * do not hide the originals, and on top of the others. The copies move as one
+ * block, so they keep their layout. A copied bed comes without the crops on it
+ * unless they are chosen too, and a copied crop with nothing recorded. Returns
+ * null when none of the items is there, or when the plan cannot hold every
+ * copy: half a group would be a surprise.
  */
+export function duplicateItems(
+  plan: GardenPlan,
+  refs: readonly PlanItemRef[],
+  newId: () => string
+): { plan: GardenPlan; refs: PlanItemRef[] } | null {
+  const { beds, plantings } = chosenItems(plan, refs)
+  if (beds.length === 0 && plantings.length === 0) return null
+  if (
+    plan.beds.length + beds.length > PLAN_LIMITS.maxBeds ||
+    plan.plantings.length + plantings.length > PLAN_LIMITS.maxPlantings
+  ) {
+    return null
+  }
+
+  const block = boundsOf([...beds, ...plantings].map((item) => item.rect))
+  const target = clampRect(
+    { ...block, x: block.x + plan.cellCm, y: block.y + plan.cellCm },
+    planBounds(plan)
+  )
+  const shiftX = target.x - block.x
+  const shiftY = target.y - block.y
+  const bedCopies = beds.map((bed) => ({ ...shifted(bed, shiftX, shiftY), id: newId() }))
+  // A copy is a new crop on the same dates: nothing has happened to it yet.
+  const plantingCopies = plantings.map((planting) => ({
+    ...shifted(withoutPlantingRecords(planting), shiftX, shiftY),
+    id: newId(),
+  }))
+
+  return {
+    plan: {
+      ...plan,
+      beds: [...plan.beds, ...bedCopies],
+      plantings: [...plan.plantings, ...plantingCopies],
+    },
+    refs: [
+      ...bedCopies.map((bed): PlanItemRef => ({ kind: "bed", id: bed.id })),
+      ...plantingCopies.map((planting): PlanItemRef => ({ kind: "planting", id: planting.id })),
+    ],
+  }
+}
+
+/** Adds a copy of one item, as `duplicateItems` does. */
 export function duplicateItem(
   plan: GardenPlan,
   ref: PlanItemRef,
   newId: string
 ): { plan: GardenPlan; ref: PlanItemRef } | null {
-  const offset = (rect: Rect) =>
-    clampRect({ ...rect, x: rect.x + plan.cellCm, y: rect.y + plan.cellCm }, planBounds(plan))
-  const copyRef: PlanItemRef = { kind: ref.kind, id: newId }
-
-  if (ref.kind === "bed") {
-    const bed = plan.beds.find((item) => item.id === ref.id)
-    if (!bed || plan.beds.length >= PLAN_LIMITS.maxBeds) return null
-    const copy = { ...bed, id: newId, rect: offset(bed.rect) }
-    return { plan: { ...plan, beds: [...plan.beds, copy] }, ref: copyRef }
-  }
-  const planting = plan.plantings.find((item) => item.id === ref.id)
-  if (!planting || plan.plantings.length >= PLAN_LIMITS.maxPlantings) return null
-  // A copy is a new crop on the same dates: nothing has happened to it yet.
-  const copy = { ...withoutPlantingRecords(planting), id: newId, rect: offset(planting.rect) }
-  return { plan: { ...plan, plantings: [...plan.plantings, copy] }, ref: copyRef }
+  const copy = duplicateItems(plan, [ref], () => newId)
+  return copy?.refs[0] ? { plan: copy.plan, ref: copy.refs[0] } : null
 }
