@@ -473,6 +473,59 @@ export const en = {
       body: "When this page changes, the date at the top changes with it. A change in what is done with your data is told here before it happens.",
     },
   },
+  /** The landing page and the 404 page: static pages written when the app is built. */
+  landing: {
+    meta: {
+      title: "Leira: plan your vegetable garden",
+      description:
+        "Plan your vegetable garden on a grid, with sowing months for Portugal and warnings about crop rotation, bad neighbours and frost. Free, with no sign-up.",
+    },
+    start: "Start planning",
+    noSignUp: "Free, with no sign-up. Sign in later to keep your gardens on any device.",
+    hero: {
+      title: "Plan your vegetable garden, bed by bed",
+      body: "Draw your beds, fill them with crops at the right spacing and see what goes in the ground when. Leira points out rotation mistakes, bad neighbours and frost on the way.",
+      drawing: "An example garden with two beds of vegetables",
+      caption: "An example garden in May.",
+    },
+    features: {
+      title: "What Leira does",
+      grid: {
+        title: "Beds to scale",
+        body: "Draw beds on a grid and fill an area with a crop. The number of plants follows from its spacing: one plant, rows, a block or square-foot squares.",
+      },
+      crops: {
+        title: "{{number}} crops grown in Portugal",
+        body: "Spacing, frost tolerance, days to harvest and the months each one goes in the ground. One tick shows what can be sown or planted out this month.",
+      },
+      advice: {
+        title: "Advice on the plan itself",
+        body: "Crop rotation (the same family in the same place too soon), good and bad neighbours, and crops planned outside their season.",
+      },
+      weather: {
+        title: "The weather where the garden is",
+        body: "A 5-day forecast for your crops: frost, heat, nights too cold for new seedlings, and soil too cold to sow in.",
+      },
+      calendar: {
+        title: "Calendar, jobs and harvests",
+        body: "The garden on any date, a yearly calendar per bed, the jobs for the next 30 days, and a log of what each crop gave.",
+      },
+      share: {
+        title: "Share, print, export",
+        body: "A read-only link to show your garden, a sheet to print, the jobs in your phone's calendar, and the year's list of plants to get.",
+      },
+    },
+    name: {
+      title: "Why Leira",
+      body: "A leira is what a plot of cultivated land is called in Minho, in the north of Portugal. That is what you draw here.",
+    },
+    privacy: "Privacy",
+    notFound: {
+      title: "Page not found",
+      body: "There is nothing at this address.",
+      home: "Go to the home page",
+    },
+  },
 }
 
 export type Translation = typeof en

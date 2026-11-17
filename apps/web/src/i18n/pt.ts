@@ -479,4 +479,57 @@ export const pt: Translation = {
       body: "Quando esta página mudar, a data no topo muda com ela. Uma mudança no que se faz com os teus dados é dita aqui antes de acontecer.",
     },
   },
+  landing: {
+    meta: {
+      title: "Leira: planeia a tua horta",
+      description:
+        "Planeia a tua horta numa grelha, com os meses de sementeira para Portugal e avisos de rotação de culturas, más vizinhanças e geada. Grátis e sem registo.",
+    },
+    start: "Começar a planear",
+    noSignUp:
+      "Grátis e sem registo. Mais tarde, entra para teres as tuas hortas em qualquer dispositivo.",
+    hero: {
+      title: "Planeia a tua horta, canteiro a canteiro",
+      body: "Desenha os canteiros, enche-os de culturas com o compasso certo e vê o que vai para a terra e quando. A Leira aponta erros de rotação, más vizinhanças e geadas a caminho.",
+      drawing: "Uma horta de exemplo com dois canteiros de legumes",
+      caption: "Uma horta de exemplo, em maio.",
+    },
+    features: {
+      title: "O que a Leira faz",
+      grid: {
+        title: "Canteiros à escala",
+        body: "Desenha canteiros numa grelha e enche uma área com uma cultura. O número de plantas sai do compasso: uma planta, linhas, um bloco ou quadrados de um pé.",
+      },
+      crops: {
+        title: "{{number}} culturas comuns em Portugal",
+        body: "Compasso, tolerância à geada, dias até à colheita e os meses em que cada uma vai para a terra. Um visto mostra o que se pode semear ou plantar este mês.",
+      },
+      advice: {
+        title: "Conselhos no próprio plano",
+        body: "Rotação de culturas (a mesma família no mesmo sítio cedo demais), boas e más vizinhanças, e culturas fora de época.",
+      },
+      weather: {
+        title: "O tempo onde fica a horta",
+        body: "Uma previsão a 5 dias para as tuas culturas: geada, calor, noites frias demais para plantas acabadas de transplantar e terra fria demais para semear.",
+      },
+      calendar: {
+        title: "Calendário, tarefas e colheitas",
+        body: "A horta em qualquer data, o calendário do ano por canteiro, as tarefas dos próximos 30 dias e o registo do que cada cultura deu.",
+      },
+      share: {
+        title: "Partilhar, imprimir, exportar",
+        body: "Um link só de leitura para mostrar a horta, uma folha para imprimir, as tarefas no calendário do telemóvel e a lista do que comprar para o ano.",
+      },
+    },
+    name: {
+      title: "Porquê Leira",
+      body: "No Minho, no norte de Portugal, uma leira é um pedaço de terra cultivada. É isso que aqui desenhas.",
+    },
+    privacy: "Privacidade",
+    notFound: {
+      title: "Página não encontrada",
+      body: "Não há nada neste endereço.",
+      home: "Ir para a página inicial",
+    },
+  },
 }
