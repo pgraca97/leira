@@ -90,3 +90,33 @@ describe("Escape", () => {
     expect(editorStore.getState().selection).toEqual([])
   })
 })
+
+describe("copy and paste", () => {
+  it("copies with Ctrl+C and pastes a year on with Ctrl+Shift+V", async () => {
+    const crop = {
+      id: "p1",
+      plantId: "lettuce",
+      rect: { x: 0, y: 0, w: 50, h: 50 },
+      layout: "row" as const,
+      inGround: { from: "2026-03-01", to: "2026-05-15" },
+    }
+    editorStore.getState().loadPlan({ ...emptyPlan(), plantings: [crop] })
+    editorStore.getState().select({ kind: "planting", id: "p1" })
+    await userEvent.keyboard("{Control>}c{/Control}")
+    await userEvent.keyboard("{Control>}{Shift>}v{/Shift}{/Control}")
+    expect(editorStore.getState().plan.plantings[1]?.inGround.from).toBe("2027-03-01")
+  })
+
+  it("pastes in the same year with Ctrl+V", async () => {
+    await userEvent.keyboard("{Control>}c{/Control}")
+    await userEvent.keyboard("{Control>}v{/Control}")
+    expect(editorStore.getState().plan.beds).toHaveLength(2)
+  })
+
+  it("leaves copying and pasting to the browser while the user types", async () => {
+    await userEvent.keyboard("{Control>}c{/Control}")
+    await userEvent.click(document.querySelector("input") as HTMLInputElement)
+    await userEvent.keyboard("{Control>}v{/Control}")
+    expect(editorStore.getState().plan.beds).toHaveLength(1)
+  })
+})

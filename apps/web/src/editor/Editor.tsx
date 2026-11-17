@@ -9,6 +9,7 @@ import { Palette } from "./Palette"
 import { editorStore, redo, undo } from "./store"
 import { useHistory } from "./useEditor"
 import { useEditorShortcuts } from "./useEditorShortcuts"
+import { useSharedClipboard } from "./useSharedClipboard"
 import { ZoomControls } from "./ZoomControls"
 
 /**
@@ -19,6 +20,7 @@ export function Editor({ aside }: { aside?: ReactNode }) {
   const { t, i18n } = useTranslation()
   const { canUndo, canRedo } = useHistory()
   useEditorShortcuts()
+  useSharedClipboard()
 
   // The canvas draws plant names itself, so it needs to know the language.
   // biome-ignore lint/correctness/useExhaustiveDependencies: re-run when the language changes

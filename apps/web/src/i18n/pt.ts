@@ -313,6 +313,12 @@ export const pt: Translation = {
     selectedPlantings_other: "{{count}} culturas",
     duplicateSelection: "Duplicar",
     clearSelection: "Limpar seleção",
+    copy: "Copiar",
+    copied: "Copiado",
+    paste: "Colar",
+    pasteNextYear: "Colar no ano seguinte",
+    pasteRefused:
+      "O que copiaste não cabe nesta horta, ou a horta não aguenta tantos elementos a mais.",
     dimensions: "{{width}} × {{height}} cm",
     position: "{{x}} cm da esquerda, {{y}} cm do topo",
     widthM: "Largura (m)",

@@ -38,12 +38,16 @@ export function Inspector({ children }: { children?: ReactNode }) {
   const plan = useEditor((state) => state.plan)
   const selection = useEditor((state) => state.selection)
   const selectingMany = useEditor((state) => state.selectingMany)
+  const clipboard = useEditor((state) => state.clipboard)
+  const pasteRefused = useEditor((state) => state.pasteRefused)
   const viewDate = useEditor((state) => state.viewDate)
   const {
     pickItem,
     select,
     removeSelection,
     duplicateSelection,
+    copySelection,
+    paste,
     setPlantingDates,
     setPlantingLayout,
     setPlantingSowDate,
@@ -84,6 +88,14 @@ export function Inspector({ children }: { children?: ReactNode }) {
   const outOfSeason = findOutOfSeason(plan, getPlant)
 
   const group = selectedItems({ plan, selection })
+  /** "2 beds, 1 crop": the kinds of item in a group, leaving out a kind it has none of. */
+  const kindsText = (beds: number, plantings: number) =>
+    [
+      beds ? t("inspector.selectedBeds", { count: beds }) : "",
+      plantings ? t("inspector.selectedPlantings", { count: plantings }) : "",
+    ]
+      .filter(Boolean)
+      .join(", ")
   /** A click on a list adds to the selection the way a click on the canvas does. */
   const pickFromList = (ref: PlanItemRef, event: MouseEvent) =>
     pickItem(ref, { adding: selectingMany || event.shiftKey || event.ctrlKey || event.metaKey })
@@ -154,6 +166,49 @@ export function Inspector({ children }: { children?: ReactNode }) {
         <p className="text-sm text-stone-600">{t("inspector.empty")}</p>
       )}
 
+      {clipboard && (
+        <section
+          aria-labelledby="inspector-copied"
+          className="flex flex-col gap-2 rounded-md border border-dashed border-stone-300 p-3 text-sm"
+        >
+          <div className="flex flex-wrap items-baseline gap-x-2">
+            <h3
+              id="inspector-copied"
+              className="text-xs font-semibold tracking-wide text-stone-500 uppercase"
+            >
+              {t("inspector.copied")}
+            </h3>
+            <p className="text-stone-800">
+              {kindsText(clipboard.beds.length, clipboard.plantings.length)}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              className={buttonClass}
+              onClick={() => paste({ nextYear: false })}
+            >
+              {t("inspector.paste")}
+            </button>
+            {/* Beds have no dates, so only crops can go a year on. */}
+            {clipboard.plantings.length > 0 && (
+              <button
+                type="button"
+                className={buttonClass}
+                onClick={() => paste({ nextYear: true })}
+              >
+                {t("inspector.pasteNextYear")}
+              </button>
+            )}
+          </div>
+          {pasteRefused && (
+            <p role="alert" className="text-red-800">
+              {t("inspector.pasteRefused")}
+            </p>
+          )}
+        </section>
+      )}
+
       {group.length > 1 && (
         <section aria-labelledby="inspector-selected" className="rounded-md bg-stone-100 p-3">
           <h3
@@ -165,24 +220,15 @@ export function Inspector({ children }: { children?: ReactNode }) {
           <p className="font-medium text-stone-900">
             {t("inspector.selectedCount", {
               number: group.length,
-              kinds: [
-                [
-                  t("inspector.selectedBeds", { count: countOf(group, "bed") }),
-                  countOf(group, "bed"),
-                ],
-                [
-                  t("inspector.selectedPlantings", { count: countOf(group, "planting") }),
-                  countOf(group, "planting"),
-                ],
-              ]
-                .filter(([, count]) => count)
-                .map(([text]) => text)
-                .join(", "),
+              kinds: kindsText(countOf(group, "bed"), countOf(group, "planting")),
             })}
           </p>
           <div className="mt-2 flex flex-wrap gap-2">
             <button type="button" className={buttonClass} onClick={() => duplicateSelection()}>
               {t("inspector.duplicateSelection")}
+            </button>
+            <button type="button" className={buttonClass} onClick={() => copySelection()}>
+              {t("inspector.copy")}
             </button>
             <button type="button" className={buttonClass} onClick={() => select(null)}>
               {t("inspector.clearSelection")}
@@ -353,9 +399,14 @@ export function Inspector({ children }: { children?: ReactNode }) {
             </div>
           )}
           {planted && <PlantingRecord key={planted.planting.id} planting={planted.planting} />}
-          <button type="button" className={`${dangerButtonClass} mt-2`} onClick={removeSelection}>
-            {t("inspector.delete")}
-          </button>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <button type="button" className={buttonClass} onClick={() => copySelection()}>
+              {t("inspector.copy")}
+            </button>
+            <button type="button" className={dangerButtonClass} onClick={removeSelection}>
+              {t("inspector.delete")}
+            </button>
+          </div>
         </section>
       )}
 

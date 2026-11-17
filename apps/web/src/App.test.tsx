@@ -3,7 +3,7 @@ import "./test/setup"
 import "./i18n"
 import { emptyPlan, type Forecast, type WeatherNow } from "@leira/core"
 import { createMemoryHistory } from "@tanstack/react-router"
-import { render, screen, waitFor, within } from "@testing-library/react"
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { App } from "./App"
@@ -258,6 +258,31 @@ describe("a garden's page", () => {
 
     await waitFor(() => expect(backend.rows.get(TOMATOES.id)?.plan.beds).toHaveLength(1))
     expect(await screen.findByText("Saved")).toBeVisible()
+  })
+
+  it("pastes into one garden what was copied in another, even after leaving it", async () => {
+    const BED = {
+      id: "33333333-3333-4333-8333-333333333333",
+      name: "Herbs",
+      kind: "bed" as const,
+      rect: { x: 0, y: 0, w: 100, h: 100 },
+    }
+    backend = fakeBackend([{ ...TOMATOES, plan: { ...emptyPlan(), beds: [BED] } }, HERBS])
+    open(`/gardens/${TOMATOES.id}`)
+    await userEvent.click(await screen.findByRole("button", { name: /^Herbs/ }))
+    await userEvent.click(screen.getByRole("button", { name: "Copy" }))
+
+    // Another garden, as in another tab: only the browser's storage remembers the copy.
+    cleanup()
+    editorStore.getState().setClipboard(null)
+    open(`/gardens/${HERBS.id}`)
+    const copied = await screen.findByRole("region", { name: "Copied" })
+    await userEvent.click(within(copied).getByRole("button", { name: "Paste" }))
+
+    await waitFor(() =>
+      expect(backend.rows.get(HERBS.id)?.plan.beds).toEqual([{ ...BED, id: expect.any(String) }])
+    )
+    localStorage.removeItem("leira.clipboard")
   })
 
   it("saves a new name", async () => {

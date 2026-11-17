@@ -580,3 +580,63 @@ describe("selecting several items by touch", () => {
     expect(state().tool).toEqual({ kind: "select" })
   })
 })
+
+describe("copy and paste", () => {
+  const TOMATO_REF = { kind: "planting", id: "p1" } as const
+  const BED_REF = { kind: "bed", id: "b1" } as const
+
+  it("copies the selection, and nothing when nothing is selected", () => {
+    expect(state().copySelection()).toBe(false)
+    expect(state().clipboard).toBeNull()
+    state().selectItems([TOMATO_REF, BED_REF])
+    expect(state().copySelection()).toBe(true)
+    expect(state().clipboard).toMatchObject({ beds: [BED], plantings: [TOMATO] })
+  })
+
+  it("pastes into another garden in the same place, in one undo step, selecting what came", () => {
+    state().selectItems([TOMATO_REF])
+    state().copySelection()
+    state().loadPlan(emptyPlan())
+
+    expect(state().paste({ nextYear: false })).toBe(true)
+    expect(state().plan.plantings).toEqual([{ ...TOMATO, id: state().selection[0]?.id }])
+    undo()
+    expect(state().plan.plantings).toEqual([])
+  })
+
+  it("pastes into next year, and shows that year", () => {
+    state().selectItems([TOMATO_REF])
+    state().copySelection()
+    state().setViewDate("2026-07-01")
+
+    expect(state().paste({ nextYear: true })).toBe(true)
+    expect(state().plan.plantings[1]?.inGround).toEqual({ from: "2027-05-01", to: "2027-09-30" })
+    expect(state().viewDate).toBe("2027-07-01")
+  })
+
+  it("leaves the whole plan in view when it was", () => {
+    state().selectItems([TOMATO_REF])
+    state().copySelection()
+    state().paste({ nextYear: true })
+    expect(state().viewDate).toBeNull()
+  })
+
+  it("says so when the copy does not fit, and changes nothing", () => {
+    state().selectItems([TOMATO_REF, BED_REF])
+    state().copySelection()
+    state().loadPlan({ ...emptyPlan(), widthCm: 300, heightCm: 200 })
+
+    expect(state().paste({ nextYear: false })).toBe(false)
+    expect(state().pasteRefused).toBe(true)
+    expect(state().plan.beds).toEqual([])
+    // The next thing the user does puts the message away.
+    state().select(null)
+    expect(state().pasteRefused).toBe(false)
+  })
+
+  it("does nothing with an empty clipboard", () => {
+    state().setClipboard(null)
+    expect(state().paste({ nextYear: false })).toBe(false)
+    expect(state().pasteRefused).toBe(false)
+  })
+})

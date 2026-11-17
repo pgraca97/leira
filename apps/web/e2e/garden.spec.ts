@@ -170,6 +170,32 @@ test("beds picked with Shift move together, in one undo, and go together", async
   await expect(page.getByRole("button", { name: /^Bed \d/ })).toHaveCount(0)
 })
 
+test("this year's tomatoes are pasted into next year, and rotation says to move them", async ({
+  page,
+}) => {
+  await page.goto("/")
+  await page.getByRole("button", { name: "New garden" }).click()
+  await page.getByRole("button", { name: "Tomato" }).click()
+  await dragOnCanvas(page, [0.4, 0.4], [0.6, 0.6])
+
+  await page.getByRole("region", { name: "Selected" }).getByRole("button", { name: "Copy" }).click()
+  await page
+    .getByRole("region", { name: "Copied" })
+    .getByRole("button", { name: "Paste into next year" })
+    .click()
+
+  const plantings = page.getByRole("region", { name: "Plantings" }).getByRole("button")
+  await expect(plantings).toHaveCount(2)
+  // Same ground, same family, a year apart: the rotation check speaks up at once.
+  await expect(page.getByRole("region", { name: "Crop rotation" })).toContainText(
+    "Tomato goes where Tomato grew 1 year before"
+  )
+
+  await expect(page.getByText("Saved", { exact: true })).toBeVisible()
+  await page.reload()
+  await expect(plantings).toHaveCount(2)
+})
+
 test("a planting shows on the calendar and on the day it is in the ground", async ({ page }) => {
   await page.goto("/")
   await page.getByRole("button", { name: "New garden" }).click()

@@ -383,3 +383,55 @@ describe("several items selected", () => {
     expect(editorStore.getState().selection).toEqual([BED_REF, LETTUCE_REF])
   })
 })
+
+describe("copy and paste", () => {
+  const LETTUCE = planting("lettuce", "lettuce", "2026-03-01", "2026-05-15")
+
+  it("copies the item selected on its own", async () => {
+    editorStore.getState().setClipboard(null)
+    showBed()
+    await userEvent.click(screen.getByRole("button", { name: "Copy" }))
+    expect(editorStore.getState().clipboard?.beds).toEqual([BED])
+  })
+
+  it("copies several items selected together", async () => {
+    editorStore.getState().loadPlan({ ...emptyPlan(), beds: [BED], plantings: [LETTUCE] })
+    editorStore.getState().selectItems([BED_REF, { kind: "planting", id: "lettuce" }])
+    render(<Inspector />)
+    await userEvent.click(screen.getByRole("button", { name: "Copy" }))
+    expect(editorStore.getState().clipboard?.plantings).toHaveLength(1)
+  })
+
+  it("says what is waiting to be pasted, and pastes it into the same year or the next", async () => {
+    editorStore.getState().loadPlan({ ...emptyPlan(), plantings: [LETTUCE] })
+    editorStore.getState().select({ kind: "planting", id: "lettuce" })
+    editorStore.getState().copySelection()
+    editorStore.getState().loadPlan(emptyPlan())
+    render(<Inspector />)
+
+    const clipboard = screen.getByRole("region", { name: "Copied" })
+    expect(within(clipboard).getByText("1 crop")).toBeVisible()
+    await userEvent.click(within(clipboard).getByRole("button", { name: "Paste" }))
+    await userEvent.click(within(clipboard).getByRole("button", { name: "Paste into next year" }))
+    expect(editorStore.getState().plan.plantings.map((item) => item.inGround.from)).toEqual([
+      "2026-03-01",
+      "2027-03-01",
+    ])
+  })
+
+  it("offers no next year for beds alone, which have no dates", () => {
+    editorStore.getState().setClipboard({ format: 1, beds: [BED], plantings: [] })
+    editorStore.getState().loadPlan(emptyPlan())
+    render(<Inspector />)
+    const clipboard = screen.getByRole("region", { name: "Copied" })
+    expect(within(clipboard).queryByRole("button", { name: "Paste into next year" })).toBeNull()
+  })
+
+  it("says so when what was copied does not fit", async () => {
+    editorStore.getState().setClipboard({ format: 1, beds: [BED], plantings: [] })
+    editorStore.getState().loadPlan({ ...emptyPlan(), widthCm: 150, heightCm: 150 })
+    render(<Inspector />)
+    await userEvent.click(screen.getByRole("button", { name: "Paste" }))
+    expect(screen.getByRole("alert")).toHaveTextContent("does not fit this garden")
+  })
+})

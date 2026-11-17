@@ -1,7 +1,10 @@
 import {
   addHarvest,
+  addMonths,
   type Bed,
   BedSchema,
+  type Clipboard,
+  copyItems,
   defaultInGround,
   duplicateItems,
   emptyPlan,
@@ -20,6 +23,7 @@ import {
   type PlantingLayout,
   PlantingSchema,
   type Point,
+  pasteItems,
   plantingsInGround,
   type Rect,
   type ResizeHandle,
@@ -54,6 +58,13 @@ export interface EditorState {
    * what Shift does with a mouse, for screens that have no Shift key.
    */
   selectingMany: boolean
+  /**
+   * What was copied last, from this garden or another. Kept across plans; the
+   * editor also keeps it in the browser's storage, so other tabs can paste it.
+   */
+  clipboard: Clipboard | null
+  /** Set when the last paste did not fit, until the user does something else. */
+  pasteRefused: boolean
   tool: Tool
   /** Language for names drawn on the canvas. */
   locale: "pt" | "en"
@@ -121,6 +132,18 @@ export interface EditorState {
   setPlantingNotes(plantingId: string, notes: string): boolean
   /** Stores the garden's note. An empty one removes it. Returns false when it is too long. */
   setPlanNotes(notes: string): boolean
+  /** Copies the selected items. Returns false when nothing is selected. */
+  copySelection(): boolean
+  /**
+   * Pastes what was copied, in the place it came from, and selects it. With
+   * `nextYear`, every crop goes in the ground a year later, and a chosen day
+   * moves on a year with it so the pasted crops are in view. Returns false,
+   * and sets `pasteRefused` when something was copied, if the copy does not
+   * fit this garden.
+   */
+  paste(options: { nextYear: boolean }): boolean
+  /** Replaces what was copied, e.g. with what another tab copied. */
+  setClipboard(clipboard: Clipboard | null): void
   /** Removes every selected item, in one undo step. */
   removeSelection(): void
   /** Selects one item on its own, or nothing when given null. */
@@ -169,7 +192,7 @@ export const editorStore = createStore<EditorState>()(
        */
       const replacePlan = (plan: GardenPlan): boolean => {
         if (plan === get().plan) return false
-        set({ plan })
+        set({ plan, pasteRefused: false })
         return true
       }
 
@@ -192,6 +215,8 @@ export const editorStore = createStore<EditorState>()(
         plan: emptyPlan(),
         selection: [],
         selectingMany: false,
+        clipboard: null,
+        pasteRefused: false,
         tool: { kind: "select" },
         locale: "en",
         viewDate: null,
@@ -205,6 +230,7 @@ export const editorStore = createStore<EditorState>()(
             plan,
             selection: [],
             selectingMany: false,
+            pasteRefused: false,
             tool: { kind: "select" },
             viewDate: null,
           })
@@ -380,20 +406,53 @@ export const editorStore = createStore<EditorState>()(
           return replacePlan(kept ? { ...rest, notes: kept } : rest)
         },
 
+        copySelection: () => {
+          const copied = copyItems(get().plan, get().selection)
+          if (!copied) return false
+          set({ clipboard: copied, pasteRefused: false })
+          return true
+        },
+
+        paste: ({ nextYear }) => {
+          const { plan, clipboard, viewDate } = get()
+          if (!clipboard) return false
+          const pasted = pasteItems(plan, clipboard, {
+            newId: () => crypto.randomUUID(),
+            yearsLater: nextYear ? 1 : 0,
+          })
+          if (!pasted) {
+            set({ pasteRefused: true })
+            return false
+          }
+          set({
+            plan: pasted.plan,
+            selection: pasted.refs,
+            pasteRefused: false,
+            viewDate: nextYear && viewDate ? addMonths(viewDate, 12) : viewDate,
+          })
+          return true
+        },
+
+        setClipboard: (clipboard) => set({ clipboard }),
+
         removeSelection: () => {
           const { plan, selection } = get()
           set({ plan: removeItems(plan, selection), selection: [] })
         },
 
-        select: (ref) => set({ selection: ref ? [ref] : [] }),
+        select: (ref) => set({ selection: ref ? [ref] : [], pasteRefused: false }),
         selectItems: (refs) =>
-          set({ selection: refs.filter((ref, index) => indexOfRef(refs, ref) === index) }),
+          set({
+            selection: refs.filter((ref, index) => indexOfRef(refs, ref) === index),
+            pasteRefused: false,
+          }),
         toggleSelected: (ref) => {
           const { selection } = get()
           set({
             selection: isSelected(selection, ref)
               ? selection.filter((item) => !sameRef(item, ref))
               : [...selection, ref],
+            pasteRefused: false,
           })
         },
         pickItem: (ref, { adding }) => {

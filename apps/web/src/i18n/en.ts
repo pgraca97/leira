@@ -310,6 +310,12 @@ export const en = {
     selectedPlantings_other: "{{count}} crops",
     duplicateSelection: "Duplicate",
     clearSelection: "Clear selection",
+    copy: "Copy",
+    copied: "Copied",
+    paste: "Paste",
+    pasteNextYear: "Paste into next year",
+    pasteRefused:
+      "What was copied does not fit this garden, or the garden cannot hold that many more items.",
     dimensions: "{{width}} × {{height}} cm",
     position: "{{x}} cm from the left, {{y}} cm from the top",
     widthM: "Width (m)",

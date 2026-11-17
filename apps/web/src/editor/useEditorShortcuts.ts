@@ -23,7 +23,8 @@ const BIG_NUDGE_CELLS = 10
 /**
  * Keyboard shortcuts for the editor: Delete removes the selection, the arrow
  * keys nudge it (further with Shift), Ctrl/Cmd+D duplicates it, Ctrl/Cmd+A
- * selects everything shown, Escape steps back (out of selecting several, then
+ * selects everything shown, Ctrl/Cmd+C copies the selection, Ctrl/Cmd+V pastes
+ * it in place and Ctrl/Cmd+Shift+V pastes it a year on, Escape steps back (out of selecting several, then
  * out of the selection or the drawing tool), Ctrl/Cmd+Z undoes, Ctrl/Cmd+Shift+Z
  * or Ctrl+Y redoes.
  */
@@ -46,6 +47,15 @@ export function useEditorShortcuts(): void {
         // Always claimed, so the browser's bookmark dialog never opens over the editor.
         event.preventDefault()
         state.duplicateSelection()
+      } else if (command && key === "c") {
+        // Nothing selected: the browser may have text to copy.
+        if (state.selection.length === 0) return
+        event.preventDefault()
+        state.copySelection()
+      } else if (command && key === "v") {
+        if (!state.clipboard) return
+        event.preventDefault()
+        state.paste({ nextYear: event.shiftKey })
       } else if (command && key === "a") {
         // Claimed too, so the browser does not select the page's text instead.
         event.preventDefault()
