@@ -25,8 +25,9 @@ A _leira_ is what a plot of cultivated land is called in Minho, in the north of 
   out this month.
 - **Advice:** crop rotation (same family in the same place too soon), companion planting, crops
   planned outside their season, and warnings from a 5-day forecast for the planted crops: frost,
-  heat, and nights too cold for seedlings that have just been planted out. The garden is located
-  by searching for its town or from the device's position.
+  heat, nights too cold for seedlings that have just been planted out, and soil too cold for a
+  seed due to be sown in place. The forecast gives each day's soil temperature 6 cm down. The
+  garden is located by searching for its town or from the device's position.
 - **Time:** show the garden on any date, a yearly calendar per planting or per bed, where each bed
   shows when it stands empty and which crops there is still room for, and the jobs of the last
   and the next 30 days. A job is ticked off with the day it was really done, and the calendar
@@ -96,6 +97,10 @@ The last two need `pnpm db:start` and a filled-in `.dev.vars`.
 - **The weather key stays on the server.** The Worker calls OpenWeather and caches each answer in
   KV per zone of about 11 km, so nearby gardens share one call. The garden itself only keeps its
   position rounded to about 1 km.
+- **Soil temperature comes from a second provider.** OpenWeather's free plan has none, so the
+  Worker asks [Open-Meteo](https://open-meteo.com/) (no key, free for non-commercial use) in the
+  same call as the forecast and caches the two together. When Open-Meteo fails, the forecast still
+  comes back, without the soil. Its data are under CC BY 4.0, credited next to them.
 - **A shared link is a key, not an account.** The link carries a random token, and one database
   function is the only thing a visitor with no session can call: it hands over the name and the
   plan, and the location only if the owner allowed it. Opening a link therefore creates no guest

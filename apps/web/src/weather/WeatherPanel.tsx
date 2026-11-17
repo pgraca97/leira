@@ -109,22 +109,30 @@ function WeatherWarnings({ forecast }: { forecast: Forecast }) {
 
   return (
     <ul aria-label={t("weather.warnings")} className="flex w-full flex-col gap-1">
-      {risks.map((risk) => (
-        <li key={`${risk.plantingId}:${risk.kind}`}>
-          <button
-            type="button"
-            className={`${toggleButtonClass} bg-amber-50 text-amber-900`}
-            aria-pressed={selection?.kind === "planting" && selection.id === risk.plantingId}
-            onClick={() => editorStore.getState().select({ kind: "planting", id: risk.plantingId })}
-          >
-            {t(`weather.risk.${risk.kind}`, {
-              date: day(risk.date),
-              temp: t("weather.degrees", { value: whole.format(risk.tempC) }),
-              name: getPlant(risk.plantId)?.name[currentLanguage()] ?? risk.plantId,
-            })}
-          </button>
-        </li>
-      ))}
+      {risks.map((risk) => {
+        const plant = getPlant(risk.plantId)
+        const degrees = (value: number) => t("weather.degrees", { value: whole.format(value) })
+        return (
+          <li key={`${risk.plantingId}:${risk.kind}`}>
+            <button
+              type="button"
+              className={`${toggleButtonClass} bg-amber-50 text-amber-900`}
+              aria-pressed={selection?.kind === "planting" && selection.id === risk.plantingId}
+              onClick={() =>
+                editorStore.getState().select({ kind: "planting", id: risk.plantingId })
+              }
+            >
+              {t(`weather.risk.${risk.kind}`, {
+                date: day(risk.date),
+                temp: degrees(risk.tempC),
+                name: plant?.name[currentLanguage()] ?? risk.plantId,
+                // Only the cold soil warning says what the seed needs.
+                need: degrees(plant?.temps.germMinSoilC ?? 0),
+              })}
+            </button>
+          </li>
+        )
+      })}
     </ul>
   )
 }
@@ -136,19 +144,55 @@ function ForecastDays({ forecast }: { forecast: Forecast }) {
   const whole = new Intl.NumberFormat(currentLanguage(), { maximumFractionDigits: 0 })
 
   return (
-    <ul aria-label={t("weather.nextDays")} className="w-full text-sm text-stone-600">
-      {forecast.map((day) => (
-        <li key={day.date} className="flex items-baseline gap-2 py-0.5">
-          <span className="w-9 font-medium text-stone-800" title={fullDate(day.date)}>
-            {weekday(day.date)}
-          </span>
-          <span className="w-20 tabular-nums">
-            {t("weather.lowHigh", { low: whole.format(day.minC), high: whole.format(day.maxC) })}
-          </span>
-          <span>{t(`weather.condition.${day.condition}`)}</span>
-        </li>
-      ))}
-    </ul>
+    <>
+      <ul aria-label={t("weather.nextDays")} className="w-full text-sm text-stone-600">
+        {forecast.map((day) => (
+          <li key={day.date} className="flex items-baseline gap-2 py-0.5">
+            <span className="w-9 font-medium text-stone-800" title={fullDate(day.date)}>
+              {weekday(day.date)}
+            </span>
+            <span className="w-20 tabular-nums">
+              {t("weather.lowHigh", { low: whole.format(day.minC), high: whole.format(day.maxC) })}
+            </span>
+            <span>{t(`weather.condition.${day.condition}`)}</span>
+            {day.soilC !== undefined && (
+              <span className="ml-auto text-xs tabular-nums text-amber-800">
+                {t("weather.soil", { value: whole.format(day.soilC) })}
+              </span>
+            )}
+          </li>
+        ))}
+      </ul>
+      {forecast.some((day) => day.soilC !== undefined) && <SoilCredit />}
+    </>
+  )
+}
+
+/**
+ * Open-Meteo's data are under CC BY 4.0, which asks for a link next to
+ * wherever they are shown, and for a word on what was changed: here, hourly
+ * readings folded into a daily mean.
+ */
+function SoilCredit() {
+  const { t } = useTranslation()
+  const linkClass = "underline hover:text-stone-700"
+  return (
+    <p className="text-xs text-stone-500">
+      {t("weather.soilCredit")}{" "}
+      <a className={linkClass} href="https://open-meteo.com/" target="_blank" rel="noreferrer">
+        Open-Meteo.com
+      </a>{" "}
+      (
+      <a
+        className={linkClass}
+        href="https://creativecommons.org/licenses/by/4.0/"
+        target="_blank"
+        rel="noreferrer"
+      >
+        CC BY 4.0
+      </a>
+      ).
+    </p>
   )
 }
 

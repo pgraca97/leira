@@ -147,7 +147,11 @@ export const pt: Translation = {
       frost: "Geada a {{date}} ({{temp}}): protege {{name}}.",
       heat: "Calor a {{date}} ({{temp}}): dá sombra e rega {{name}}.",
       cold: "Noite fria a {{date}} ({{temp}}): espera para transplantar {{name}}, ou protege.",
+      coldSoil:
+        "Solo frio a {{date}} ({{temp}} a 6 cm): {{name}} precisa de {{need}} para nascer. Espera uns dias, ou aquece o solo com uma cobertura.",
     },
+    soil: "solo {{value}}°",
+    soilCredit: "Solo a 6 cm, em média diária, com dados de",
     degrees: "{{value}} °C",
     details: "Sensação de {{feelsLike}} · humidade {{humidity}}% · vento {{wind}} km/h",
     condition: {

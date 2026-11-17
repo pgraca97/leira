@@ -695,6 +695,60 @@ describe("the garden's forecast", () => {
     expect(editorStore.getState().selection).toEqual({ kind: "planting", id: TOMATO_ID })
   })
 
+  it("gives the soil temperature of each day, and credits where it comes from", async () => {
+    const withSoil: Forecast = [
+      { ...FORECAST[0]!, soilC: 11.4 },
+      { ...FORECAST[1]!, soilC: 9.6 },
+      FORECAST[2]!,
+    ]
+    openGarden(withSoil)
+    const days = await screen.findByRole("list", { name: "Next days" })
+    expect(
+      within(days)
+        .getAllByRole("listitem")
+        .map((day) => day.textContent)
+    ).toEqual(["Thu6° / 15°Clearsoil 11°", "Fri1° / 12°Rainsoil 10°", "Sat-1° / 9°Snow"])
+    expect(screen.getByRole("link", { name: "Open-Meteo.com" })).toHaveAttribute(
+      "href",
+      "https://open-meteo.com/"
+    )
+    expect(screen.getByRole("link", { name: "CC BY 4.0" })).toHaveAttribute(
+      "href",
+      "https://creativecommons.org/licenses/by/4.0/"
+    )
+  })
+
+  it("credits no one when the forecast has no soil temperature", async () => {
+    openGarden(FORECAST)
+    await screen.findByRole("list", { name: "Next days" })
+    expect(screen.queryByRole("link", { name: "Open-Meteo.com" })).toBeNull()
+  })
+
+  it("warns when the soil is too cold on the day a crop is due to be sown", async () => {
+    const BEANS_ID = "55555555-5555-4555-8555-555555555555"
+    const beans = {
+      ...emptyPlan(),
+      plantings: [
+        {
+          id: BEANS_ID,
+          plantId: "green-bean",
+          rect: { x: 0, y: 0, w: 100, h: 100 },
+          layout: "row" as const,
+          inGround: { from: "2026-04-10", to: "2026-07-31" },
+        },
+      ],
+    }
+    const mild: Forecast = [{ date: "2026-04-10", minC: 8, maxC: 19, condition: "clear", soilC: 9 }]
+    openGarden(mild, { plan: beans })
+    const warning = await screen.findByRole("button", { name: /Cold soil/ })
+    expect(warning).toHaveTextContent(
+      "Cold soil on Apr 10 (9 °C at 6 cm): Green bean needs 15 °C to come up. Wait a few days, or warm the soil under a cover."
+    )
+
+    await userEvent.click(warning)
+    expect(editorStore.getState().selection).toEqual({ kind: "planting", id: BEANS_ID })
+  })
+
   it("stays quiet when the forecast threatens nothing in the ground", async () => {
     openGarden(FORECAST, { plan: emptyPlan() })
     await screen.findByRole("list", { name: "Next days" })

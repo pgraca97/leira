@@ -1,4 +1,4 @@
-import type { Forecast, Place, WeatherNow } from "@leira/core"
+import type { Forecast, IsoDate, Place, WeatherNow } from "@leira/core"
 
 /**
  * A source of weather data, and of the places to ask it about. The routes
@@ -18,6 +18,24 @@ export interface WeatherProvider {
    * when nothing matches. Throws `WeatherProviderError` on failure.
    */
   places(query: string): Promise<Place[]>
+}
+
+/** The soil's mean temperature on one local day, 6 cm down. */
+export interface SoilDay {
+  date: IsoDate
+  meanC: number
+}
+
+/**
+ * A source of soil temperatures. It stands apart from `WeatherProvider`
+ * because the main provider has none: the two can come from different vendors.
+ */
+export interface SoilProvider {
+  /**
+   * The coming days at a position, today first, split at local midnight.
+   * Throws `WeatherProviderError` on failure.
+   */
+  soilTemperature(lat: number, lon: number): Promise<SoilDay[]>
 }
 
 /**

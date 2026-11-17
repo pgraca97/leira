@@ -1,9 +1,15 @@
-import { ForecastSchema, PlacesSchema, roundCoordinate, WeatherNowSchema } from "@leira/core"
+import {
+  type Forecast,
+  ForecastSchema,
+  PlacesSchema,
+  roundCoordinate,
+  WeatherNowSchema,
+} from "@leira/core"
 import type { Context } from "hono"
 import { Hono } from "hono"
 import { createMiddleware } from "hono/factory"
 import { z } from "zod"
-import type { WeatherProvider } from "./weather/provider"
+import type { SoilDay, SoilProvider, WeatherProvider } from "./weather/provider"
 
 /** What the routes need from the outside world. Tests pass fakes. */
 export interface AppDeps {
@@ -11,6 +17,8 @@ export interface AppDeps {
   verifyToken(env: Env, token: string): Promise<string | null>
   /** The weather provider to use, or null when none is configured. */
   weatherProvider(env: Env): WeatherProvider | null
+  /** Where soil temperatures come from, or null when nowhere. */
+  soilProvider(env: Env): SoilProvider | null
   /**
    * The garden a share link opens, as the database hands it over, or null
    * when no link has that token. Throws when the database cannot be asked.
@@ -158,7 +166,7 @@ export function createApp(deps: AppDeps) {
     schema: z.ZodType<T>
     ttlSeconds: number
     browserMaxAgeSeconds: number
-    load(provider: WeatherProvider, lat: number, lon: number): Promise<T>
+    load(provider: WeatherProvider, lat: number, lon: number, env: Env): Promise<T>
   }) {
     app.get(options.path, limitVisitor, requireUser, async (c) => {
       const query = WeatherQuerySchema.safeParse(c.req.query())
@@ -171,7 +179,7 @@ export function createApp(deps: AppDeps) {
         schema: options.schema,
         ttlSeconds: options.ttlSeconds,
         browserMaxAgeSeconds: options.browserMaxAgeSeconds,
-        load: (provider) => options.load(provider, lat, lon),
+        load: (provider) => options.load(provider, lat, lon, c.env),
       })
     })
   }
@@ -187,11 +195,17 @@ export function createApp(deps: AppDeps) {
 
   zoneRoute({
     path: "/api/forecast",
-    cachePrefix: "weather:forecast:v1",
+    cachePrefix: "weather:forecast:v2",
     schema: ForecastSchema,
     ttlSeconds: FORECAST_TTL_SECONDS,
     browserMaxAgeSeconds: FORECAST_BROWSER_MAX_AGE_SECONDS,
-    load: (provider, lat, lon) => provider.forecast(lat, lon),
+    load: async (provider, lat, lon, env) => {
+      const [forecast, soil] = await Promise.all([
+        provider.forecast(lat, lon),
+        soilDays(deps.soilProvider(env), lat, lon),
+      ])
+      return withSoil(forecast, soil)
+    },
   })
 
   /**
@@ -251,6 +265,33 @@ export function createApp(deps: AppDeps) {
   app.notFound((c) => c.json({ error: "not_found" }, 404))
 
   return app
+}
+
+/**
+ * The soil temperatures for a zone, or none when they cannot be had: they add
+ * to the forecast, so their absence must not take it down.
+ */
+async function soilDays(
+  provider: SoilProvider | null,
+  lat: number,
+  lon: number
+): Promise<SoilDay[]> {
+  if (!provider) return []
+  try {
+    return await provider.soilTemperature(lat, lon)
+  } catch (error) {
+    console.error("Soil lookup failed:", error instanceof Error ? error.message : "unknown")
+    return []
+  }
+}
+
+/** Puts each day's soil temperature on the forecast day it belongs to. */
+function withSoil(forecast: Forecast, soil: readonly SoilDay[]): Forecast {
+  const byDate = new Map(soil.map((day) => [day.date, day.meanC]))
+  return forecast.map((day) => {
+    const soilC = byDate.get(day.date)
+    return soilC === undefined ? day : { ...day, soilC }
+  })
 }
 
 /**

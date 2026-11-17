@@ -1,7 +1,7 @@
 import type { Forecast, Place, WeatherNow } from "@leira/core"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { type AppDeps, createApp } from "./app"
-import type { WeatherProvider } from "./weather/provider"
+import type { SoilProvider, WeatherProvider } from "./weather/provider"
 import { WeatherProviderError } from "./weather/provider"
 
 const VALID_TOKEN = "valid-token"
@@ -20,6 +20,17 @@ const READING: WeatherNow = {
 
 const FORECAST: Forecast = [
   { date: "2026-11-10", minC: 9.5, maxC: 17.5, condition: "clear" },
+  { date: "2026-11-11", minC: 4, maxC: 15, condition: "rain" },
+]
+
+/** The soil for the first day only: the second is beyond what it covers. */
+const SOIL = [
+  { date: "2026-11-09", meanC: 13 },
+  { date: "2026-11-10", meanC: 12.1 },
+]
+
+const FORECAST_WITH_SOIL: Forecast = [
+  { date: "2026-11-10", minC: 9.5, maxC: 17.5, condition: "clear", soilC: 12.1 },
   { date: "2026-11-11", minC: 4, maxC: 15, condition: "rain" },
 ]
 
@@ -52,6 +63,7 @@ let lookupLimit: ReturnType<typeof fakeLimiter>
 let current: ReturnType<typeof vi.fn<WeatherProvider["current"]>>
 let forecast: ReturnType<typeof vi.fn<WeatherProvider["forecast"]>>
 let places: ReturnType<typeof vi.fn<WeatherProvider["places"]>>
+let soilTemperature: ReturnType<typeof vi.fn<SoilProvider["soilTemperature"]>>
 let sharedGarden: ReturnType<typeof vi.fn<AppDeps["sharedGarden"]>>
 let deps: AppDeps
 
@@ -71,10 +83,12 @@ beforeEach(() => {
   current = vi.fn<WeatherProvider["current"]>(async () => READING)
   forecast = vi.fn<WeatherProvider["forecast"]>(async () => FORECAST)
   places = vi.fn<WeatherProvider["places"]>(async () => PLACES)
+  soilTemperature = vi.fn<SoilProvider["soilTemperature"]>(async () => SOIL)
   sharedGarden = vi.fn<AppDeps["sharedGarden"]>(async () => null)
   deps = {
     verifyToken: async (_env, token) => (token === VALID_TOKEN ? "user-1" : null),
     weatherProvider: () => ({ current, forecast, places }),
+    soilProvider: () => ({ soilTemperature }),
     sharedGarden,
   }
   vi.spyOn(console, "error").mockImplementation(() => {})
@@ -314,22 +328,36 @@ describe("GET /api/forecast", () => {
   it("returns the forecast for the centre of the zone and marks it as fresh", async () => {
     const response = await request("/api/forecast?lat=38.7223&lon=-9.1393")
     expect(response.status).toBe(200)
-    expect(await response.json()).toEqual(FORECAST)
+    expect(await response.json()).toEqual(FORECAST_WITH_SOIL)
     expect(response.headers.get("X-Cache")).toBe("MISS")
     expect(response.headers.get("Cache-Control")).toBe("private, max-age=1800")
     expect(forecast).toHaveBeenCalledExactlyOnceWith(38.7, -9.1)
+    expect(soilTemperature).toHaveBeenCalledExactlyOnceWith(38.7, -9.1)
+  })
+
+  it("still gives the forecast when the soil lookup fails", async () => {
+    soilTemperature.mockRejectedValue(new WeatherProviderError("Open-Meteo request failed"))
+    const response = await request("/api/forecast?lat=38.72&lon=-9.14")
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual(FORECAST)
+  })
+
+  it("gives the forecast alone when no soil provider is set up", async () => {
+    deps.soilProvider = () => null
+    const response = await request("/api/forecast?lat=38.72&lon=-9.14")
+    expect(await response.json()).toEqual(FORECAST)
   })
 
   it("caches a forecast for three hours, apart from the current weather", async () => {
     await request("/api/forecast?lat=38.72&lon=-9.14")
     await request("/api/weather?lat=38.72&lon=-9.14")
     expect(cache.kv.put).toHaveBeenCalledWith(
-      "weather:forecast:v1:38.7:-9.1",
-      JSON.stringify(FORECAST),
+      "weather:forecast:v2:38.7:-9.1",
+      JSON.stringify(FORECAST_WITH_SOIL),
       { expirationTtl: 10_800 }
     )
     expect([...cache.store.keys()]).toEqual([
-      "weather:forecast:v1:38.7:-9.1",
+      "weather:forecast:v2:38.7:-9.1",
       "weather:now:v1:38.7:-9.1",
     ])
   })
@@ -337,13 +365,13 @@ describe("GET /api/forecast", () => {
   it("serves a second request in the same zone from the cache", async () => {
     await request("/api/forecast?lat=38.72&lon=-9.14")
     const response = await request("/api/forecast?lat=38.68&lon=-9.06")
-    expect(await response.json()).toEqual(FORECAST)
+    expect(await response.json()).toEqual(FORECAST_WITH_SOIL)
     expect(response.headers.get("X-Cache")).toBe("HIT")
     expect(forecast).toHaveBeenCalledTimes(1)
   })
 
   it("ignores a cache entry that no longer matches the schema", async () => {
-    cache.store.set("weather:forecast:v1:38.7:-9.1", JSON.stringify([{ day: "monday" }]))
+    cache.store.set("weather:forecast:v2:38.7:-9.1", JSON.stringify([{ day: "monday" }]))
     const response = await request("/api/forecast?lat=38.72&lon=-9.14")
     expect(response.headers.get("X-Cache")).toBe("MISS")
   })

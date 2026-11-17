@@ -144,7 +144,11 @@ export const en = {
       frost: "Frost on {{date}} ({{temp}}): protect {{name}}.",
       heat: "Heat on {{date}} ({{temp}}): shade and water {{name}}.",
       cold: "Cold night on {{date}} ({{temp}}): wait to plant out {{name}}, or cover it.",
+      coldSoil:
+        "Cold soil on {{date}} ({{temp}} at 6 cm): {{name}} needs {{need}} to come up. Wait a few days, or warm the soil under a cover.",
     },
+    soil: "soil {{value}}°",
+    soilCredit: "Soil 6 cm down, as a daily mean, from data by",
     degrees: "{{value}} °C",
     details: "Feels like {{feelsLike}} · humidity {{humidity}}% · wind {{wind}} km/h",
     condition: {
