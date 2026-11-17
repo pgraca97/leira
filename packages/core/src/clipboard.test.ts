@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { ClipboardSchema, copyItems, pasteItems } from "./clipboard"
+import { ClipboardSchema, copyItems, pasteItems, yearsUntil } from "./clipboard"
 import { emptyPlan, type GardenPlan, PLAN_LIMITS, type Planting } from "./schema"
 
 function planting(id: string, x: number, y: number): Planting {
@@ -121,5 +121,33 @@ describe("pasteItems", () => {
     expect(
       pasteItems(emptyPlan(), { format: 1, beds: [], plantings: [] }, { newId: ids() })
     ).toBeNull()
+  })
+})
+
+describe("yearsUntil", () => {
+  const crop = (id: string, from: string, to: string): Planting => ({
+    ...planting(id, 0, 0),
+    inGround: { from, to },
+  })
+
+  it("counts the years from the template's first crop to the year asked for", () => {
+    const saved = {
+      format: 1 as const,
+      beds: [],
+      plantings: [crop("a", "2026-05-01", "2026-09-30")],
+    }
+    expect(yearsUntil(saved, 2028)).toBe(2)
+    expect(yearsUntil(saved, 2025)).toBe(-1)
+  })
+
+  it("moves crops that cross the new year together with the rest", () => {
+    const garlic = crop("garlic", "2026-10-15", "2027-06-30")
+    const beans = crop("beans", "2027-04-01", "2027-08-31")
+    const saved = { format: 1 as const, beds: [], plantings: [beans, garlic] }
+    expect(yearsUntil(saved, 2028)).toBe(2)
+  })
+
+  it("is nothing for beds alone, which have no dates", () => {
+    expect(yearsUntil({ format: 1, beds: [], plantings: [] }, 2030)).toBe(0)
   })
 })

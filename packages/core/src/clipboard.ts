@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { addMonths } from "./dates"
+import { addMonths, yearOf } from "./dates"
 import { boundsOf, chosenItems, shifted } from "./edit"
 import { clampRect, snap } from "./geometry"
 import { type PlanItemRef, planBounds } from "./plan"
@@ -91,4 +91,15 @@ export function pasteItems(
       ...plantingCopies.map((planting): PlanItemRef => ({ kind: "planting", id: planting.id })),
     ],
   }
+}
+
+/**
+ * How many years a template's crops must move for its first crop to go in
+ * the ground in `year`. They all move by the same number of years, so a crop
+ * that crosses the new year keeps its place among the others. Nothing for a
+ * template of beds alone.
+ */
+export function yearsUntil(clipboard: Clipboard, year: number): number {
+  const starts = clipboard.plantings.map((planting) => yearOf(planting.inGround.from))
+  return starts.length === 0 ? 0 : year - Math.min(...starts)
 }
