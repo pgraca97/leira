@@ -108,12 +108,15 @@ export const pt: Translation = {
   editor: {
     tools: "Ferramentas",
     select: "Selecionar",
+    selectMany: "Selecionar vários",
     bed: "Canteiro",
     searchPlants: "Procurar plantas",
     noPlantMatches: "Nenhuma planta corresponde a “{{search}}”.",
     plants: "Plantas",
     hintSelect:
-      "Arrasta para te moveres e usa a roda ou dois dedos para o zoom. Clica num elemento para o selecionar; depois arrasta-o para o mover ou arrasta uma pega para o redimensionar.",
+      "Arrasta para te moveres e usa a roda ou dois dedos para o zoom. Clica num elemento para o selecionar; depois arrasta-o para o mover ou arrasta uma pega para o redimensionar. Shift+clique junta à seleção, e Shift+arrastar seleciona uma área.",
+    hintSelectMany:
+      "Toca nos elementos para os juntares à seleção ou os tirares, ou arrasta num espaço vazio para selecionar uma área. Arrasta um elemento selecionado para os moveres todos.",
     hintBed: "Arrasta sobre a horta para desenhar um canteiro.",
     hintPlant: "Clica para pôr uma planta, ou arrasta para encher uma área.",
     undo: "Anular",

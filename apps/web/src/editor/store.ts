@@ -129,6 +129,13 @@ export interface EditorState {
   selectItems(refs: readonly PlanItemRef[]): void
   /** Adds an item to the selection, or takes it out when it is already in. */
   toggleSelected(ref: PlanItemRef): void
+  /**
+   * What a click or tap on the canvas does to the selection, given what is
+   * under it. Normally it selects that item alone, or nothing. While `adding`
+   * (Shift held, or selecting several by touch) it adds the item or takes it
+   * out, and a miss leaves the selection as it is.
+   */
+  pickItem(ref: PlanItemRef | null, options: { adding: boolean }): void
   /** Turns selecting several items by touch on or off. Turning it on picks the select tool. */
   setSelectingMany(on: boolean): void
   /** Picks a tool. A drawing tool ends selecting several items. */
@@ -388,6 +395,10 @@ export const editorStore = createStore<EditorState>()(
               ? selection.filter((item) => !sameRef(item, ref))
               : [...selection, ref],
           })
+        },
+        pickItem: (ref, { adding }) => {
+          if (!adding) get().select(ref)
+          else if (ref) get().toggleSelected(ref)
         },
         setSelectingMany: (on) =>
           set(on ? { selectingMany: true, tool: { kind: "select" } } : { selectingMany: false }),

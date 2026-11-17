@@ -177,3 +177,27 @@ describe("the season of the chosen plant", () => {
     expect(screen.queryByText(/^Goes in the ground/)).toBeNull()
   })
 })
+
+describe("selecting several items", () => {
+  it("is a button that stays pressed, and says how it works", async () => {
+    const button = screen.getByRole("button", { name: "Select several" })
+    expect(button).toHaveAttribute("aria-pressed", "false")
+
+    await userEvent.click(button)
+    expect(editorStore.getState().selectingMany).toBe(true)
+    expect(button).toHaveAttribute("aria-pressed", "true")
+    expect(screen.getByText(/Tap items to add them to the selection/)).toBeInTheDocument()
+
+    await userEvent.click(button)
+    expect(editorStore.getState().selectingMany).toBe(false)
+  })
+
+  it("lets go once a drawing tool is picked", async () => {
+    await userEvent.click(screen.getByRole("button", { name: "Select several" }))
+    await userEvent.click(screen.getByRole("button", { name: "Bed" }))
+    expect(screen.getByRole("button", { name: "Select several" })).toHaveAttribute(
+      "aria-pressed",
+      "false"
+    )
+  })
+})

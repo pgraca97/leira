@@ -105,12 +105,15 @@ export const en = {
   editor: {
     tools: "Tools",
     select: "Select",
+    selectMany: "Select several",
     bed: "Bed",
     searchPlants: "Search plants",
     noPlantMatches: "No plant matches “{{search}}”.",
     plants: "Plants",
     hintSelect:
-      "Drag to move around, and scroll or pinch to zoom. Click an item to select it, then drag it to move it or drag a handle to resize it.",
+      "Drag to move around, and scroll or pinch to zoom. Click an item to select it, then drag it to move it or drag a handle to resize it. Shift-click adds to the selection, and Shift-drag selects an area.",
+    hintSelectMany:
+      "Tap items to add them to the selection or take them out, or drag on empty ground to select an area. Drag a selected item to move them all.",
     hintBed: "Drag on the garden to draw a bed.",
     hintPlant: "Click to place one plant, or drag to fill an area.",
     undo: "Undo",

@@ -539,6 +539,28 @@ describe("a selection of several items", () => {
   })
 })
 
+describe("picking an item on the canvas", () => {
+  const TOMATO_REF = { kind: "planting", id: "p1" } as const
+  const BED_REF = { kind: "bed", id: "b1" } as const
+
+  it("selects it on its own, or nothing when the press missed", () => {
+    state().selectItems([TOMATO_REF, BED_REF])
+    state().pickItem(BED_REF, { adding: false })
+    expect(state().selection).toEqual([BED_REF])
+    state().pickItem(null, { adding: false })
+    expect(state().selection).toEqual([])
+  })
+
+  it("adds it or takes it out while adding, and keeps the rest on a miss", () => {
+    state().pickItem(BED_REF, { adding: true })
+    state().pickItem(TOMATO_REF, { adding: true })
+    expect(state().selection).toEqual([BED_REF, TOMATO_REF])
+    state().pickItem(BED_REF, { adding: true })
+    state().pickItem(null, { adding: true })
+    expect(state().selection).toEqual([TOMATO_REF])
+  })
+})
+
 describe("selecting several items by touch", () => {
   it("is a mode that a drawing tool or a new plan turns off", () => {
     state().setSelectingMany(true)

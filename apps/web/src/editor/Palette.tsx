@@ -11,8 +11,9 @@ import { useEditor } from "./useEditor"
 export function Palette() {
   const { t } = useTranslation()
   const tool = useEditor((state) => state.tool)
+  const selectingMany = useEditor((state) => state.selectingMany)
   const viewDate = useEditor((state) => state.viewDate)
-  const { setTool } = editorStore.getState()
+  const { setTool, setSelectingMany } = editorStore.getState()
   const language = currentLanguage()
 
   const [search, setSearch] = useState("")
@@ -45,8 +46,9 @@ export function Palette() {
           .map((plant) => plant.name[language])
       : []
 
-  const hint =
-    tool.kind === "select"
+  const hint = selectingMany
+    ? t("editor.hintSelectMany")
+    : tool.kind === "select"
       ? t("editor.hintSelect")
       : tool.kind === "bed"
         ? t("editor.hintBed")
@@ -65,10 +67,22 @@ export function Palette() {
           <button
             type="button"
             className={toggleButtonClass}
-            aria-pressed={tool.kind === "select"}
-            onClick={() => setTool({ kind: "select" })}
+            aria-pressed={tool.kind === "select" && !selectingMany}
+            onClick={() => {
+              setSelectingMany(false)
+              setTool({ kind: "select" })
+            }}
           >
             {t("editor.select")}
+          </button>
+          {/* What Shift does with a mouse, for a screen with no keyboard. */}
+          <button
+            type="button"
+            className={toggleButtonClass}
+            aria-pressed={selectingMany}
+            onClick={() => setSelectingMany(!selectingMany)}
+          >
+            {t("editor.selectMany")}
           </button>
           <button
             type="button"

@@ -1,5 +1,6 @@
+import { itemsWithin, planBounds } from "@leira/core"
 import { useEffect } from "react"
-import { editorStore, redo, undo } from "./store"
+import { editorStore, redo, shownPlan, undo } from "./store"
 
 /** Whether the event comes from a field where keys mean typing, not shortcuts. */
 function isTyping(target: EventTarget | null): boolean {
@@ -21,8 +22,10 @@ const BIG_NUDGE_CELLS = 10
 
 /**
  * Keyboard shortcuts for the editor: Delete removes the selection, the arrow
- * keys nudge it (further with Shift), Ctrl/Cmd+D duplicates it, Escape returns
- * to the select tool, Ctrl/Cmd+Z undoes, Ctrl/Cmd+Shift+Z or Ctrl+Y redoes.
+ * keys nudge it (further with Shift), Ctrl/Cmd+D duplicates it, Ctrl/Cmd+A
+ * selects everything shown, Escape steps back (out of selecting several, then
+ * out of the selection or the drawing tool), Ctrl/Cmd+Z undoes, Ctrl/Cmd+Shift+Z
+ * or Ctrl+Y redoes.
  */
 export function useEditorShortcuts(): void {
   useEffect(() => {
@@ -43,6 +46,12 @@ export function useEditorShortcuts(): void {
         // Always claimed, so the browser's bookmark dialog never opens over the editor.
         event.preventDefault()
         state.duplicateSelection()
+      } else if (command && key === "a") {
+        // Claimed too, so the browser does not select the page's text instead.
+        event.preventDefault()
+        // What is drawn: a crop away on the day shown cannot be seen, so it is not picked.
+        const shown = shownPlan(state)
+        state.selectItems(itemsWithin(shown, planBounds(shown)))
       } else if (ARROWS[key] && !command && !event.altKey) {
         if (state.selection.length === 0) return
         event.preventDefault()
@@ -54,7 +63,8 @@ export function useEditorShortcuts(): void {
         event.preventDefault()
         state.removeSelection()
       } else if (key === "escape") {
-        if (state.tool.kind === "select") state.select(null)
+        if (state.selectingMany) state.setSelectingMany(false)
+        else if (state.tool.kind === "select") state.select(null)
         else state.setTool({ kind: "select" })
       }
     }

@@ -10,6 +10,7 @@ import {
   hitTest,
   isInGround,
   itemRect,
+  itemsWithin,
   moveItems,
   type PlanItemRef,
   type Planting,
@@ -79,6 +80,8 @@ type Gesture =
   | (Press & { kind: "draw"; start: Point; end: Point })
   /** Drags every selected item together. */
   | (Press & { kind: "move"; start: Point; end: Point })
+  /** Draws an area whose items join the selection. */
+  | (Press & { kind: "area"; start: Point; end: Point })
   | (Press & { kind: "resize"; ref: PlanItemRef; handle: ResizeHandle; end: Point })
   /** Two fingers: `anchor` is the garden point that started between them and stays there. */
   | { kind: "pinch"; startDistance: number; startZoom: number; anchor: Point }
@@ -416,7 +419,9 @@ export class GardenScene extends Phaser.Scene {
     } else if (tool.kind !== "select") {
       this.gesture = { kind: "draw", ...press, start: point, end: point }
     } else {
-      const target = pointerTarget(editorStore.getState(), point, this.handleReach())
+      const target = pointerTarget(editorStore.getState(), point, this.handleReach(), {
+        adding: this.isAdding(pointer),
+      })
       if (target.kind === "resize") {
         this.gesture = {
           kind: "resize",
@@ -427,6 +432,8 @@ export class GardenScene extends Phaser.Scene {
         }
       } else if (target.kind === "move") {
         this.gesture = { kind: "move", ...press, start: point, end: point }
+      } else if (target.kind === "area") {
+        this.gesture = { kind: "area", ...press, start: point, end: point }
       } else {
         this.gesture = pan()
       }
@@ -465,6 +472,9 @@ export class GardenScene extends Phaser.Scene {
     } else if (gesture.kind === "draw") {
       gesture.end = this.worldPoint(pointer)
       this.drawDraft(gesture)
+    } else if (gesture.kind === "area") {
+      gesture.end = this.worldPoint(pointer)
+      this.drawArea(gesture)
     } else {
       gesture.end = this.worldPoint(pointer)
       this.drawEditPreview(gesture)
@@ -475,7 +485,9 @@ export class GardenScene extends Phaser.Scene {
   private showHoverCursor(pointer: Phaser.Input.Pointer): void {
     const state = editorStore.getState()
     if (state.tool.kind !== "select") return
-    const target = pointerTarget(state, this.worldPoint(pointer), this.handleReach())
+    const target = pointerTarget(state, this.worldPoint(pointer), this.handleReach(), {
+      adding: this.isAdding(pointer),
+    })
     this.input.setDefaultCursor(cursorFor(target))
   }
 
@@ -492,16 +504,26 @@ export class GardenScene extends Phaser.Scene {
       // A press that never became a drag is a click: select what is under it.
       // Only what is drawn counts, so a crop that is away never takes the click.
       if (!gesture.moved && pointer.button === 0 && state.tool.kind === "select") {
-        state.select(hitTest(shownPlan(state), this.worldPoint(pointer)))
+        state.pickItem(this.hit(pointer), { adding: this.isAdding(pointer) })
       }
       this.showHoverCursor(pointer)
       return
     }
 
     this.clearDraft()
+    if (gesture.kind === "area") {
+      // A tap that never became a drag picks what is under it, as a click does.
+      if (!gesture.moved) state.pickItem(this.hit(pointer), { adding: true })
+      else {
+        const found = itemsWithin(shownPlan(state), rectFromPoints(gesture.start, gesture.end))
+        state.selectItems([...state.selection, ...found])
+      }
+      this.showHoverCursor(pointer)
+      return
+    }
     if (gesture.kind === "move" || gesture.kind === "resize") {
       // The drag is stored once, on release, so it is a single undo step and a single save.
-      if (!gesture.moved) state.select(hitTest(shownPlan(state), this.worldPoint(pointer)))
+      if (!gesture.moved) state.pickItem(this.hit(pointer), { adding: this.isAdding(pointer) })
       else if (gesture.kind === "move") state.moveSelection(...dragDistance(gesture))
       else state.resizeItem(gesture.ref, gesture.handle, gesture.end)
       this.showHoverCursor(pointer)
@@ -583,6 +605,31 @@ export class GardenScene extends Phaser.Scene {
       .setScale(1 / this.cameras.main.zoom)
       .setPosition(rect.x + rect.w + 6 * pixel, rect.y + rect.h + 6 * pixel)
       .setVisible(true)
+  }
+
+  /** Shows the area being drawn to select what lies wholly inside it. */
+  private drawArea(gesture: Extract<Gesture, { kind: "area" }>): void {
+    const rect = rectFromPoints(gesture.start, gesture.end)
+    this.overlay.clear()
+    this.overlay.fillStyle(COLOR.selection, 0.08)
+    this.overlay.fillRect(rect.x, rect.y, rect.w, rect.h)
+    this.overlay.lineStyle(1.5 * this.worldPerPixel(), COLOR.selection, 1)
+    strokeRect(this.overlay, rect)
+  }
+
+  /** What is drawn under the pointer: a crop away on the day shown never takes a click. */
+  private hit(pointer: Phaser.Input.Pointer): PlanItemRef | null {
+    return hitTest(shownPlan(editorStore.getState()), this.worldPoint(pointer))
+  }
+
+  /**
+   * Whether a press adds to the selection rather than replacing it: with
+   * Shift, Ctrl or Cmd held, or while selecting several items by touch.
+   */
+  private isAdding(pointer: Phaser.Input.Pointer): boolean {
+    if (editorStore.getState().selectingMany) return true
+    const event = pointer.event as Partial<MouseEvent> | undefined
+    return Boolean(event?.shiftKey || event?.ctrlKey || event?.metaKey)
   }
 
   /** Shows where releasing the pointer now would leave the item being moved or resized. */
@@ -691,6 +738,7 @@ export class GardenScene extends Phaser.Scene {
     const gesture = this.gesture
     if (!gesture || gesture.kind === "pinch" || !gesture.moved) return
     if (gesture.kind === "draw") this.drawDraft(gesture)
+    else if (gesture.kind === "area") this.drawArea(gesture)
     else if (gesture.kind !== "pan") this.drawEditPreview(gesture)
   }
 

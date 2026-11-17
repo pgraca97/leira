@@ -65,6 +65,17 @@ describe("pointerTarget", () => {
     })
   })
 
+  it("draws an area to select instead of panning while adding to the selection", () => {
+    const adding = { adding: true }
+    expect(pointerTarget({ plan, selection: [] }, { x: 450, y: 300 }, REACH, adding)).toEqual({
+      kind: "area",
+    })
+    // A press on a selected item still drags the group, or picks it out on release.
+    expect(pointerTarget({ plan, selection: [BED] }, { x: 250, y: 150 }, REACH, adding)).toEqual({
+      kind: "move",
+    })
+  })
+
   it("pans when the selected item no longer exists", () => {
     const gone = { kind: "bed", id: "deleted" } as const
     expect(pointerTarget({ plan, selection: [gone] }, { x: 250, y: 150 }, REACH)).toEqual({
@@ -86,5 +97,6 @@ describe("cursorFor", () => {
   it("shows that an item can be moved and the view can be panned", () => {
     expect(cursorFor({ kind: "move" })).toBe("move")
     expect(cursorFor({ kind: "pan" })).toBe("grab")
+    expect(cursorFor({ kind: "area" })).toBe("crosshair")
   })
 })

@@ -14,6 +14,15 @@ async function dragOnCanvas(page: Page, from: [number, number], to: [number, num
   await page.mouse.up()
 }
 
+/** Clicks the canvas at a point given in fractions of its size. */
+async function clickOnCanvas(page: Page, at: [number, number]) {
+  const canvas = page.getByTestId("garden-canvas")
+  await expect(canvas).toHaveAttribute("data-status", "ready")
+  const box = await canvas.boundingBox()
+  if (!box) throw new Error("The canvas is not on the page")
+  await page.mouse.click(box.x + box.width * at[0], box.y + box.height * at[1])
+}
+
 test("a garden survives a reload", async ({ page }) => {
   await page.goto("/")
   await page.getByRole("button", { name: "New garden" }).click()
@@ -72,6 +81,53 @@ test("a bed can be moved and resized, and stays that way", async ({ page }) => {
   await page.getByRole("button", { name: /^Bed 1/ }).click()
   await expect(position).toHaveText(positionMoved ?? "")
   await expect(size).toHaveText(sizeResized ?? "")
+})
+
+test("beds picked with Shift move together, in one undo, and go together", async ({ page }) => {
+  await page.goto("/")
+  await page.getByRole("button", { name: "New garden" }).click()
+  for (const [from, to] of [
+    [
+      [0.35, 0.4],
+      [0.42, 0.47],
+    ],
+    [
+      [0.55, 0.4],
+      [0.62, 0.47],
+    ],
+  ] as const) {
+    await page.getByRole("button", { name: "Bed", exact: true }).click()
+    await dragOnCanvas(page, [...from], [...to])
+  }
+
+  const position = page.getByRole("region", { name: "Selected" }).getByText(/cm from the left/)
+  const positionOf = async (bed: string) => {
+    await page.getByRole("button", { name: new RegExp(`^${bed}`) }).click()
+    return position.textContent()
+  }
+  const before = [await positionOf("Bed 1"), await positionOf("Bed 2")]
+
+  // Bed 2 is selected; Shift-click adds Bed 1, and dragging either takes both.
+  await page.keyboard.down("Shift")
+  await clickOnCanvas(page, [0.38, 0.43])
+  await page.keyboard.up("Shift")
+  await dragOnCanvas(page, [0.58, 0.43], [0.58, 0.53])
+  const after = [await positionOf("Bed 1"), await positionOf("Bed 2")]
+  expect(after[0]).not.toBe(before[0])
+  expect(after[1]).not.toBe(before[1])
+
+  // The group move was one step.
+  await page.getByRole("button", { name: "Undo" }).click()
+  expect([await positionOf("Bed 1"), await positionOf("Bed 2")]).toEqual(before)
+  await page.getByRole("button", { name: "Redo" }).click()
+
+  // Shift-drag over empty ground selects what lies inside the area; Delete removes it all.
+  await clickOnCanvas(page, [0.48, 0.65])
+  await page.keyboard.down("Shift")
+  await dragOnCanvas(page, [0.3, 0.35], [0.7, 0.7])
+  await page.keyboard.up("Shift")
+  await page.keyboard.press("Delete")
+  await expect(page.getByRole("button", { name: /^Bed \d/ })).toHaveCount(0)
 })
 
 test("a planting shows on the calendar and on the day it is in the ground", async ({ page }) => {
