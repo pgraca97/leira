@@ -1,4 +1,5 @@
 export { type BedSeason, bedOfPlanting, bedSeasons, cropsThatFit } from "./beds"
+export { type Clipboard, ClipboardSchema, copyItems, pasteItems } from "./clipboard"
 export {
   type CompanionOptions,
   type CompanionPair,

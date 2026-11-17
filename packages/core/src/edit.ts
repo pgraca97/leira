@@ -36,8 +36,8 @@ function contains(outer: Rect, inner: Rect): boolean {
   )
 }
 
-/** The smallest rectangle around all the given ones, which must not be empty. */
-function boundsOf(rects: readonly Rect[]): Rect {
+/** The smallest rectangle around all the given ones, which must not be empty. Shared with the clipboard, not part of the package's API. */
+export function boundsOf(rects: readonly Rect[]): Rect {
   const left = Math.min(...rects.map((rect) => rect.x))
   const top = Math.min(...rects.map((rect) => rect.y))
   const right = Math.max(...rects.map((rect) => rect.x + rect.w))
@@ -45,12 +45,12 @@ function boundsOf(rects: readonly Rect[]): Rect {
   return { x: left, y: top, w: right - left, h: bottom - top }
 }
 
-function shifted<T extends Bed | Planting>(item: T, dx: number, dy: number): T {
+export function shifted<T extends Bed | Planting>(item: T, dx: number, dy: number): T {
   return { ...item, rect: { ...item.rect, x: item.rect.x + dx, y: item.rect.y + dy } }
 }
 
 /** The beds and plantings the refs point at, in plan order. Refs to items that are gone are skipped. */
-function chosenItems(plan: GardenPlan, refs: readonly PlanItemRef[]) {
+export function chosenItems(plan: GardenPlan, refs: readonly PlanItemRef[]) {
   const bedIds = new Set(refs.filter((ref) => ref.kind === "bed").map((ref) => ref.id))
   const plantingIds = new Set(refs.filter((ref) => ref.kind === "planting").map((ref) => ref.id))
   return {
