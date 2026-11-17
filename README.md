@@ -86,7 +86,8 @@ Copy the API URL and publishable key printed by `pnpm supabase status` into
 [OpenWeather API key](https://home.openweathermap.org/api_keys) in the same file, everything works
 except the weather panel. The local auth server asks for a captcha as production does, with
 Cloudflare's test keys (already in the example file), and checks it with Cloudflare, so signing in
-locally needs a network.
+locally needs a network. Every email, the sign-in links and the Worker's own, lands in the local
+stack's Mailpit at http://127.0.0.1:54324.
 
 ## Tests
 
@@ -199,7 +200,7 @@ The last two need `pnpm db:start` and a filled-in `.dev.vars`.
 
 ## Deploying
 
-The app is one Cloudflare Worker. It needs the four required values from `.dev.vars.example` as
+The app is one Cloudflare Worker. It needs the eight required values from `.dev.vars.example` as
 secrets,
 and a Supabase project with anonymous sign-ins, manual linking and the Google provider enabled,
 an SMTP server for the emailed links, and the app's address as its site URL.
@@ -225,7 +226,16 @@ migrations and then publishes the Worker. It needs three secrets in the GitHub r
 | `CLOUDFLARE_ACCOUNT_ID` | The id of the Cloudflare account the Worker is in.                       |
 | `SUPABASE_ACCESS_TOKEN` | A Supabase access token that may write to the project's database.        |
 
-Four steps are by hand, once:
+Five steps are by hand, once:
+
+- **The Worker's email.** The Worker confirms a request to delete an account by email, sent
+  through the project's Gmail account like the sign-in links. In that Google account, with
+  2-Step Verification on, make an app password for the Worker alone, apart from the one Supabase
+  uses, so either can be revoked by itself. Then set the four SMTP secrets with
+  `pnpm --filter @leira/web exec wrangler secret put <NAME>`: `SMTP_HOST` is `smtp.gmail.com`,
+  `SMTP_PORT` is `465` (TLS from the start), `SMTP_USER` is the Gmail address and
+  `SMTP_PASSWORD` the app password. They are required, so a deploy fails until they are set;
+  with any of them empty the Worker sends no email and the deletion still goes ahead.
 
 - **The captcha.** Do these in this order, or nobody can sign in. In the Cloudflare dashboard,
   open Turnstile and add a widget for the Worker's hostname, in Managed mode. Set its site key
