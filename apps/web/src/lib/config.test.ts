@@ -4,6 +4,7 @@ import { configLoader } from "./config"
 const SETTINGS = {
   supabaseUrl: "https://project.supabase.co",
   supabasePublishableKey: "sb_publishable_abc",
+  turnstileSiteKey: "0x4AAAAAAA",
 }
 
 const answer = (body: unknown, status = 200) =>
@@ -22,6 +23,11 @@ describe("the public settings", () => {
   it("carry the Web Analytics token when the Worker has one", async () => {
     const load = configLoader(async () => answer({ ...SETTINGS, webAnalyticsToken: "beacon" }))
     expect((await load()).webAnalyticsToken).toBe("beacon")
+  })
+
+  it("are refused without the Turnstile site key", async () => {
+    const { turnstileSiteKey: _, ...withoutKey } = SETTINGS
+    await expect(configLoader(async () => answer(withoutKey))()).rejects.toThrow()
   })
 
   it("are asked for again after a failure, so trying again can work", async () => {

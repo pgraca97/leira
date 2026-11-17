@@ -22,9 +22,15 @@
     { "name": "LOOKUP_LIMIT", "namespace_id": "5302", "simple": { "limit": 10, "period": 60 } }
   ],
   // Set per environment: `.dev.vars` locally, `wrangler secret put` when deployed.
-  // The two Supabase values are public, but each environment still needs its own.
+  // The Supabase values and the Turnstile site key are public, but each environment
+  // still needs its own. Only the keys listed here are read from `.dev.vars`.
   "secrets": {
-    "required": ["OPENWEATHER_API_KEY", "SUPABASE_PUBLISHABLE_KEY", "SUPABASE_URL"]
+    "required": [
+      "OPENWEATHER_API_KEY",
+      "SUPABASE_PUBLISHABLE_KEY",
+      "SUPABASE_URL",
+      "TURNSTILE_SITE_KEY"
+    ]
   },
   "observability": {
     "enabled": true

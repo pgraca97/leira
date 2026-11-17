@@ -3,6 +3,8 @@ import { z } from "zod"
 const ConfigSchema = z.object({
   supabaseUrl: z.url(),
   supabasePublishableKey: z.string().min(1),
+  /** For the captcha the auth server asks for before it signs anyone in. */
+  turnstileSiteKey: z.string().min(1),
   /** Set in production only. */
   webAnalyticsToken: z.string().min(1).optional(),
 })

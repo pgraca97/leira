@@ -99,15 +99,17 @@ describe("GET /api/config", () => {
   const env = {
     SUPABASE_URL: "https://project.supabase.co",
     SUPABASE_PUBLISHABLE_KEY: "sb_publishable_abc",
+    TURNSTILE_SITE_KEY: "0x4AAAAAAA",
     OPENWEATHER_API_KEY: "secret",
   } as Env
 
-  it("gives the browser the public Supabase settings without a session", async () => {
+  it("gives the browser the public settings without a session", async () => {
     const response = await createApp(deps).request("/api/config", {}, env)
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual({
       supabaseUrl: "https://project.supabase.co",
       supabasePublishableKey: "sb_publishable_abc",
+      turnstileSiteKey: "0x4AAAAAAA",
     })
   })
 
@@ -118,8 +120,17 @@ describe("GET /api/config", () => {
     expect(await response.json()).toEqual({
       supabaseUrl: "https://project.supabase.co",
       supabasePublishableKey: "sb_publishable_abc",
+      turnstileSiteKey: "0x4AAAAAAA",
       webAnalyticsToken: "beacon-token",
     })
+  })
+
+  // Without it no browser could sign in once the captcha is on, so it is
+  // treated like the Supabase settings.
+  it("answers 503 when the Turnstile site key is missing", async () => {
+    const withoutKey = { ...env, TURNSTILE_SITE_KEY: "" } as Env
+    const response = await createApp(deps).request("/api/config", {}, withoutKey)
+    expect(response.status).toBe(503)
   })
 
   it("answers 503 when Supabase is not configured", async () => {
