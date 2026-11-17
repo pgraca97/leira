@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import "./test/setup"
 import "./i18n"
-import { emptyPlan, type Forecast, type WeatherNow } from "@leira/core"
+import { emptyPlan, type Forecast, gardenFile, type WeatherNow } from "@leira/core"
 import { createMemoryHistory } from "@tanstack/react-router"
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
@@ -748,6 +748,182 @@ describe("taking the plan out of the app", () => {
     expect(row).toHaveTextContent("May 1, 2026")
     expect(row).toHaveTextContent("Sep 30, 2026")
     vi.unstubAllGlobals()
+  })
+})
+
+describe("importing a file", () => {
+  const RECORDED: Garden = {
+    ...TOMATOES,
+    location: { lat: 41.15, lon: -8.61, name: "Porto" },
+    plan: {
+      ...emptyPlan(),
+      notes: "The well ran dry in July.",
+      plantings: [
+        {
+          id: "55555555-5555-4555-8555-555555555555",
+          plantId: "tomato",
+          rect: { x: 0, y: 0, w: 100, h: 100 },
+          layout: "block",
+          inGround: { from: "2026-05-01", to: "2026-09-30" },
+          sowDate: "2026-03-20",
+          planted: true,
+          harvests: [{ date: "2026-07-12", quantity: 1.2, unit: "kg" }],
+          notes: "Blight in August.",
+        },
+      ],
+    },
+  }
+  const ITEMS = {
+    format: 1 as const,
+    beds: [
+      {
+        id: "44444444-4444-4444-8444-444444444444",
+        name: "Herb bed",
+        kind: "bed" as const,
+        rect: { x: 0, y: 0, w: 200, h: 100 },
+      },
+    ],
+    plantings: [],
+  }
+  const template = (name: string) => ({ name, items: ITEMS })
+  const json = (file: unknown) => JSON.stringify(file)
+
+  async function importFile(file: File | string) {
+    const chosen =
+      typeof file === "string" ? new File([file], "leira.json", { type: "application/json" }) : file
+    await userEvent.upload(await screen.findByLabelText("Import"), chosen)
+  }
+
+  it("brings back the account's export: gardens with all they recorded, and templates", async () => {
+    backend = fakeBackend([RECORDED])
+    backend.shares.set(RECORDED.id, {
+      token: "aaaaaaaa-aaaa-4aaa-8aaa-000000000009",
+      showLocation: true,
+    })
+    await backend.templates.save("Herbs", ITEMS)
+    vi.mocked(downloadText).mockClear()
+    open("/gardens")
+    await userEvent.click(await screen.findByRole("button", { name: "Keep your gardens" }))
+    await userEvent.click(screen.getByRole("button", { name: "Download my data" }))
+    await waitFor(() => expect(downloadText).toHaveBeenCalledOnce())
+    const [exported] = vi.mocked(downloadText).mock.calls[0]!
+    cleanup()
+
+    // A new guest, in another browser, with nothing yet.
+    backend = fakeBackend()
+    open("/gardens")
+    await importFile(exported)
+
+    expect(await screen.findByText("Imported 1 garden and 1 template.")).toHaveAttribute(
+      "role",
+      "status"
+    )
+    expect(await screen.findByRole("link", { name: "Tomato patch" })).toBeVisible()
+    const [restored] = [...backend.rows.values()]
+    expect(restored).toMatchObject({ plan: RECORDED.plan, location: RECORDED.location })
+    expect(backend.savedTemplates).toMatchObject([template("Herbs")])
+    // The token was the server's: a link has to be made again.
+    expect(backend.shares.size).toBe(0)
+  })
+
+  it("adds one garden's file as a new garden, under the same name", async () => {
+    open("/gardens")
+    await importFile(json(gardenFile(RECORDED, new Date())))
+
+    expect(await screen.findByText("Imported 1 garden.")).toHaveAttribute("role", "status")
+    await waitFor(() =>
+      expect(screen.getAllByRole("link", { name: "Tomato patch" })).toHaveLength(2)
+    )
+    expect(backend.rows.size).toBe(3)
+    expect(backend.rows.get(TOMATOES.id)).toEqual(TOMATOES)
+    const copy = [...backend.rows.values()].find(
+      (row) => row.name === "Tomato patch" && row.id !== TOMATOES.id
+    )
+    expect(copy).toMatchObject({ plan: RECORDED.plan, location: RECORDED.location, version: 1 })
+  })
+
+  it("counts what could not be read, and imports the rest", async () => {
+    open("/gardens")
+    await importFile(json({ format: 1, gardens: [RECORDED, { name: "Broken", plan: {} }] }))
+    expect(await screen.findByText("Imported 1 garden. 1 could not be read.")).toHaveAttribute(
+      "role",
+      "status"
+    )
+    expect(backend.rows.size).toBe(3)
+  })
+
+  it.each([
+    ["a file that is not an export", "not json", "This is not a file exported from Leira"],
+    [
+      "a file from a newer version",
+      json({ format: 99, gardens: [RECORDED] }),
+      "newer version of the app",
+    ],
+    ["a file with nothing to import", json({ format: 1, gardens: [] }), "no gardens or templates"],
+  ])("refuses %s, and changes nothing", async (_, text, message) => {
+    open("/gardens")
+    await importFile(text)
+    expect(await screen.findByRole("alert")).toHaveTextContent(message)
+    expect(backend.rows.size).toBe(2)
+  })
+
+  it("refuses a file over 20 MB without reading it", async () => {
+    const big = new File(["{}"], "big.json", { type: "application/json" })
+    Object.defineProperty(big, "size", { value: 20 * 1024 * 1024 + 1 })
+    const read = vi.spyOn(big, "text")
+    open("/gardens")
+    await importFile(big)
+    expect(await screen.findByRole("alert")).toHaveTextContent("larger than 20 MB")
+    expect(read).not.toHaveBeenCalled()
+  })
+
+  it("stops the templates at fifty, and says how many were left out", async () => {
+    backend.savedTemplates = Array.from({ length: 49 }, (_, index) => ({
+      id: crypto.randomUUID(),
+      ...template(`T${index}`),
+      createdAt: "2026-11-01T10:00:00.000Z",
+    }))
+    open("/gardens")
+    await importFile(json({ format: 1, templates: [template("A"), template("B"), template("C")] }))
+
+    expect(
+      await screen.findByText(
+        "Imported 1 template. 2 templates were left out: you can keep at most 50."
+      )
+    ).toHaveAttribute("role", "status")
+    expect(backend.savedTemplates).toHaveLength(50)
+  })
+
+  it("stops when a save fails part way, and says how many came in", async () => {
+    const create = backend.gardens.create
+    let calls = 0
+    backend.gardens.create = async (...args) => {
+      if (calls++ === 1) throw new Error("503")
+      return create(...args)
+    }
+    open("/gardens")
+    await importFile(
+      json({ format: 1, gardens: [RECORDED, RECORDED, RECORDED], templates: [template("A")] })
+    )
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Imported 1 garden. Something went wrong, so the rest was not imported."
+    )
+    expect(backend.rows.size).toBe(3)
+    expect(backend.savedTemplates).toEqual([])
+    // The list shows what did come in.
+    await waitFor(() =>
+      expect(screen.getAllByRole("link", { name: "Tomato patch" })).toHaveLength(2)
+    )
+  })
+
+  it("says so when nothing could be saved", async () => {
+    backend.failNextTemplateSave()
+    open("/gardens")
+    await importFile(json({ format: 1, templates: [template("A")] }))
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "The file could not be imported. Try again."
+    )
   })
 })
 

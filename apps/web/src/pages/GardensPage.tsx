@@ -1,15 +1,17 @@
 import { emptyPlan, samplePlan, toIsoDate, withoutRecords } from "@leira/core"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link, useNavigate } from "@tanstack/react-router"
-import { useEffect } from "react"
+import { useEffect, useRef } from "react"
 import { useTranslation } from "react-i18next"
 import { AppHeader } from "../components/AppHeader"
 import { Notice } from "../components/Notice"
 import { buttonClass, dangerButtonClass, primaryButtonClass } from "../components/ui"
 import { PlanSvg } from "../export/PlanSvg"
 import { currentLanguage } from "../i18n"
+import { importFile, importMessage } from "../import/importFile"
 import { useBackend } from "../lib/backend"
 import { type GardenSummary, gardenCopyName } from "../lib/gardens"
+import { TEMPLATES_KEY } from "../templates/TemplatesPanel"
 
 const GARDENS_KEY = ["gardens"]
 
@@ -52,6 +54,26 @@ export function GardensPage() {
     onSettled: () => queryClient.invalidateQueries({ queryKey: GARDENS_KEY }),
   })
 
+  const fileInput = useRef<HTMLInputElement>(null)
+  const restore = useMutation({
+    mutationFn: (file: File) =>
+      importFile(backend, file, {
+        garden: t("gardens.defaultName"),
+        template: t("gardens.importTemplateName"),
+      }),
+    // Also after a failure part way: what came in before it is there.
+    onSettled: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: GARDENS_KEY }),
+        queryClient.invalidateQueries({ queryKey: TEMPLATES_KEY }),
+      ]),
+  })
+  const imported = restore.data
+    ? importMessage(restore.data, t)
+    : restore.isError
+      ? { text: t("gardens.importFailed"), failed: true }
+      : null
+
   useEffect(() => {
     document.title = t("app.name")
   }, [t])
@@ -71,14 +93,38 @@ export function GardensPage() {
       <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-4 overflow-y-auto p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h1 className="text-xl font-semibold text-stone-900">{t("gardens.title")}</h1>
-          <button
-            type="button"
-            className={primaryButtonClass}
-            disabled={create.isPending}
-            onClick={() => create.mutate("empty")}
-          >
-            {t("gardens.new")}
-          </button>
+          <div className="flex gap-2">
+            {/* The button opens the file picker: a file input cannot be styled. */}
+            <input
+              ref={fileInput}
+              type="file"
+              accept=".json,application/json"
+              aria-label={t("gardens.import")}
+              className="hidden"
+              onChange={(event) => {
+                const file = event.target.files?.[0]
+                // Emptied, so choosing the same file again still imports it.
+                event.target.value = ""
+                if (file) restore.mutate(file)
+              }}
+            />
+            <button
+              type="button"
+              className={buttonClass}
+              disabled={restore.isPending}
+              onClick={() => fileInput.current?.click()}
+            >
+              {restore.isPending ? t("gardens.importing") : t("gardens.import")}
+            </button>
+            <button
+              type="button"
+              className={primaryButtonClass}
+              disabled={create.isPending}
+              onClick={() => create.mutate("empty")}
+            >
+              {t("gardens.new")}
+            </button>
+          </div>
         </div>
 
         {failed && (
@@ -86,6 +132,19 @@ export function GardensPage() {
             {failed}
           </p>
         )}
+        {imported &&
+          (imported.failed ? (
+            <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-800">
+              {imported.text}
+            </p>
+          ) : (
+            <p
+              role="status"
+              className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-900"
+            >
+              {imported.text}
+            </p>
+          ))}
 
         {gardens.isPending && <Notice kind="status" message={t("gardens.loading")} />}
         {gardens.isError && (

@@ -8,7 +8,7 @@ import { useEditor } from "../editor/useEditor"
 import { useBackend } from "../lib/backend"
 import { TemplateLimitError } from "../lib/templates"
 
-const TEMPLATES_KEY = ["templates"]
+export const TEMPLATES_KEY = ["templates"]
 const headingClass = "mb-1 text-xs font-semibold tracking-wide text-stone-500 uppercase"
 
 /**
