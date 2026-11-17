@@ -16,7 +16,8 @@ import {
  * from another device, against the real auth server and its mail catcher.
  */
 const settings = stackSettings()
-const APP_URL = "http://localhost:5173"
+// A path under the site URL, as the app sends: the auth server must not fall back to the site URL.
+const APP_URL = "http://localhost:5173/gardens"
 
 /** An address nobody has used, so runs do not trip over each other. */
 function freshAddress(): string {

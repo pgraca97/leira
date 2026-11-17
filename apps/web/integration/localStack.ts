@@ -107,5 +107,8 @@ export async function followEmailedLink(
   if (!location) throw new Error(`The link did not redirect (status ${response.status})`)
   const target = new URL(location)
   const fragment = new URLSearchParams(target.hash.slice(1))
-  return { redirectedTo: target.origin, accessToken: fragment.get("access_token") }
+  return {
+    redirectedTo: `${target.origin}${target.pathname}`,
+    accessToken: fragment.get("access_token"),
+  }
 }

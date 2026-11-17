@@ -35,7 +35,7 @@ export function AccountMenu() {
   /** Leaves the account behind: whatever `leave` does, the visitor goes on as a new guest. */
   const startOver = async (leave: () => Promise<void>) => {
     // Leave the editor first, so its last save still goes out as this user.
-    await navigate({ to: "/" })
+    await navigate({ to: "/gardens" })
     await leave()
     // Everything on screen belonged to the account. The connection itself stays.
     await queryClient.resetQueries({ predicate: (query) => query.queryKey[0] !== "backend" })

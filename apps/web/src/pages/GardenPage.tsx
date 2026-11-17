@@ -78,7 +78,7 @@ export function GardenPage({ gardenId, view }: { gardenId: string; view: GardenV
 function BackLink() {
   const { t } = useTranslation()
   return (
-    <Link to="/" className="text-sm font-medium text-emerald-800 underline">
+    <Link to="/gardens" className="text-sm font-medium text-emerald-800 underline">
       {t("garden.back")}
     </Link>
   )

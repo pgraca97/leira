@@ -64,7 +64,7 @@ async function dragOnGarden(
 }
 
 test("a garden survives a reload", async ({ page }) => {
-  await page.goto("/")
+  await page.goto("/gardens")
   await page.getByRole("button", { name: "New garden" }).click()
 
   const name = page.getByRole("textbox", { name: "Garden name" })
@@ -85,7 +85,7 @@ test("a garden survives a reload", async ({ page }) => {
 })
 
 test("a bed can be moved and resized, and stays that way", async ({ page }) => {
-  await page.goto("/")
+  await page.goto("/gardens")
   await page.getByRole("button", { name: "New garden" }).click()
   await page.getByRole("button", { name: "Bed", exact: true }).click()
   // The 6 m by 4 m garden fills the canvas width apart from a margin, so these
@@ -124,7 +124,7 @@ test("a bed can be moved and resized, and stays that way", async ({ page }) => {
 })
 
 test("beds picked with Shift move together, in one undo, and go together", async ({ page }) => {
-  await page.goto("/")
+  await page.goto("/gardens")
   await page.getByRole("button", { name: "New garden" }).click()
   for (const [from, to] of [
     [
@@ -173,7 +173,7 @@ test("beds picked with Shift move together, in one undo, and go together", async
 test("this year's tomatoes are pasted into next year, and rotation says to move them", async ({
   page,
 }) => {
-  await page.goto("/")
+  await page.goto("/gardens")
   await page.getByRole("button", { name: "New garden" }).click()
   await page.getByRole("button", { name: "Tomato" }).click()
   await dragOnCanvas(page, [0.4, 0.4], [0.6, 0.6])
@@ -197,7 +197,7 @@ test("this year's tomatoes are pasted into next year, and rotation says to move 
 })
 
 test("a bed saved as a template goes into another garden", async ({ page }) => {
-  await page.goto("/")
+  await page.goto("/gardens")
   await page.getByRole("button", { name: "New garden" }).click()
   await page.getByRole("button", { name: "Bed", exact: true }).click()
   await dragOnCanvas(page, [0.4, 0.4], [0.5, 0.5])
@@ -220,7 +220,7 @@ test("a bed saved as a template goes into another garden", async ({ page }) => {
 })
 
 test("a planting shows on the calendar and on the day it is in the ground", async ({ page }) => {
-  await page.goto("/")
+  await page.goto("/gardens")
   await page.getByRole("button", { name: "New garden" }).click()
   await page.getByRole("button", { name: "Tomato" }).click()
   await dragOnCanvas(page, [0.4, 0.4], [0.6, 0.6])
@@ -263,7 +263,7 @@ test("a planting shows on the calendar and on the day it is in the ground", asyn
 test("the crop list narrows to what the month allows, and a crop says its season", async ({
   page,
 }) => {
-  await page.goto("/")
+  await page.goto("/gardens")
   await page.getByRole("button", { name: "New garden" }).click()
   const crops = page.getByRole("region", { name: "Plants" }).getByRole("button")
   // Counted once the editor is up: before that the list is not there to count.
@@ -289,7 +289,7 @@ test("the crop list narrows to what the month allows, and a crop says its season
 })
 
 test("the plan can be saved as an image and printed", async ({ page }) => {
-  await page.goto("/")
+  await page.goto("/gardens")
   await page.getByRole("button", { name: "New garden" }).click()
   await page.getByRole("textbox", { name: "Garden name" }).fill("Allotment 12")
   await page.getByRole("button", { name: "Tomato" }).click()
@@ -315,14 +315,14 @@ test("the plan can be saved as an image and printed", async ({ page }) => {
 test("a visitor only sees their own gardens", async ({ browser }) => {
   const first = await browser.newContext()
   const firstPage = await first.newPage()
-  await firstPage.goto("/")
+  await firstPage.goto("/gardens")
   await firstPage.getByRole("button", { name: "New garden" }).click()
   await expect(firstPage.getByRole("textbox", { name: "Garden name" })).toBeVisible()
   const gardenUrl = firstPage.url()
 
   const second = await browser.newContext()
   const secondPage = await second.newPage()
-  await secondPage.goto("/")
+  await secondPage.goto("/gardens")
   await expect(secondPage.getByText(/You have no gardens yet/)).toBeVisible()
   await secondPage.goto(gardenUrl)
   await expect(secondPage.getByText(/does not exist, or it belongs to someone else/)).toBeVisible()
@@ -335,7 +335,7 @@ test("a garden opens from its share link with no account, until sharing stops", 
   page,
   browser,
 }) => {
-  await page.goto("/")
+  await page.goto("/gardens")
   await page.getByRole("button", { name: "New garden" }).click()
   await page.getByRole("textbox", { name: "Garden name" }).fill("Shared allotment")
   await page.getByRole("button", { name: "Bed", exact: true }).click()
@@ -401,7 +401,7 @@ test("what happened in a garden is kept, and its notes and amounts stay off a sh
   page,
   browser,
 }) => {
-  await page.goto("/")
+  await page.goto("/gardens")
   await page.getByRole("button", { name: "New garden" }).click()
   await page.getByRole("button", { name: "Tomato" }).click()
   await dragOnCanvas(page, [0.4, 0.4], [0.6, 0.6])
@@ -459,7 +459,7 @@ test("what happened in a garden is kept, and its notes and amounts stay off a sh
 
 test("a guest keeps their gardens with an emailed link, then signs out", async ({ page }) => {
   const address = `gardener-${crypto.randomUUID()}@example.com`
-  await page.goto("/")
+  await page.goto("/gardens")
   await page.getByRole("button", { name: "New garden" }).click()
   await page.getByRole("textbox", { name: "Garden name" }).fill("Kept for later")
   await expect(page.getByText("Saved", { exact: true })).toBeVisible()
@@ -495,7 +495,7 @@ test("the privacy page opens on its own without making a guest, and from the acc
   await expect(page.getByRole("link", { name: "CNPD" })).toBeVisible()
   expect(signUps).toEqual([])
 
-  await page.goto("/")
+  await page.goto("/gardens")
   await page.getByRole("button", { name: "Keep your gardens" }).click()
   await page.getByRole("link", { name: "Privacy" }).click()
   await expect(page).toHaveURL(/\/privacy$/)
@@ -503,7 +503,7 @@ test("the privacy page opens on its own without making a guest, and from the acc
 })
 
 test("a visitor takes their data away, then deletes everything", async ({ page }) => {
-  await page.goto("/")
+  await page.goto("/gardens")
   await page.getByRole("button", { name: "New garden" }).click()
   await page.getByRole("textbox", { name: "Garden name" }).fill("Short-lived plot")
   await expect(page.getByText("Saved", { exact: true })).toBeVisible()
@@ -527,7 +527,7 @@ test("a visitor takes their data away, then deletes everything", async ({ page }
 })
 
 test("a new visitor opens the example garden and finds the advice at work", async ({ page }) => {
-  await page.goto("/")
+  await page.goto("/gardens")
   await page.getByRole("button", { name: "See an example" }).click()
 
   await expect(page.getByRole("textbox", { name: "Garden name" })).toHaveValue("Example garden")
@@ -546,7 +546,7 @@ test("a new visitor opens the example garden and finds the advice at work", asyn
 })
 
 test("the list pictures each garden and makes a copy that stands on its own", async ({ page }) => {
-  await page.goto("/")
+  await page.goto("/gardens")
   await page.getByRole("button", { name: "See an example" }).click()
   await expect(page.getByText("Saved", { exact: true })).toBeVisible()
   await page.getByRole("link", { name: "All gardens" }).click()
@@ -579,7 +579,7 @@ test("the list pictures each garden and makes a copy that stands on its own", as
 })
 
 test("the canvas zooms with its buttons and goes back to fitting the garden", async ({ page }) => {
-  await page.goto("/")
+  await page.goto("/gardens")
   await page.getByRole("button", { name: "New garden" }).click()
   await expect(page.getByTestId("garden-canvas")).toHaveAttribute("data-status", "ready")
 
@@ -604,7 +604,7 @@ test.describe("on a touch screen", () => {
   test.use({ hasTouch: true })
 
   test("two fingers pinch the canvas to zoom, without drawing anything", async ({ page }) => {
-    await page.goto("/")
+    await page.goto("/gardens")
     await page.getByRole("button", { name: "New garden" }).click()
     const canvas = page.getByTestId("garden-canvas")
     await expect(canvas).toHaveAttribute("data-status", "ready")
@@ -642,7 +642,7 @@ test.describe("on a phone", () => {
   test("the garden is in view on arrival, with room to work and nothing over it", async ({
     page,
   }) => {
-    await page.goto("/")
+    await page.goto("/gardens")
     await page.getByRole("button", { name: "See an example" }).click()
     const canvas = page.getByTestId("garden-canvas")
     await expect(canvas).toHaveAttribute("data-status", "ready")
@@ -674,7 +674,7 @@ test.describe("on a phone", () => {
   })
 
   test("the garden stays put while the tools change and the garden saves", async ({ page }) => {
-    await page.goto("/")
+    await page.goto("/gardens")
     await page.getByRole("button", { name: "New garden" }).click()
     const canvas = page.getByTestId("garden-canvas")
     await expect(canvas).toHaveAttribute("data-status", "ready")
@@ -698,7 +698,7 @@ test.describe("on a phone", () => {
   })
 
   test("several beds are picked by touch, without a Shift key", async ({ page }) => {
-    await page.goto("/")
+    await page.goto("/gardens")
     await page.getByRole("button", { name: "New garden" }).click()
     for (const [from, to] of [
       [
@@ -732,7 +732,7 @@ test.describe("on a phone", () => {
   })
 
   test("the header keeps to two lines, with the rest behind a menu", async ({ page }) => {
-    await page.goto("/")
+    await page.goto("/gardens")
     await page.getByRole("button", { name: "See an example" }).click()
     await expect(page.getByTestId("garden-canvas")).toHaveAttribute("data-status", "ready")
 
@@ -755,7 +755,7 @@ test.describe("on a phone", () => {
 })
 
 test("the interface switches to Portuguese", async ({ page }) => {
-  await page.goto("/")
+  await page.goto("/gardens")
   await page.getByRole("combobox", { name: "Language" }).selectOption("pt")
   await expect(page.getByRole("heading", { name: "As tuas hortas" })).toBeVisible()
 })

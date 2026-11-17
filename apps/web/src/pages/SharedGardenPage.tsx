@@ -53,13 +53,17 @@ export function SharedGardenPage({ token, view }: { token: string; view: GardenV
   )
 }
 
-/** The way from someone else's garden to the visitor's own. */
+/**
+ * The way from someone else's garden to the visitor's own. It leads to the
+ * landing page, which says what Leira is to someone who only saw a link. That
+ * page is not part of the app, so this is a plain link that loads it.
+ */
 function OwnGardenLink() {
   const { t } = useTranslation()
   return (
-    <Link to="/" className="text-sm font-medium text-emerald-800 underline">
+    <a href="/" className="text-sm font-medium text-emerald-800 underline">
       {t("shared.own")}
-    </Link>
+    </a>
   )
 }
 

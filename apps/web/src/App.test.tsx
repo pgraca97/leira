@@ -66,7 +66,7 @@ afterEach(() => {
 
 describe("the gardens list", () => {
   it("lists the user's gardens, the most recently changed first", async () => {
-    open("/")
+    open("/gardens")
     const links = await screen.findAllByRole("link", { name: /Tomato patch|Herb spiral/ })
     expect(links.map((link) => link.textContent)).toEqual(["Herb spiral", "Tomato patch"])
   })
@@ -94,7 +94,7 @@ describe("the gardens list", () => {
     })
 
     it("shows a small picture of each garden's plan, without words", async () => {
-      open("/")
+      open("/gardens")
       await screen.findByRole("link", { name: "Tomato patch" })
       const pictures = screen.getAllByRole("img", { hidden: true })
       expect(pictures).toHaveLength(2)
@@ -106,14 +106,14 @@ describe("the gardens list", () => {
     })
 
     it("keeps the pictures out of the way of a screen reader, which has the names", async () => {
-      open("/")
+      open("/gardens")
       await screen.findByRole("link", { name: "Tomato patch" })
       expect(screen.queryAllByRole("img")).toEqual([])
       expect(screen.getAllByRole("link", { name: /Tomato patch|Herb spiral/ })).toHaveLength(2)
     })
 
     it("duplicates a garden with its plan and location, and lists the copy first", async () => {
-      open("/")
+      open("/gardens")
       await userEvent.click(await screen.findByRole("button", { name: "Duplicate Tomato patch" }))
 
       const links = await screen.findAllByRole("link", { name: /Tomato patch|Herb spiral/ })
@@ -146,7 +146,7 @@ describe("the gardens list", () => {
           },
         },
       ])
-      open("/")
+      open("/gardens")
       await userEvent.click(await screen.findByRole("button", { name: "Duplicate Tomato patch" }))
 
       await screen.findByRole("link", { name: "Tomato patch (copy)" })
@@ -158,7 +158,7 @@ describe("the gardens list", () => {
       backend.gardens.create = async () => {
         throw new Error("503")
       }
-      open("/")
+      open("/gardens")
       await userEvent.click(await screen.findByRole("button", { name: "Duplicate Tomato patch" }))
       expect(await screen.findByRole("alert")).toHaveTextContent("could not be duplicated")
     })
@@ -166,13 +166,13 @@ describe("the gardens list", () => {
 
   it("invites the user to create a garden when there are none", async () => {
     backend = fakeBackend()
-    open("/")
+    open("/gardens")
     expect(await screen.findByText(/You have no gardens yet/)).toBeVisible()
   })
 
   it("offers an example to a user with no gardens, and opens it in the editor", async () => {
     backend = fakeBackend()
-    const history = open("/")
+    const history = open("/gardens")
     await userEvent.click(await screen.findByRole("button", { name: "See an example" }))
 
     expect(await screen.findByRole("textbox", { name: "Garden name" })).toHaveValue(
@@ -187,7 +187,7 @@ describe("the gardens list", () => {
   })
 
   it("does not offer the example to a user who already has gardens", async () => {
-    open("/")
+    open("/gardens")
     await screen.findAllByRole("link", { name: /Tomato patch|Herb spiral/ })
     expect(screen.queryByRole("button", { name: "See an example" })).toBeNull()
   })
@@ -197,14 +197,14 @@ describe("the gardens list", () => {
     backend.gardens.create = async () => {
       throw new Error("503")
     }
-    open("/")
+    open("/gardens")
     await userEvent.click(await screen.findByRole("button", { name: "See an example" }))
     expect(await screen.findByRole("alert")).toHaveTextContent("could not be created")
   })
 
   it("creates a garden and opens it in the editor", async () => {
     backend = fakeBackend()
-    const history = open("/")
+    const history = open("/gardens")
     await userEvent.click(await screen.findByRole("button", { name: "New garden" }))
 
     expect(await screen.findByRole("textbox", { name: "Garden name" })).toHaveValue("My garden")
@@ -214,7 +214,7 @@ describe("the gardens list", () => {
 
   it("deletes a garden once the user confirms", async () => {
     const confirm = vi.spyOn(window, "confirm").mockReturnValue(true)
-    open("/")
+    open("/gardens")
     const item = (await screen.findByRole("link", { name: "Tomato patch" })).closest("li")
     await userEvent.click(within(item as HTMLElement).getByRole("button", { name: /Delete/ }))
 
@@ -226,7 +226,7 @@ describe("the gardens list", () => {
 
   it("keeps the garden when the user cancels the deletion", async () => {
     vi.spyOn(window, "confirm").mockReturnValue(false)
-    open("/")
+    open("/gardens")
     const item = (await screen.findByRole("link", { name: "Tomato patch" })).closest("li")
     await userEvent.click(within(item as HTMLElement).getByRole("button", { name: /Delete/ }))
     expect(backend.rows.has(TOMATOES.id)).toBe(true)
@@ -234,7 +234,7 @@ describe("the gardens list", () => {
 
   it("says so when the server cannot be reached, and connects on retry", async () => {
     let attempts = 0
-    open("/", async () => {
+    open("/gardens", async () => {
       if (attempts++ === 0) throw new Error("offline")
       return backend
     })
@@ -332,7 +332,7 @@ describe("a garden's page", () => {
   it("explains that a garden is missing and links back to the list", async () => {
     open("/gardens/99999999-9999-4999-8999-999999999999")
     expect(await screen.findByText(/does not exist/)).toBeVisible()
-    expect(screen.getByRole("link", { name: "All gardens" })).toHaveAttribute("href", "/")
+    expect(screen.getByRole("link", { name: "All gardens" })).toHaveAttribute("href", "/gardens")
   })
 })
 
@@ -508,7 +508,7 @@ describe("the account", () => {
     userEvent.click(await screen.findByRole("button", { name: "Keep your gardens" }))
 
   it("tells a guest how to keep their gardens and emails them a link", async () => {
-    open("/")
+    open("/gardens")
     await openPanel()
     expect(screen.getByText(/only exist in this browser/)).toBeVisible()
 
@@ -520,7 +520,7 @@ describe("the account", () => {
   })
 
   it("asks for a real address before sending anything", async () => {
-    open("/")
+    open("/gardens")
     await openPanel()
     await userEvent.type(screen.getByRole("textbox", { name: "Email" }), "ana@")
     await userEvent.click(screen.getByRole("button", { name: "Send link" }))
@@ -531,7 +531,7 @@ describe("the account", () => {
 
   it("says so when the link could not be sent, and lets the user try again", async () => {
     backend.failNextLink()
-    open("/")
+    open("/gardens")
     await openPanel()
     await userEvent.type(screen.getByRole("textbox", { name: "Email" }), "ana@example.com")
     await userEvent.click(screen.getByRole("button", { name: "Send link" }))
@@ -542,7 +542,7 @@ describe("the account", () => {
   })
 
   it("sends a guest to Google to keep their gardens", async () => {
-    open("/")
+    open("/gardens")
     await openPanel()
     await userEvent.click(screen.getByRole("button", { name: "Continue with Google" }))
     await waitFor(() => expect(backend.googleStarts).toBe(1))
@@ -550,7 +550,7 @@ describe("the account", () => {
 
   it("says so when Google could not be reached", async () => {
     backend.failNextGoogle()
-    open("/")
+    open("/gardens")
     await openPanel()
     await userEvent.click(screen.getByRole("button", { name: "Continue with Google" }))
     expect(await screen.findByRole("alert")).toHaveTextContent(/Google/)
@@ -558,7 +558,7 @@ describe("the account", () => {
 
   it("shows who is signed in and signs them out", async () => {
     backend.email = "ana@example.com"
-    open("/")
+    open("/gardens")
     await userEvent.click(await screen.findByRole("button", { name: "ana@example.com" }))
     await userEvent.click(screen.getByRole("button", { name: "Sign out" }))
 
@@ -575,11 +575,11 @@ describe("the account", () => {
 
     // Signed out, the visitor is a new guest, who owns nothing yet.
     expect(await screen.findByText(/You have no gardens yet/)).toBeVisible()
-    expect(history.location.pathname).toBe("/")
+    expect(history.location.pathname).toBe("/gardens")
   })
 
   it("notices a link opened in another tab when the user comes back", async () => {
-    open("/")
+    open("/gardens")
     await screen.findByRole("button", { name: "Keep your gardens" })
 
     backend.email = "ana@example.com"
@@ -591,7 +591,7 @@ describe("the account", () => {
   it("lets anyone download everything kept about them", async () => {
     vi.useFakeTimers({ now: new Date("2026-11-17T10:00:00Z"), toFake: ["Date"] })
     try {
-      open("/")
+      open("/gardens")
       await openPanel()
       await userEvent.click(screen.getByRole("button", { name: "Download my data" }))
       await waitFor(() => expect(downloadText).toHaveBeenCalledTimes(1))
@@ -609,7 +609,7 @@ describe("the account", () => {
 
   it("says so when the data could not be downloaded", async () => {
     backend.failNextExport()
-    open("/")
+    open("/gardens")
     await openPanel()
     await userEvent.click(screen.getByRole("button", { name: "Download my data" }))
     expect(await screen.findByRole("alert")).toHaveTextContent("Your data could not be downloaded.")
@@ -627,13 +627,13 @@ describe("the account", () => {
     await userEvent.click(screen.getByRole("button", { name: "Delete for good" }))
 
     expect(await screen.findByText(/You have no gardens yet/)).toBeVisible()
-    expect(history.location.pathname).toBe("/")
+    expect(history.location.pathname).toBe("/gardens")
     expect(backend.deletedAccounts).toBe(1)
     expect(screen.getByRole("button", { name: "Keep your gardens" })).toBeVisible()
   })
 
   it("keeps the account when the user changes their mind", async () => {
-    open("/")
+    open("/gardens")
     await openPanel()
     await userEvent.click(screen.getByRole("button", { name: "Delete account" }))
     await userEvent.click(screen.getByRole("button", { name: "Cancel" }))
@@ -645,7 +645,7 @@ describe("the account", () => {
 
   it("says so when the account could not be deleted, and keeps everything", async () => {
     backend.failNextDelete()
-    open("/")
+    open("/gardens")
     await openPanel()
     await userEvent.click(screen.getByRole("button", { name: "Delete account" }))
     await userEvent.click(screen.getByRole("button", { name: "Delete for good" }))
@@ -655,7 +655,7 @@ describe("the account", () => {
   })
 
   it("closes the panel on Escape", async () => {
-    open("/")
+    open("/gardens")
     await openPanel()
     await userEvent.keyboard("{Escape}")
     expect(screen.queryByRole("textbox", { name: "Email" })).toBeNull()
@@ -1112,12 +1112,15 @@ describe("a shared garden", () => {
     expect(noSession).not.toHaveBeenCalled()
   })
 
-  it("leads on to the visitor's own gardens, which is when they get a session", async () => {
+  // The landing page says what Leira is before anyone becomes a guest.
+  it("leads on to the landing page, still with no session", async () => {
     const connect = vi.fn(async () => backend)
     open(`/shared/${TOKEN}`, connect)
-    await userEvent.click(await screen.findByRole("link", { name: "Plan your own garden" }))
-    expect(await screen.findByRole("button", { name: "New garden" })).toBeVisible()
-    expect(connect).toHaveBeenCalledTimes(1)
+    expect(await screen.findByRole("link", { name: "Plan your own garden" })).toHaveAttribute(
+      "href",
+      "/"
+    )
+    expect(connect).not.toHaveBeenCalled()
   })
 })
 
@@ -1344,7 +1347,7 @@ describe("the privacy page", () => {
   })
 
   it("is reached from the account panel", async () => {
-    open("/")
+    open("/gardens")
     await userEvent.click(await screen.findByRole("button", { name: "Keep your gardens" }))
     await userEvent.click(screen.getByRole("link", { name: "Privacy" }))
     expect(await screen.findByRole("heading", { level: 1, name: "Privacy" })).toBeVisible()

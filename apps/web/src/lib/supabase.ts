@@ -44,7 +44,8 @@ export async function connectBackend(): Promise<Backend> {
   recordVisit(client)
   if (refusal) window.history.replaceState(null, "", window.location.pathname)
 
-  const account = accountApi(client, window.location.origin, { captcha })
+  // Signing in comes back to the gardens: `/` is the landing page, which knows nothing of sessions.
+  const account = accountApi(client, `${window.location.origin}/gardens`, { captcha })
   if (refusal === IDENTITY_TAKEN) {
     // The guest chose a Google account that is already registered here, so
     // it cannot be attached to them: sign in to that account instead. The

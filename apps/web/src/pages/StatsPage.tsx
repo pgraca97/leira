@@ -51,7 +51,7 @@ export function StatsPage() {
       <div className="flex h-full flex-col">
         <AppHeader />
         <Notice kind="info" message={t("stats.forbidden")}>
-          <Link to="/" className="text-emerald-800 underline">
+          <Link to="/gardens" className="text-emerald-800 underline">
             {t("garden.back")}
           </Link>
         </Notice>

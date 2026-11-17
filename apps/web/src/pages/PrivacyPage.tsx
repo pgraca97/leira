@@ -67,7 +67,7 @@ export function PrivacyPage() {
       <div className="flex-1 overflow-y-auto">
         <main className="mx-auto flex w-full max-w-prose flex-col gap-6 px-4 py-6 text-sm leading-relaxed text-stone-700">
           <header className="flex flex-col gap-2">
-            <Link to="/" className={`${linkClass} self-start`}>
+            <Link to="/gardens" className={`${linkClass} self-start`}>
               {t("garden.back")}
             </Link>
             <h1 className="text-2xl font-semibold text-stone-900">{t("privacy.title")}</h1>

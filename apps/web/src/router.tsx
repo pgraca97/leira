@@ -32,9 +32,10 @@ const sessionRoute = createRoute({
   ),
 })
 
+/** The user's gardens. `/` is the landing page, a static file the app never sees. */
 const gardensRoute = createRoute({
   getParentRoute: () => sessionRoute,
-  path: "/",
+  path: "/gardens",
   component: GardensPage,
 })
 
@@ -106,7 +107,7 @@ function PageNotFound() {
     <div className="flex h-full flex-col">
       <AppHeader />
       <Notice kind="info" message={t("common.pageNotFound")}>
-        <Link to="/" className="text-emerald-800 underline">
+        <Link to="/gardens" className="text-emerald-800 underline">
           {t("garden.back")}
         </Link>
       </Notice>
