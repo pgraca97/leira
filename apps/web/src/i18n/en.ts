@@ -96,7 +96,7 @@ export const en = {
   },
   save: {
     saved: "Saved",
-    pending: "Unsaved changes",
+    pending: "Unsaved",
     saving: "Saving…",
     error: "Your changes could not be saved.",
     conflict: "This garden was changed somewhere else, so your last changes here were not saved.",

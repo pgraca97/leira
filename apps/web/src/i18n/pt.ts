@@ -98,7 +98,7 @@ export const pt: Translation = {
   },
   save: {
     saved: "Guardado",
-    pending: "Alterações por guardar",
+    pending: "Por guardar",
     saving: "A guardar…",
     error: "Não foi possível guardar as alterações.",
     conflict:

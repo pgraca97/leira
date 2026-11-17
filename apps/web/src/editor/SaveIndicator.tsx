@@ -29,8 +29,23 @@ export function SaveIndicator({ status, onRetry, onReload }: SaveIndicatorProps)
   }
 
   return (
-    <p role="status" className="text-sm text-stone-500">
-      {t(`save.${status}`)}
+    // Every label sits in the same cell, so the indicator is always as wide as
+    // the longest one. Otherwise each save would change its width, and on a
+    // phone that wraps the header and moves the garden. The others are drawn
+    // from an attribute by CSS, so they are no part of the page's text.
+    <p role="status" className="grid text-sm text-stone-500">
+      {QUIET_STATUSES.filter((other) => other !== status).map((other) => (
+        <span
+          key={other}
+          aria-hidden="true"
+          data-label={t(`save.${other}`)}
+          className="invisible col-start-1 row-start-1 whitespace-nowrap before:content-[attr(data-label)]"
+        />
+      ))}
+      <span className="col-start-1 row-start-1 whitespace-nowrap">{t(`save.${status}`)}</span>
     </p>
   )
 }
+
+/** The states that need nothing from the user, and so share one small label. */
+const QUIET_STATUSES = ["saved", "pending", "saving"] as const
