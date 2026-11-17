@@ -19,6 +19,8 @@
     "run_worker_first": [
       "/api/*",
       "/app",
+      // Google Search Console's verification file, see worker/app.ts.
+      "/google2109b0318d502cf4.html",
       "/gardens",
       "/gardens/*",
       "/shared/*",

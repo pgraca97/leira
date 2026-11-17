@@ -91,6 +91,14 @@ export function createApp(deps: AppDeps) {
   app.get("/api/health", (c) => c.json({ ok: true }))
 
   /**
+   * Proves to Google Search Console that the site is Paulo's. Served here,
+   * not as a static file: the static files redirect `/name.html` to `/name`.
+   */
+  app.get(`/${GOOGLE_VERIFICATION}`, (c) =>
+    c.text(`google-site-verification: ${GOOGLE_VERIFICATION}`)
+  )
+
+  /**
    * The public Supabase settings, so the browser reads them from the same
    * place as the Worker and a build works in every environment. Both values
    * are meant to be public: row level security is what protects the data.
@@ -292,6 +300,9 @@ export function createApp(deps: AppDeps) {
 
   return app
 }
+
+/** The file Google Search Console asked for, by its name. */
+const GOOGLE_VERIFICATION = "google2109b0318d502cf4.html"
 
 /** The app pages meant for anyone to find. The rest belong to someone. */
 const PUBLIC_APP_PAGES = new Set(["/privacy"])

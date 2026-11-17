@@ -156,6 +156,15 @@ describe("unknown routes", () => {
   })
 })
 
+describe("Google's site verification file", () => {
+  // The static files would redirect `/name.html` to `/name`, which the check may not follow.
+  it("answers at its exact address, with no redirect", async () => {
+    const response = await request("/google2109b0318d502cf4.html", {})
+    expect(response.status).toBe(200)
+    expect(await response.text()).toBe("google-site-verification: google2109b0318d502cf4.html")
+  })
+})
+
 describe("the app's pages", () => {
   /** The built files, with only the app shell in them. */
   function fakeAssets() {
