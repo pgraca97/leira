@@ -1218,3 +1218,79 @@ describe("the usage stats", () => {
     expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument()
   })
 })
+
+describe("templates", () => {
+  const BED = {
+    id: "44444444-4444-4444-8444-444444444444",
+    name: "Herb bed",
+    kind: "bed" as const,
+    rect: { x: 0, y: 0, w: 200, h: 100 },
+  }
+  const ITEMS = { format: 1 as const, beds: [BED], plantings: [] }
+
+  function savedTemplate(name: string) {
+    return { id: crypto.randomUUID(), name, items: ITEMS, createdAt: "2026-11-01T10:00:00.000Z" }
+  }
+
+  it("saves the selection under a name and inserts it into another garden", async () => {
+    backend = fakeBackend([{ ...TOMATOES, plan: { ...emptyPlan(), beds: [BED] } }, HERBS])
+    open(`/gardens/${TOMATOES.id}`)
+    await userEvent.click(await screen.findByRole("button", { name: /^Herb bed/ }))
+    const templates = screen.getByRole("region", { name: "My templates" })
+    await userEvent.type(within(templates).getByRole("textbox", { name: "Template name" }), "Herbs")
+    await userEvent.click(
+      within(templates).getByRole("button", { name: "Save selection as template" })
+    )
+    await waitFor(() => expect(backend.savedTemplates.map((item) => item.name)).toEqual(["Herbs"]))
+
+    cleanup()
+    open(`/gardens/${HERBS.id}`)
+    const list = await screen.findByRole("region", { name: "My templates" })
+    await userEvent.click(await within(list).findByRole("button", { name: "Insert Herbs" }))
+    await waitFor(() =>
+      expect(backend.rows.get(HERBS.id)?.plan.beds).toEqual([{ ...BED, id: expect.any(String) }])
+    )
+  })
+
+  it("offers to save only while something is selected", async () => {
+    open(`/gardens/${TOMATOES.id}`)
+    const templates = await screen.findByRole("region", { name: "My templates" })
+    expect(within(templates).queryByRole("textbox", { name: "Template name" })).toBeNull()
+    expect(within(templates).getByText(/save them here/)).toBeVisible()
+  })
+
+  it("deletes a template", async () => {
+    backend.savedTemplates = [savedTemplate("Old layout")]
+    open(`/gardens/${TOMATOES.id}`)
+    const list = await screen.findByRole("region", { name: "My templates" })
+    await userEvent.click(
+      await within(list).findByRole("button", { name: "Delete template Old layout" })
+    )
+    await waitFor(() => expect(backend.savedTemplates).toEqual([]))
+    await waitFor(() => expect(within(list).queryByText("Old layout")).toBeNull())
+  })
+
+  it("says so when the user has as many as one may keep", async () => {
+    backend = fakeBackend([{ ...TOMATOES, plan: { ...emptyPlan(), beds: [BED] } }])
+    backend.savedTemplates = Array.from({ length: 50 }, (_, index) => savedTemplate(`T${index}`))
+    open(`/gardens/${TOMATOES.id}`)
+    await userEvent.click(await screen.findByRole("button", { name: /^Herb bed/ }))
+    const templates = screen.getByRole("region", { name: "My templates" })
+    await userEvent.type(within(templates).getByRole("textbox", { name: "Template name" }), "More")
+    await userEvent.click(
+      within(templates).getByRole("button", { name: "Save selection as template" })
+    )
+    expect(await within(templates).findByRole("alert")).toHaveTextContent(
+      "You have 50 templates already"
+    )
+  })
+
+  it("says so when a template does not fit the garden", async () => {
+    backend = fakeBackend([{ ...TOMATOES, plan: { ...emptyPlan(), widthCm: 150, heightCm: 150 } }])
+    backend.savedTemplates = [savedTemplate("Wide bed")]
+    open(`/gardens/${TOMATOES.id}`)
+    const list = await screen.findByRole("region", { name: "My templates" })
+    await userEvent.click(await within(list).findByRole("button", { name: "Insert Wide bed" }))
+    expect(await within(list).findByRole("alert")).toHaveTextContent("does not fit this garden")
+  })
+})

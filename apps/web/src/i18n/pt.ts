@@ -390,4 +390,19 @@ export const pt: Translation = {
     workers: "Pedidos e escritas na cache (Cloudflare Workers)",
     supabase: "Tamanho da base de dados e utilizadores por mês (Supabase)",
   },
+  templates: {
+    title: "Os meus modelos",
+    empty:
+      "Seleciona canteiros ou culturas e guarda-os aqui, para os usares outra vez em qualquer horta.",
+    name: "Nome do modelo",
+    save: "Guardar seleção como modelo",
+    saveFailed: "Não foi possível guardar o modelo. Tenta outra vez.",
+    limit: "Já tens 50 modelos. Apaga um para guardares outro.",
+    loadFailed: "Não foi possível carregar os teus modelos.",
+    insert: "Inserir",
+    insertNamed: "Inserir {{name}}",
+    delete: "Apagar",
+    deleteNamed: "Apagar o modelo {{name}}",
+    doesNotFit: "Esse modelo não cabe nesta horta.",
+  },
 }

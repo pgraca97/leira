@@ -21,6 +21,7 @@ import {
 } from "../lib/gardens"
 import type { GardenView } from "../router"
 import { ShareControls } from "../share/ShareControls"
+import { TemplatesPanel } from "../templates/TemplatesPanel"
 import { WeatherPanel } from "../weather/WeatherPanel"
 
 /** One garden: loads it, then hands it to the editor or the calendar. */
@@ -123,7 +124,14 @@ function LoadedGarden({ garden, view, onReload }: LoadedGardenProps) {
             }}
           />
         ) : (
-          <Editor aside={<WeatherPanel location={location} onLocationChange={setLocation} />} />
+          <Editor
+            aside={
+              <>
+                <TemplatesPanel />
+                <WeatherPanel location={location} onLocationChange={setLocation} />
+              </>
+            }
+          />
         )}
       </div>
       <PrintSheet gardenName={name} />

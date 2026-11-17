@@ -6,6 +6,7 @@ import type { Backend } from "./backend"
 import { loadConfig } from "./config"
 import { gardensApi } from "./gardens"
 import { statsApi } from "./stats"
+import { templatesApi } from "./templates"
 import { recordVisit } from "./visits"
 
 /**
@@ -79,5 +80,6 @@ export async function connectBackend(): Promise<Backend> {
     forecast: (lat, lon) => workerRoute("/api/forecast", at(lat, lon), ForecastSchema),
     places: (query) => workerRoute("/api/places", { q: query }, PlacesSchema),
     stats: statsApi(client),
+    templates: templatesApi(client),
   }
 }

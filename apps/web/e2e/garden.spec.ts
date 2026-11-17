@@ -196,6 +196,29 @@ test("this year's tomatoes are pasted into next year, and rotation says to move 
   await expect(plantings).toHaveCount(2)
 })
 
+test("a bed saved as a template goes into another garden", async ({ page }) => {
+  await page.goto("/")
+  await page.getByRole("button", { name: "New garden" }).click()
+  await page.getByRole("button", { name: "Bed", exact: true }).click()
+  await dragOnCanvas(page, [0.4, 0.4], [0.5, 0.5])
+
+  const templates = page.getByRole("region", { name: "My templates" })
+  await templates.getByRole("textbox", { name: "Template name" }).fill("Raised bed")
+  await templates.getByRole("button", { name: "Save selection as template" }).click()
+  await expect(templates.getByRole("button", { name: "Insert Raised bed" })).toBeVisible()
+  await expect(page.getByText("Saved", { exact: true })).toBeVisible()
+
+  await page.getByRole("link", { name: "All gardens" }).click()
+  await page.getByRole("button", { name: "New garden" }).click()
+  await expect(page.getByRole("button", { name: /^Bed \d/ })).toHaveCount(0)
+  await templates.getByRole("button", { name: "Insert Raised bed" }).click()
+  await expect(page.getByRole("button", { name: /^Bed 1/ })).toBeVisible()
+
+  await expect(page.getByText("Saved", { exact: true })).toBeVisible()
+  await page.reload()
+  await expect(page.getByRole("button", { name: /^Bed 1/ })).toBeVisible()
+})
+
 test("a planting shows on the calendar and on the day it is in the ground", async ({ page }) => {
   await page.goto("/")
   await page.getByRole("button", { name: "New garden" }).click()

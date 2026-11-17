@@ -385,6 +385,20 @@ export const en = {
     workers: "Requests and cache writes (Cloudflare Workers)",
     supabase: "Database size and monthly users (Supabase)",
   },
+  templates: {
+    title: "My templates",
+    empty: "Select beds or crops and save them here, to use them again in any garden.",
+    name: "Template name",
+    save: "Save selection as template",
+    saveFailed: "The template could not be saved. Try again.",
+    limit: "You have 50 templates already. Delete one to save another.",
+    loadFailed: "Your templates could not be loaded.",
+    insert: "Insert",
+    insertNamed: "Insert {{name}}",
+    delete: "Delete",
+    deleteNamed: "Delete template {{name}}",
+    doesNotFit: "That template does not fit this garden.",
+  },
 }
 
 export type Translation = typeof en

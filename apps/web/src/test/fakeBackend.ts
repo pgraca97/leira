@@ -8,6 +8,7 @@ import {
   type GardensApi,
 } from "../lib/gardens"
 import { StatsForbiddenError, type UsageStats } from "../lib/stats"
+import { type Template, TemplateLimitError } from "../lib/templates"
 
 export interface FakeBackend extends Backend {
   /** The stored gardens, to seed and to inspect. */
@@ -49,6 +50,10 @@ export interface FakeBackend extends Backend {
   admin: boolean
   /** What the stats answer an admin: the numbers, or an error to throw. */
   statsResult: UsageStats | Error
+  /** The user's saved templates, oldest first, to seed and to inspect. */
+  savedTemplates: Template[]
+  /** Makes the next save of a template fail. */
+  failNextTemplateSave(): void
 }
 
 /** A backend that keeps gardens in memory and follows the real one's rules. */
@@ -146,6 +151,8 @@ export function fakeBackend(seed: Garden[] = []): FakeBackend {
   let linkFailure = false
   let googleFailure = false
   let exportFailure = false
+  let templateSaveFailure = false
+  let nextTemplate = 1
   let deleteFailure = false
 
   const backend: FakeBackend = {
@@ -188,6 +195,7 @@ export function fakeBackend(seed: Garden[] = []): FakeBackend {
         // The real backend starts over as a new guest, who owns no gardens.
         rows.clear()
         shares.clear()
+        backend.savedTemplates = []
       },
       async exportData() {
         if (exportFailure) {
@@ -217,6 +225,7 @@ export function fakeBackend(seed: Garden[] = []): FakeBackend {
         backend.email = null
         rows.clear()
         shares.clear()
+        backend.savedTemplates = []
       },
     },
     rows,
@@ -242,6 +251,34 @@ export function fakeBackend(seed: Garden[] = []): FakeBackend {
       backend.placeQueries.push(query)
       if (backend.placesResult instanceof Error) throw backend.placesResult
       return backend.placesResult
+    },
+    savedTemplates: [],
+    failNextTemplateSave() {
+      templateSaveFailure = true
+    },
+    templates: {
+      async list() {
+        return structuredClone([...backend.savedTemplates].reverse())
+      },
+      async save(name, items) {
+        if (templateSaveFailure) {
+          templateSaveFailure = false
+          throw new Error("database down")
+        }
+        // The real database keeps fifty a user.
+        if (backend.savedTemplates.length >= 50) throw new TemplateLimitError()
+        const template: Template = {
+          id: `bbbbbbbb-bbbb-4bbb-8bbb-${String(nextTemplate++).padStart(12, "0")}`,
+          name,
+          items: structuredClone(items),
+          createdAt: now(),
+        }
+        backend.savedTemplates.push(template)
+        return structuredClone(template)
+      },
+      async remove(id) {
+        backend.savedTemplates = backend.savedTemplates.filter((template) => template.id !== id)
+      },
     },
     admin: false,
     statsResult: new Error("no stats set"),

@@ -33,6 +33,8 @@ import {
   resizeItem,
   resizePlan,
   toIsoDate,
+  yearOf,
+  yearsUntil,
 } from "@leira/core"
 import { temporal } from "zundo"
 import { createStore } from "zustand/vanilla"
@@ -142,6 +144,12 @@ export interface EditorState {
    * fit this garden.
    */
   paste(options: { nextYear: boolean }): boolean
+  /**
+   * Adds a saved template where it was when saved, its crops moved to the year
+   * shown (or this year) on the same days, and selects it. Returns false when it
+   * does not fit this garden.
+   */
+  insertTemplate(items: Clipboard): boolean
   /** Replaces what was copied, e.g. with what another tab copied. */
   setClipboard(clipboard: Clipboard | null): void
   /** Removes every selected item, in one undo step. */
@@ -430,6 +438,18 @@ export const editorStore = createStore<EditorState>()(
             pasteRefused: false,
             viewDate: nextYear && viewDate ? addMonths(viewDate, 12) : viewDate,
           })
+          return true
+        },
+
+        insertTemplate: (items) => {
+          const { plan, viewDate } = get()
+          const year = yearOf(viewDate ?? toIsoDate(new Date()))
+          const inserted = pasteItems(plan, items, {
+            newId: () => crypto.randomUUID(),
+            yearsLater: yearsUntil(items, year),
+          })
+          if (!inserted) return false
+          set({ plan: inserted.plan, selection: inserted.refs, pasteRefused: false })
           return true
         },
 

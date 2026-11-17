@@ -3,6 +3,7 @@ import { createContext, useContext } from "react"
 import type { AccountApi } from "./account"
 import type { GardensApi, SharedGarden } from "./gardens"
 import type { StatsApi } from "./stats"
+import type { TemplatesApi } from "./templates"
 
 /** Everything the pages need from the server. Tests pass an in-memory one. */
 export interface Backend {
@@ -16,6 +17,8 @@ export interface Backend {
   places(query: string): Promise<Place[]>
   /** How the app is used, for its admins only. */
   stats: StatsApi
+  /** The user's saved groups of beds and crops. */
+  templates: TemplatesApi
 }
 
 export const BackendContext = createContext<Backend | null>(null)

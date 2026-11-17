@@ -640,3 +640,41 @@ describe("copy and paste", () => {
     expect(state().pasteRefused).toBe(false)
   })
 })
+
+describe("inserting a template", () => {
+  const SAVED = {
+    format: 1 as const,
+    beds: [BED],
+    plantings: [{ ...TOMATO, inGround: { from: "2024-05-01", to: "2024-09-30" } }],
+  }
+
+  it("puts its crops in the year shown, on the same days, and selects what came", () => {
+    state().loadPlan(emptyPlan())
+    state().setViewDate("2027-06-01")
+    expect(state().insertTemplate(SAVED)).toBe(true)
+    expect(state().plan.plantings[0]?.inGround).toEqual({ from: "2027-05-01", to: "2027-09-30" })
+    expect(state().selection).toHaveLength(2)
+  })
+
+  it("uses this year when the whole plan is shown", () => {
+    vi.useFakeTimers({ now: new Date(2026, 1, 10), toFake: ["Date"] })
+    try {
+      state().loadPlan(emptyPlan())
+      state().insertTemplate(SAVED)
+      expect(state().plan.plantings[0]?.inGround.from).toBe("2026-05-01")
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it("is one undo step, and refused when it does not fit", () => {
+    state().loadPlan(emptyPlan())
+    state().insertTemplate(SAVED)
+    undo()
+    expect(state().plan.beds).toEqual([])
+
+    state().loadPlan({ ...emptyPlan(), widthCm: 300, heightCm: 200 })
+    expect(state().insertTemplate(SAVED)).toBe(false)
+    expect(state().plan.beds).toEqual([])
+  })
+})
