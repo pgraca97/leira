@@ -21,6 +21,8 @@ interface DocumentProps {
   indexAs?: "home"
   /** What the page is, for search engines, as schema.org data. */
   structuredData?: object
+  /** Runs before anything on the page is drawn or loaded. */
+  inlineScript?: string
   children: ReactNode
 }
 
@@ -35,6 +37,7 @@ export function Document({
   assets,
   indexAs,
   structuredData,
+  inlineScript,
   children,
 }: DocumentProps) {
   const url = indexAs ? siteUrl(HOME[language]) : null
@@ -43,6 +46,10 @@ export function Document({
       <head>
         <meta charSet="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        {inlineScript && (
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: written here at build time, never from input
+          <script dangerouslySetInnerHTML={{ __html: inlineScript }} />
+        )}
         <title>{title}</title>
         <meta name="description" content={description} />
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />

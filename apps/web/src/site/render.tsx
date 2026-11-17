@@ -4,6 +4,7 @@ import { I18nextProvider } from "react-i18next"
 import { Document, type SiteAssets } from "./Document"
 import { Landing } from "./Landing"
 import { NotFound } from "./NotFound"
+import { OPEN_APP_SCRIPT } from "./openApp"
 import { HOME, LANGUAGE_TAG, SITE_LANGUAGES, type SiteLanguage, siteStrings, siteUrl } from "./site"
 
 export type { SiteAssets } from "./Document"
@@ -38,6 +39,7 @@ export function renderSite(assets: SiteAssets): SiteFile[] {
             assets={assets}
             indexAs="home"
             structuredData={webApplication(language, t("landing.meta.description"))}
+            inlineScript={OPEN_APP_SCRIPT}
           >
             <Landing language={language} />
           </Document>

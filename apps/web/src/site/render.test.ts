@@ -104,6 +104,17 @@ describe.each([
     for (const link of starts) expect(link.getAttribute("href")).toBe("/gardens")
   })
 
+  it("sends a returning visitor on to the app before anything is drawn", () => {
+    const head = [...doc.head.children]
+    const first = head.find((element) => element.tagName === "SCRIPT")
+    expect(first?.getAttribute("src")).toBeNull()
+    expect(first?.textContent).toContain("/gardens")
+    expect(first?.textContent).toContain("auth-token")
+    // Before the styles, which the browser would otherwise fetch first.
+    const styles = head.findIndex((element) => element.matches('link[rel="stylesheet"]'))
+    expect(head.indexOf(first as Element)).toBeLessThan(styles)
+  })
+
   it("shows the example garden as a drawing", () => {
     expect(doc.querySelector("main svg[role='img']")).not.toBeNull()
   })
@@ -125,6 +136,11 @@ describe.each([
   { path: "en/404.html", home: "/en/", strings: en },
 ])("the 404 page at $path", ({ path, home, strings }) => {
   const doc = page(path)
+
+  // A mistyped address is not a way into the app.
+  it("lets anyone read it", () => {
+    expect(doc.querySelector("script:not([src]):not([type])")).toBeNull()
+  })
 
   it("stays out of search results", () => {
     expect(meta(doc, 'name="robots"')).toBe("noindex")

@@ -31,10 +31,11 @@ export function AppHeader({ children, secondary }: AppHeaderProps) {
 
   return (
     <header className="flex flex-wrap print:hidden items-center gap-x-4 gap-y-2 border-b border-stone-200 bg-white px-4 py-2">
-      <p className="flex items-center gap-2 font-semibold text-emerald-900">
+      {/* A full page load: the landing page is a static file, not a page of the app. */}
+      <a href="/" className="flex items-center gap-2 font-semibold text-emerald-900">
         <img src="/favicon.svg" alt="" className="size-5" />
         {t("app.name")}
-      </p>
+      </a>
       <div className="flex flex-1 flex-wrap items-center justify-end gap-x-4 gap-y-2">
         {children}
         {secondary ? (

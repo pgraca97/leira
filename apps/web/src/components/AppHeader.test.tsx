@@ -19,6 +19,12 @@ function showHeader() {
 }
 
 describe("AppHeader", () => {
+  // A full page load, not a route: the landing page is a static file, not part of the app.
+  it("leads to the landing page from the name", () => {
+    render(<AppHeader />)
+    expect(screen.getByRole("link", { name: "Leira" })).toHaveAttribute("href", "/")
+  })
+
   it("has no menu when the page has nothing to put in it", () => {
     render(<AppHeader />)
     expect(screen.queryByRole("button", { name: "More" })).toBeNull()
