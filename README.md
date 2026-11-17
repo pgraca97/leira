@@ -40,9 +40,10 @@ A _leira_ is what a plot of cultivated land is called in Minho, in the north of 
 - **Records:** the variety of a planting, in the gardener's own words, a harvest log per planting,
   in kilos or units, with what the crop gave in total, and free notes on a planting and on the
   garden for what went wrong and what to try next year.
-- **Export:** save the plan as a PNG or print a sheet with the plan and a planting table. The jobs
-  still to do go to a phone or desktop calendar as an `.ics` file, and each year has a list of
-  the plants to get, added up from the plan.
+- **Export:** save the plan as a PNG or print a sheet with the plan and a planting table, or
+  save the garden as a JSON file to import again later. The jobs still to do go to a phone or
+  desktop calendar as an `.ics` file, and each year has a list of the plants to get, added up
+  from the plan.
 - **Share:** a read-only link shows a garden's plan and calendar to anyone, with no account. The
   owner chooses whether it says where the garden is, and can turn it off at any time. Notes and
   harvest amounts never leave with the link.
@@ -171,8 +172,14 @@ The last two need `pnpm db:start` and a filled-in `.dev.vars`.
   with them, and a nightly `pg_cron` sweep removes any line naming a user who no longer exists.
 - **People can take their data and leave.** One database function hands over everything kept
   about the caller (account, profile, gardens with their links, activity days) as a JSON file with
-  a format number, so a later import can read it. Another deletes the caller's user, and every
-  table cascades from it. Both act only on whoever calls them, so there is nothing to check.
+  a format number. Another deletes the caller's user, and every table cascades from it. Both act
+  only on whoever calls them, so there is nothing to check.
+- **What was exported comes back in.** The gardens list imports the account's file or one
+  garden's (the same shape, with only `gardens` in it). The whole file is read and checked first,
+  each plan through `migratePlan`, so nothing it cannot read is written; then every garden and
+  template is added as a new copy, notes and harvests included. Share links do not come back,
+  since the server makes their tokens. There is no transaction around the saves, so a failure
+  part way says how many came in.
 
 ## Repository layout
 
