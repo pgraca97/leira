@@ -20,7 +20,30 @@ const PLATFORM = `
     email text,
     is_anonymous boolean not null default false,
     created_at timestamptz not null default now(),
-    last_sign_in_at timestamptz
+    last_sign_in_at timestamptz,
+    raw_user_meta_data jsonb
+  );
+  create table auth.identities (
+    id uuid primary key default gen_random_uuid(),
+    user_id uuid not null references auth.users (id) on delete cascade,
+    provider text not null,
+    created_at timestamptz
+  );
+  create table auth.sessions (
+    id uuid primary key default gen_random_uuid(),
+    user_id uuid not null references auth.users (id) on delete cascade,
+    created_at timestamptz,
+    updated_at timestamptz,
+    refreshed_at timestamp,
+    user_agent text,
+    ip inet
+  );
+  create table auth.audit_log_entries (
+    instance_id uuid,
+    id uuid primary key,
+    payload json,
+    created_at timestamptz,
+    ip_address varchar(64) not null default ''
   );
   create function auth.uid() returns uuid language sql stable
     as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
@@ -517,6 +540,25 @@ async function wasActive(userId: string, daysAgo: number): Promise<void> {
   )
 }
 
+/** A line in the auth server's audit log about something `userId` did, with their email in it. */
+async function audited(userId: string): Promise<void> {
+  await db.exec("reset role")
+  await db.query(
+    `insert into auth.audit_log_entries (id, payload, created_at, ip_address)
+     values (gen_random_uuid(), json_build_object('actor_id', $1::text, 'actor_username', 'someone@example.com', 'action', 'login'), now(), '203.0.113.7')`,
+    [userId]
+  )
+}
+
+/** Whose lines are left in the audit log, one entry per line. */
+async function auditedUsers(): Promise<string[]> {
+  await db.exec("reset role")
+  const result = await db.query<{ id: string }>(
+    "select payload ->> 'actor_id' as id from auth.audit_log_entries order by id"
+  )
+  return result.rows.map((row) => row.id)
+}
+
 describe("visits", () => {
   it("are recorded once a day for the signed-in user", async () => {
     await db.query("select public.record_visit()")
@@ -680,7 +722,18 @@ describe("a user's own data", () => {
   interface Export {
     format: number
     exportedAt: string
-    account: { email: string | null; createdAt: string }
+    account: {
+      email: string | null
+      createdAt: string
+      signInMethods: { provider: string; addedAt: string }[]
+      fromSignIn: Record<string, unknown> | null
+      sessions: {
+        createdAt: string
+        lastActiveAt: string | null
+        userAgent: string | null
+        ip: string | null
+      }[]
+    }
     profile: { displayName: string | null; locale: string }
     gardens: {
       name: string
@@ -731,12 +784,67 @@ describe("a user's own data", () => {
     expect(data.activityDays).toHaveLength(1)
   })
 
+  it("says how the user signs in, what the sign-in sent and where they are signed in", async () => {
+    await db.exec("reset role")
+    await db.query("update auth.users set raw_user_meta_data = $1 where id = $2", [
+      JSON.stringify({ name: "Alice", picture: "https://example.com/alice.png" }),
+      alice,
+    ])
+    await db.query("update auth.users set raw_user_meta_data = $1 where id = $2", [
+      JSON.stringify({ name: "Bob" }),
+      bob,
+    ])
+    await db.query(
+      `insert into auth.identities (user_id, provider, created_at) values
+         ($1, 'google', '2026-11-02T09:00:00Z'),
+         ($1, 'email', '2026-11-01T09:00:00Z'),
+         ($2, 'github', '2026-11-01T08:00:00Z')`,
+      [alice, bob]
+    )
+    // `refreshed_at` has no time zone on the real stack: the auth server writes it in UTC.
+    await db.query(
+      `insert into auth.sessions (user_id, created_at, updated_at, refreshed_at, user_agent, ip) values
+         ($1, '2026-11-05T10:00:00Z', '2026-11-06T10:00:00Z', null, 'Safari', null),
+         ($1, '2026-11-01T10:00:00Z', '2026-11-02T10:00:00Z', '2026-11-03 10:00:00', 'Firefox', '203.0.113.7'),
+         ($2, '2026-11-01T10:00:00Z', '2026-11-01T10:00:00Z', null, 'Bob''s browser', '198.51.100.1')`,
+      [alice, bob]
+    )
+
+    await signInAs(alice)
+    const { account } = await exportMine()
+    expect(account.fromSignIn).toEqual({ name: "Alice", picture: "https://example.com/alice.png" })
+    expect(account.signInMethods.map((method) => method.provider)).toEqual(["email", "google"])
+    expect(new Date(account.signInMethods[0]!.addedAt).toISOString()).toBe(
+      "2026-11-01T09:00:00.000Z"
+    )
+    expect(account.sessions.map((session) => [session.userAgent, session.ip])).toEqual([
+      ["Firefox", "203.0.113.7"],
+      ["Safari", null],
+    ])
+    expect(new Date(account.sessions[0]!.createdAt).toISOString()).toBe("2026-11-01T10:00:00.000Z")
+    // The later of the two marks the auth server keeps.
+    expect(new Date(account.sessions[0]!.lastActiveAt!).toISOString()).toBe(
+      "2026-11-03T10:00:00.000Z"
+    )
+    expect(new Date(account.sessions[1]!.lastActiveAt!).toISOString()).toBe(
+      "2026-11-06T10:00:00.000Z"
+    )
+  })
+
   it("holds nothing of anyone else", async () => {
     await signInAs(bob)
     const data = await exportMine()
     expect(data.gardens).toEqual([])
     expect(data.activityDays).toEqual([])
     expect(data.account.email).toBeNull()
+  })
+
+  it("is whole for someone with no sign-in method, details or sessions, like a guest", async () => {
+    await signInAs(bob)
+    const { account } = await exportMine()
+    expect(account.signInMethods).toEqual([])
+    expect(account.fromSignIn).toBeNull()
+    expect(account.sessions).toEqual([])
   })
 
   it("cannot be exported by visitors who are not signed in", async () => {
@@ -761,6 +869,29 @@ describe("a user's own data", () => {
     expect((await db.query("select * from public.garden_shares")).rows).toEqual([])
     expect((await db.query("select * from private.activity_days")).rows).toEqual([])
     expect((await db.query("select id from public.profiles")).rows).toEqual([{ id: bob }])
+  })
+
+  it("leaves nothing of the user in the auth audit log, and keeps everyone else's", async () => {
+    await audited(alice)
+    await audited(alice)
+    await audited(bob)
+
+    await signInAs(alice)
+    await db.query("select public.delete_account()")
+
+    expect(await auditedUsers()).toEqual([bob])
+  })
+
+  it("is forgotten in the audit log too when users are deleted by hand, as from the dashboard", async () => {
+    await db.exec("reset role")
+    const carol = await createUser()
+    await audited(alice)
+    await audited(bob)
+    await audited(carol)
+
+    await db.query("delete from auth.users where id = any($1)", [[alice, carol]])
+
+    expect(await auditedUsers()).toEqual([bob])
   })
 
   it("cannot be deleted by visitors who are not signed in", async () => {
@@ -909,6 +1040,19 @@ describe("purge of stale guests", () => {
     )
   })
 
+  it("forgets the removed guests in the auth audit log, and only them", async () => {
+    const gone = await createGuest(31)
+    const alsoGone = await createGuest(40)
+    const fresh = await createGuest(29)
+    await audited(gone)
+    await audited(alsoGone)
+    await audited(alsoGone)
+    await audited(fresh)
+
+    expect(await purge()).toBe(2)
+    expect(await auditedUsers()).toEqual([fresh])
+  })
+
   it("keeps a guest who came back or signed in within 30 days", async () => {
     const visited = await createGuest(31)
     await wasActive(visited, 5)
@@ -972,6 +1116,70 @@ describe("purge of stale guests", () => {
 
   it("cannot be run by users", async () => {
     await expect(db.query("select private.purge_stale_guests()")).rejects.toThrow(
+      /permission denied/
+    )
+  })
+})
+
+describe("sweep of the auth audit log", () => {
+  const NOBODY = "00000000-0000-0000-0000-000000000000"
+
+  /** A line written by the dashboard or the admin API about `userId`, as when it deletes them. */
+  async function auditedByAdmin(userId: string | null): Promise<void> {
+    await db.exec("reset role")
+    await db.query(
+      `insert into auth.audit_log_entries (id, payload, created_at, ip_address)
+       values (
+         gen_random_uuid(),
+         json_build_object(
+           'actor_id', $1::text,
+           'action', 'user_deleted',
+           'traits', case when $2::text is null then null
+             else json_build_object('user_id', $2::text, 'user_email', 'gone@example.com') end
+         ),
+         now(),
+         ''
+       )`,
+      [NOBODY, userId]
+    )
+  }
+
+  async function sweep(): Promise<number> {
+    await db.exec("reset role")
+    const result = await db.query<{ swept: number }>(
+      "select private.forget_departed_in_audit_log() as swept"
+    )
+    return result.rows[0]!.swept
+  }
+
+  async function lines(): Promise<number> {
+    await db.exec("reset role")
+    const result = await db.query<{ count: number }>(
+      "select count(*)::int as count from auth.audit_log_entries"
+    )
+    return result.rows[0]!.count
+  }
+
+  // The trigger leaves the line the admin API writes about the user it deleted,
+  // and the lines of users deleted before the trigger existed.
+  it("removes the lines about users who no longer exist", async () => {
+    const departed = crypto.randomUUID()
+    await audited(departed)
+    await auditedByAdmin(crypto.randomUUID())
+    expect(await sweep()).toBe(2)
+    expect(await lines()).toBe(0)
+  })
+
+  it("keeps the lines about users who are still here, and admin lines about nobody", async () => {
+    await audited(bob)
+    await auditedByAdmin(alice)
+    await auditedByAdmin(null)
+    expect(await sweep()).toBe(0)
+    expect(await lines()).toBe(3)
+  })
+
+  it("cannot be run by users", async () => {
+    await expect(db.query("select private.forget_departed_in_audit_log()")).rejects.toThrow(
       /permission denied/
     )
   })

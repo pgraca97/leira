@@ -18,6 +18,15 @@ describe("a visitor's own data", () => {
     expect(data.gardens.map((garden: { name: string }) => garden.name)).toEqual(["Exported plot"])
   })
 
+  it("tells where the visitor is signed in, and that a guest has no sign-in method", async () => {
+    const visitor = await signInVisitor(settings)
+    const { data, error } = await visitor.client.rpc("export_my_data")
+    expect(error).toBeNull()
+    expect(data.account.signInMethods).toEqual([])
+    expect(data.account.sessions.length).toBeGreaterThanOrEqual(1)
+    expect(data.account.sessions[0].userAgent).toEqual(expect.stringMatching(/\S/))
+  })
+
   it("is gone, user and all, once the account is deleted", async () => {
     const visitor = await signInVisitor(settings)
     await gardensApi(visitor.client).create("Doomed plot", emptyPlan())
