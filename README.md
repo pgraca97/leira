@@ -50,6 +50,8 @@ A _leira_ is what a plot of cultivated land is called in Minho, in the north of 
   follow the seasons, with a rotation mistake and good and bad neighbours to show the advice.
 - **Accounts without a sign-up wall.** A guest gets a real user straight away. Signing in with
   Google or an emailed link attaches to that same user, so the gardens made as a guest are kept.
+- **A privacy page** at `/privacy`, linked from the account panel, says what is kept, who else
+  handles it, for how long and how to take it away or delete it. Reading it makes nobody a guest.
 - **Portuguese and English** interface.
 
 ## Tech stack
@@ -151,6 +153,12 @@ The last two need `pnpm db:start` and a filled-in `.dev.vars`.
   garden or a template after a year: a guest's session never expires, but after that long the
   browser that held it is almost surely gone, and a guest has no email to warn. Seen means
   arriving, signing in, opening the app or saving a garden. Accounts and admins are never touched.
+- **The privacy page only says what was checked, and the data keeps to it.** Each claim about a
+  service (Supabase, Cloudflare, Google, OpenWeather, Open-Meteo) was checked against that
+  service's own documentation on the date the page gives; change the date with the words. The
+  export holds the sign-in methods, what Google sent and the sessions too. Supabase Auth's audit
+  log keeps the email and has no foreign key to the user, so a trigger deletes a user's lines
+  with them, and a nightly `pg_cron` sweep removes any line naming a user who no longer exists.
 - **People can take their data and leave.** One database function hands over everything kept
   about the caller (account, profile, gardens with their links, activity days) as a JSON file with
   a format number, so a later import can read it. Another deletes the caller's user, and every
