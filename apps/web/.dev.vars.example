@@ -7,3 +7,7 @@ OPENWEATHER_API_KEY=
 # The local Supabase stack. Run `pnpm supabase status` at the repo root for the key.
 SUPABASE_URL=http://127.0.0.1:54321
 SUPABASE_PUBLISHABLE_KEY=
+
+# Cloudflare Web Analytics site token. Leave it unset here: it is set in production only
+# (`wrangler secret put WEB_ANALYTICS_TOKEN`), so local and test visits are never counted.
+# WEB_ANALYTICS_TOKEN=

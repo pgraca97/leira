@@ -1033,6 +1033,7 @@ describe("the usage stats", () => {
   WEEKS[11] = { weekStart: "2026-11-16", newPeople: 12, active: 30, returning: 18 }
 
   beforeEach(() => {
+    localStorage.removeItem("leira.analytics")
     backend.statsResult = {
       generatedAt: "2026-11-17T11:08:49.026624+00:00",
       people: { guests: 196, accounts: 16, withGarden: 156 },
@@ -1102,6 +1103,14 @@ describe("the usage stats", () => {
     open("/stats")
     expect(await screen.findByText("This page is not available.")).toBeInTheDocument()
     expect(screen.queryByRole("heading", { name: "Usage" })).not.toBeInTheDocument()
+    expect(localStorage.getItem("leira.analytics")).toBeNull()
+  })
+
+  it("stop counting the owner's own visits in this browser", async () => {
+    backend.admin = true
+    open("/stats")
+    await screen.findByText(/Your own use is left out/)
+    expect(localStorage.getItem("leira.analytics")).toBe("off")
   })
 
   it("offer to try again when they cannot be loaded", async () => {

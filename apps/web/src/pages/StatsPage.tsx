@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import { type ReactNode, useEffect, useId } from "react"
 import { useTranslation } from "react-i18next"
+import { stopCountingThisBrowser } from "../analytics"
 import { AppHeader } from "../components/AppHeader"
 import { Notice } from "../components/Notice"
 import { currentLanguage } from "../i18n"
@@ -37,6 +38,13 @@ export function StatsPage() {
   useEffect(() => {
     document.title = t("stats.title")
   }, [t])
+
+  // Only an admin gets the numbers, and an admin's visits are not what the
+  // visit counter is for.
+  const isAdmin = stats.isSuccess
+  useEffect(() => {
+    if (isAdmin) stopCountingThisBrowser()
+  }, [isAdmin])
 
   if (stats.error instanceof StatsForbiddenError) {
     return (

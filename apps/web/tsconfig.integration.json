@@ -5,5 +5,5 @@
     "lib": ["ES2023", "DOM"],
     "types": ["node", "./worker-configuration.d.ts"]
   },
-  "include": ["integration"]
+  "include": ["integration", "worker/env.d.ts"]
 }

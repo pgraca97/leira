@@ -111,6 +111,17 @@ describe("GET /api/config", () => {
     })
   })
 
+  // Set in production only, so local and test visits never reach the analytics.
+  it("adds the Web Analytics token when one is set", async () => {
+    const withToken = { ...env, WEB_ANALYTICS_TOKEN: "beacon-token" } as Env
+    const response = await createApp(deps).request("/api/config", {}, withToken)
+    expect(await response.json()).toEqual({
+      supabaseUrl: "https://project.supabase.co",
+      supabasePublishableKey: "sb_publishable_abc",
+      webAnalyticsToken: "beacon-token",
+    })
+  })
+
   it("answers 503 when Supabase is not configured", async () => {
     const response = await createApp(deps).request("/api/config", {}, {} as Env)
     expect(response.status).toBe(503)

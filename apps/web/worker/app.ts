@@ -94,14 +94,19 @@ export function createApp(deps: AppDeps) {
    * The public Supabase settings, so the browser reads them from the same
    * place as the Worker and a build works in every environment. Both values
    * are meant to be public: row level security is what protects the data.
+   * The Web Analytics token comes along only where one is set.
    */
   app.get("/api/config", (c) => {
-    const { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } = c.env
+    const { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, WEB_ANALYTICS_TOKEN } = c.env
     if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
       return c.json({ error: "not_configured" }, 503)
     }
     return c.json(
-      { supabaseUrl: SUPABASE_URL, supabasePublishableKey: SUPABASE_PUBLISHABLE_KEY },
+      {
+        supabaseUrl: SUPABASE_URL,
+        supabasePublishableKey: SUPABASE_PUBLISHABLE_KEY,
+        ...(WEB_ANALYTICS_TOKEN ? { webAnalyticsToken: WEB_ANALYTICS_TOKEN } : {}),
+      },
       200,
       { "Cache-Control": "public, max-age=300" }
     )

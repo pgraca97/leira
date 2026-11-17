@@ -1,23 +1,12 @@
 import { ForecastSchema, PlacesSchema, WeatherNowSchema } from "@leira/core"
 import { createClient, type SupabaseClient } from "@supabase/supabase-js"
-import { z } from "zod"
+import type { z } from "zod"
 import { accountApi, authErrorCode, IDENTITY_TAKEN } from "./account"
 import type { Backend } from "./backend"
+import { loadConfig } from "./config"
 import { gardensApi } from "./gardens"
 import { statsApi } from "./stats"
 import { recordVisit } from "./visits"
-
-const ConfigSchema = z.object({
-  supabaseUrl: z.url(),
-  supabasePublishableKey: z.string().min(1),
-})
-
-/** The Worker hands out the Supabase settings, so one build fits every environment. */
-async function fetchConfig(): Promise<z.infer<typeof ConfigSchema>> {
-  const response = await fetch("/api/config")
-  if (!response.ok) throw new Error(`Config request failed: ${response.status}`)
-  return ConfigSchema.parse(await response.json())
-}
 
 /**
  * Returns the access token of the current session. A visitor without one is
@@ -38,7 +27,7 @@ async function accessToken(client: SupabaseClient): Promise<string> {
 
 /** Connects to Supabase and makes sure there is a session before any page loads data. */
 export async function connectBackend(): Promise<Backend> {
-  const config = await fetchConfig()
+  const config = await loadConfig()
   // Read before the client starts: it handles what the auth server left in
   // the address, and the refusal must not stay there to be met again on reload.
   const refusal = authErrorCode(new URL(window.location.href))
