@@ -1,16 +1,10 @@
 import i18n from "i18next"
 import { initReactI18next } from "react-i18next"
 import { en } from "./en"
+import { isLanguage, type Language, LANGUAGE_STORAGE_KEY as STORAGE_KEY } from "./languages"
 import { pt } from "./pt"
 
-export const LANGUAGES = ["pt", "en"] as const
-export type Language = (typeof LANGUAGES)[number]
-
-const STORAGE_KEY = "garden.language"
-
-export function isLanguage(value: unknown): value is Language {
-  return LANGUAGES.includes(value as Language)
-}
+export { isLanguage, LANGUAGES, type Language } from "./languages"
 
 /** The saved choice, else the browser's language, else English. */
 function initialLanguage(): Language {
