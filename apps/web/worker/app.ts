@@ -302,9 +302,28 @@ function withSoil(forecast: Forecast, soil: readonly SoilDay[]): Forecast {
 /**
  * What the rate limiters count by: the address Cloudflare saw the request
  * come from. An account would not do, since a guest can make a new one at will.
+ * An IPv6 address counts by its /64 block: a machine is usually given a whole
+ * block and can take any address in it.
  */
 function visitorKey(c: Context<AppEnv>): string {
-  return c.req.header("CF-Connecting-IP") ?? "unknown"
+  const address = c.req.header("CF-Connecting-IP") ?? "unknown"
+  return address.includes(":") ? ipv6Block(address) : address
+}
+
+/**
+ * The /64 block an IPv6 address belongs to, in one spelling whichever way the
+ * address was written (case, leading zeros, `::`). An address it cannot read
+ * is its own key, so a strange header never fails the request.
+ */
+function ipv6Block(address: string): string {
+  const halves = address.toLowerCase().split("::")
+  if (halves.length > 2) return address
+  const [head = [], tail] = halves.map((half) => (half ? half.split(":") : []))
+  const missing = tail === undefined ? 0 : 8 - head.length - tail.length
+  if (missing < 0) return address
+  const groups = [...head, ...Array<string>(missing).fill("0"), ...(tail ?? [])]
+  const block = groups.slice(0, 4).map((group) => group.replace(/^0+(?=.)/, ""))
+  return `${block.join(":")}::/64`
 }
 
 /** A limiter that is down lets requests through: it must not take the endpoint down with it. */

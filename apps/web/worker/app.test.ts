@@ -170,6 +170,43 @@ describe("rate limits", () => {
     expect(lookupLimit.limit).toHaveBeenCalledExactlyOnceWith({ key: "203.0.113.7" })
   })
 
+  // A machine is usually given a whole /64 block of IPv6 addresses and can
+  // take any address in it, so each one must not count as a new visitor.
+  it("count every address in one IPv6 /64 block as one visitor, however it is written", async () => {
+    for (const address of [
+      "2001:db8:0:0:1::1",
+      "2001:DB8::2",
+      "2001:0db8:0000:0000:ffff:ffff:ffff:ffff",
+    ]) {
+      await request("/api/weather?lat=38.72&lon=-9.14", {
+        ...SIGNED_IN,
+        "CF-Connecting-IP": address,
+      })
+    }
+    const keys = apiLimit.limit.mock.calls.map(([options]) => options.key)
+    expect(keys).toHaveLength(3)
+    expect(new Set(keys).size).toBe(1)
+  })
+
+  it("count neighbouring IPv6 blocks apart", async () => {
+    for (const address of ["2001:db8:0:1::1", "2001:db8:0:2::1"]) {
+      await request("/api/weather?lat=38.72&lon=-9.14", {
+        ...SIGNED_IN,
+        "CF-Connecting-IP": address,
+      })
+    }
+    const [first, second] = apiLimit.limit.mock.calls.map(([options]) => options.key)
+    expect(first).not.toBe(second)
+  })
+
+  it("still answer when the address cannot be read", async () => {
+    const response = await request("/api/weather?lat=38.72&lon=-9.14", {
+      ...SIGNED_IN,
+      "CF-Connecting-IP": "1:2:3:4:5:6:7:8:9::1",
+    })
+    expect(response.status).toBe(200)
+  })
+
   it("refuse a lookup to a visitor who has caused too many, sparing the provider", async () => {
     lookupLimit.limit.mockResolvedValue({ success: false })
 
