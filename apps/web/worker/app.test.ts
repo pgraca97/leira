@@ -156,6 +156,62 @@ describe("unknown routes", () => {
   })
 })
 
+describe("the app's pages", () => {
+  /** The built files, with only the app shell in them. */
+  function fakeAssets() {
+    const fetch = vi.fn(async (input: RequestInfo | URL) =>
+      new URL(input instanceof Request ? input.url : input).pathname === "/app"
+        ? new Response("<!doctype html><div id=root></div>", {
+            headers: { "Content-Type": "text/html", ETag: '"shell"' },
+          })
+        : new Response(null, { status: 404 })
+    )
+    return { fetch, binding: { fetch } as unknown as Fetcher }
+  }
+
+  function page(path: string, assets = fakeAssets()) {
+    return createApp(deps).request(`https://leira.test${path}`, {}, {
+      ASSETS: assets.binding,
+    } as Env)
+  }
+
+  it.each(["/gardens", "/gardens/b1c2", "/shared/abc", "/stats"])(
+    "serves the app shell at %s and keeps it out of search results",
+    async (path) => {
+      const response = await page(path)
+      expect(response.status).toBe(200)
+      expect(response.headers.get("Content-Type")).toBe("text/html")
+      expect(response.headers.get("X-Robots-Tag")).toBe("noindex")
+      expect(await response.text()).toContain("<div id=root>")
+    }
+  )
+
+  // The asset server answers `/app.html` with a redirect to `/app`.
+  it("asks the static files for /app, without the extension", async () => {
+    const assets = fakeAssets()
+    await page("/gardens", assets)
+    const [input] = assets.fetch.mock.calls[0] ?? []
+    expect(new URL(input instanceof Request ? input.url : String(input)).pathname).toBe("/app")
+  })
+
+  it("lets search engines index the privacy page", async () => {
+    const response = await page("/privacy")
+    expect(response.status).toBe(200)
+    expect(response.headers.get("X-Robots-Tag")).toBeNull()
+  })
+
+  it("keeps the shell's own headers, so the browser can still revalidate it", async () => {
+    const response = await page("/gardens")
+    expect(response.headers.get("ETag")).toBe('"shell"')
+  })
+
+  it("still answers an unknown API path with JSON", async () => {
+    const response = await page("/api/nope")
+    expect(response.status).toBe(404)
+    expect(await response.json()).toEqual({ error: "not_found" })
+  })
+})
+
 describe("rate limits", () => {
   const FROM_ALICE = { ...SIGNED_IN, "CF-Connecting-IP": "203.0.113.7" }
 

@@ -8,9 +8,23 @@
   "main": "worker/index.ts",
   "compatibility_date": "2026-11-09",
   "assets": {
-    // Unknown paths fall back to index.html so client-side routes survive a reload.
-    "not_found_handling": "single-page-application",
-    "run_worker_first": ["/api/*"]
+    // Lets the Worker read the built files: it serves the app shell, app.html.
+    "binding": "ASSETS",
+    // The landing page is the static index.html, so an unknown path gets the
+    // nearest 404.html with a 404, not the app.
+    "not_found_handling": "404-page",
+    // The API and the app's pages: the Worker answers these, the static files
+    // everything else. A page the router knows must be here (see router.test.ts).
+    // `/app` is the shell's own address, kept out of search results like the rest.
+    "run_worker_first": [
+      "/api/*",
+      "/app",
+      "/gardens",
+      "/gardens/*",
+      "/shared/*",
+      "/stats",
+      "/privacy"
+    ]
   },
   // Caches weather readings. The id is filled in when the namespace is first created on deploy.
   "kv_namespaces": [{ "binding": "CACHE" }],

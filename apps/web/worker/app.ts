@@ -271,10 +271,30 @@ export function createApp(deps: AppDeps) {
     })
   })
 
+  /**
+   * The app's own pages. The landing page and the 404 pages are static files,
+   * so the app shell cannot be the `index.html` that a single-page app falls
+   * back to: it is `app.html`, and `run_worker_first` in wrangler.jsonc sends
+   * the app's paths here instead. The router then shows the page, or says
+   * there is none.
+   */
+  app.get("*", async (c, next) => {
+    if (c.req.path.startsWith("/api/")) return next()
+    // `/app`, not `/app.html`: the static files answer that with a redirect.
+    const shell = await c.env.ASSETS.fetch(new URL("/app", c.req.url))
+    const response = new Response(shell.body, shell)
+    // A garden, a share link or the stats are nobody's search result.
+    if (!PUBLIC_APP_PAGES.has(c.req.path)) response.headers.set("X-Robots-Tag", "noindex")
+    return response
+  })
+
   app.notFound((c) => c.json({ error: "not_found" }, 404))
 
   return app
 }
+
+/** The app pages meant for anyone to find. The rest belong to someone. */
+const PUBLIC_APP_PAGES = new Set(["/privacy"])
 
 /**
  * The soil temperatures for a zone, or none when they cannot be had: they add
