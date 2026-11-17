@@ -312,6 +312,36 @@ test("the plan can be saved as an image and printed", async ({ page }) => {
   await expect(page.getByTestId("garden-canvas")).toBeHidden()
 })
 
+test("a garden saved as a file comes back whole after it is deleted", async ({ page }) => {
+  await page.goto("/gardens")
+  await page.getByRole("button", { name: "New garden" }).click()
+  await page.getByRole("textbox", { name: "Garden name" }).fill("Plot to restore")
+  await page.getByRole("button", { name: "Tomato" }).click()
+  await dragOnCanvas(page, [0.4, 0.4], [0.6, 0.6])
+  await expect(page.getByText("Saved", { exact: true })).toBeVisible()
+
+  const download = page.waitForEvent("download")
+  await page.getByRole("button", { name: "Save file" }).click()
+  const file = await download
+  expect(file.suggestedFilename()).toBe("plot-to-restore.json")
+  const path = await file.path()
+  const data = JSON.parse(readFileSync(path, "utf8"))
+  expect(data.format).toBe(1)
+  expect(data.gardens).toHaveLength(1)
+  expect(data.gardens[0].plan.plantings).toHaveLength(1)
+
+  await page.getByRole("link", { name: "All gardens" }).click()
+  page.once("dialog", (dialog) => dialog.accept())
+  await page.getByRole("button", { name: "Delete Plot to restore" }).click()
+  await expect(page.getByText(/You have no gardens yet/)).toBeVisible()
+
+  await page.getByLabel("Import").setInputFiles(path)
+  await expect(page.getByRole("status").filter({ hasText: "Imported 1 garden." })).toBeVisible()
+  // The tomatoes came back with it: the list pictures the plan itself.
+  const restored = page.getByRole("listitem").filter({ hasText: "Plot to restore" })
+  await expect(restored.locator("svg [data-planting]")).toHaveCount(1)
+})
+
 test("a visitor only sees their own gardens", async ({ browser }) => {
   const first = await browser.newContext()
   const firstPage = await first.newPage()
