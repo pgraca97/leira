@@ -174,6 +174,13 @@ The last two need `pnpm db:start` and a filled-in `.dev.vars`.
   about the caller (account, profile, gardens with their links, activity days) as a JSON file with
   a format number. Another deletes the caller's user, and every table cascades from it. Both act
   only on whoever calls them, so there is nothing to check.
+- **An account waits 30 days to go.** A guest is deleted at once, since a guest has no way back
+  in. An account asks instead (`request_account_deletion`): the request goes in a private table,
+  every session of the account is deleted (their refresh tokens go with them), and its share
+  links show nothing. Opening the app signed in calls `resume_account`, which cancels the request
+  only for a session that started after it, so a tab left open on another device, whose access
+  token outlives its session by up to an hour, cannot undo it. A nightly `pg_cron` job deletes
+  the accounts whose 30 days are up.
 - **What was exported comes back in.** The gardens list imports the account's file or one
   garden's (the same shape, with only `gardens` in it). The whole file is read and checked first,
   each plan through `migratePlan`, so nothing it cannot read is written; then every garden and
