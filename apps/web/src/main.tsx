@@ -4,11 +4,12 @@ import "./index.css"
 import "./i18n"
 import { App } from "./App"
 import { startAnalytics } from "./analytics"
+import { loadConfig } from "./lib/config"
 
 const rootElement = document.getElementById("root")
 if (!rootElement) throw new Error("Root element not found")
 
-void startAnalytics()
+void startAnalytics(loadConfig)
 
 createRoot(rootElement).render(
   <StrictMode>

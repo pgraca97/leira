@@ -1,4 +1,4 @@
-import { type Config, loadConfig } from "./lib/config"
+import type { Config } from "./lib/config"
 
 /**
  * Cloudflare Web Analytics: counts visits, pages and where people come from,
@@ -15,10 +15,11 @@ const STOPPED = "off"
 /**
  * Loads the visit counter on every page, the shared garden included. It stays
  * off where the Worker has no token (development, tests), and a failure only
- * costs the count, never the page.
+ * costs the count, never the page. `load` reads the token: the app and the
+ * static pages read it in their own ways.
  */
 export async function startAnalytics(
-  load: () => Promise<Pick<Config, "webAnalyticsToken">> = loadConfig
+  load: () => Promise<Pick<Config, "webAnalyticsToken">>
 ): Promise<void> {
   if (countingStopped()) return
   let token: string | undefined
