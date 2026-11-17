@@ -427,6 +427,22 @@ async function emailedLink(address: string): Promise<string> {
   throw new Error(`No email with a link arrived for ${address}`)
 }
 
+/** Waits for an email to an address whose subject has `subject` in it, and returns its text. */
+async function emailText(address: string, subject: string): Promise<string> {
+  const mailpit = "http://127.0.0.1:54324/api/v1"
+  const query = encodeURIComponent(`to:${address} subject:"${subject}"`)
+  for (let attempt = 0; attempt < 40; attempt++) {
+    const search = await fetch(`${mailpit}/search?query=${query}`)
+    const { messages } = (await search.json()) as { messages: { ID: string }[] }
+    if (messages[0]) {
+      const message = await fetch(`${mailpit}/message/${messages[0].ID}`)
+      return ((await message.json()) as { Text: string }).Text
+    }
+    await new Promise((resolve) => setTimeout(resolve, 250))
+  }
+  throw new Error(`No email about "${subject}" arrived for ${address}`)
+}
+
 test("what happened in a garden is kept, and its notes and amounts stay off a share link", async ({
   page,
   browser,
@@ -575,6 +591,9 @@ test("an account asked to be deleted stays when its owner signs in again", async
 
   // The browser goes on as a new guest, told until when the account waits.
   await expect(page.getByText(/Your account will be deleted on/)).toBeVisible()
+  // The Worker emailed the same, with the way back in.
+  const confirmation = await emailText(address, "will be deleted on")
+  expect(confirmation).toMatch(/sign in again at http:\/\/\S+\/gardens before/)
   await expect(page.getByRole("button", { name: "Keep your gardens" })).toBeVisible()
   await expect(page.getByText(/You have no gardens yet/)).toBeVisible()
 
