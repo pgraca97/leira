@@ -78,14 +78,16 @@ pnpm dev
 Copy the API URL and publishable key printed by `pnpm supabase status` into
 `apps/web/.dev.vars`. The app runs at http://localhost:5173. Without an
 [OpenWeather API key](https://home.openweathermap.org/api_keys) in the same file, everything works
-except the weather panel.
+except the weather panel. The local auth server asks for a captcha as production does, with
+Cloudflare's test keys (already in the example file), and checks it with Cloudflare, so signing in
+locally needs a network.
 
 ## Tests
 
 | Command                 | What it covers                                                                                                                                                          |
 | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `pnpm check`            | Lint, typecheck, unit tests and build. The database access rules run on an in-process Postgres, so no Docker.                                                           |
-| `pnpm test:integration` | The gardens API, share links, the Worker's token check and the email sign-in flow against the local Supabase stack.                                                     |
+| `pnpm test:integration` | The gardens API, share links, the Worker's token check, the captcha and the email sign-in flow against the local Supabase stack.                                        |
 | `pnpm test:e2e`         | Playwright: drawing, saving, the calendar, jobs done and harvests, export, sharing by link, signing in by emailed link, and that a visitor only sees their own gardens. |
 
 The last two need `pnpm db:start` and a filled-in `.dev.vars`.
@@ -137,6 +139,18 @@ The last two need `pnpm db:start` and a filled-in `.dev.vars`.
   page `/stats` shows those numbers and the free plan limits to the admins listed in
   `private.admins`, whose own use is left out. It is there to say when paying for a domain or a
   bigger plan would be worth it.
+- **Bots are stopped before they become guests.** Every visit without a session signs in a new
+  guest, and each one counts toward the 50,000 monthly active users of Supabase's free plan, which
+  counts whoever signed in during the month. Deleting a guest later does not give that back. So
+  the auth server asks for a Cloudflare Turnstile token (free) before it makes a guest or emails a
+  link to an existing account. The challenge is invisible and shows a box only when Cloudflare is
+  unsure. Google sign-in needs none.
+- **Guests nobody will come back to are cleared.** Bots that got through, bounced visits and the
+  fresh guest made after each sign-out stay in the database for good otherwise, and in `/stats`.
+  A nightly `pg_cron` job deletes guests unseen for 30 days who kept nothing, and those who kept a
+  garden or a template after a year: a guest's session never expires, but after that long the
+  browser that held it is almost surely gone, and a guest has no email to warn. Seen means
+  arriving, signing in, opening the app or saving a garden. Accounts and admins are never touched.
 - **People can take their data and leave.** One database function hands over everything kept
   about the caller (account, profile, gardens with their links, activity days) as a JSON file with
   a format number, so a later import can read it. Another deletes the caller's user, and every
@@ -153,7 +167,8 @@ The last two need `pnpm db:start` and a filled-in `.dev.vars`.
 
 ## Deploying
 
-The app is one Cloudflare Worker. It needs the three values from `.dev.vars.example` as secrets,
+The app is one Cloudflare Worker. It needs the four required values from `.dev.vars.example` as
+secrets,
 and a Supabase project with anonymous sign-ins, manual linking and the Google provider enabled,
 an SMTP server for the emailed links, and the app's address as its site URL.
 
@@ -178,7 +193,14 @@ migrations and then publishes the Worker. It needs three secrets in the GitHub r
 | `CLOUDFLARE_ACCOUNT_ID` | The id of the Cloudflare account the Worker is in.                       |
 | `SUPABASE_ACCESS_TOKEN` | A Supabase access token that may write to the project's database.        |
 
-Two steps are by hand, once:
+Three steps are by hand, once:
+
+- **The captcha.** Do these in this order, or nobody can sign in. In the Cloudflare dashboard,
+  open Turnstile and add a widget for the Worker's hostname, in Managed mode. Set its site key
+  with `pnpm --filter @leira/web exec wrangler secret put TURNSTILE_SITE_KEY` before deploying
+  the code that needs it. Once the app is live, turn on Supabase's captcha protection (Auth,
+  Attack Protection) with Turnstile and the widget's secret key: until then tokens are sent but
+  not checked. Turning that switch off again is the way back.
 
 - **Web Analytics.** In the Cloudflare dashboard, open Web Analytics, add a site with the Worker's
   hostname, and copy the token from its snippet. Then
