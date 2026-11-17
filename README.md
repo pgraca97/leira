@@ -121,6 +121,10 @@ The last two need `pnpm db:start` and a filled-in `.dev.vars`.
   page `/stats` shows those numbers and the free plan limits to the admins listed in
   `private.admins`, whose own use is left out. It is there to say when paying for a domain or a
   bigger plan would be worth it.
+- **People can take their data and leave.** One database function hands over everything kept
+  about the caller (account, profile, gardens with their links, activity days) as a JSON file with
+  a format number, so a later import can read it. Another deletes the caller's user, and every
+  table cascades from it. Both act only on whoever calls them, so there is nothing to check.
 
 ## Repository layout
 
