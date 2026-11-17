@@ -15,7 +15,11 @@ const PLATFORM = `
   create role authenticated nologin;
   create role service_role nologin;
   create schema auth;
-  create table auth.users (id uuid primary key default gen_random_uuid());
+  create table auth.users (
+    id uuid primary key default gen_random_uuid(),
+    is_anonymous boolean not null default false,
+    created_at timestamptz not null default now()
+  );
   create function auth.uid() returns uuid language sql stable
     as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
   grant usage on schema public, auth to anon, authenticated, service_role;
@@ -493,6 +497,180 @@ describe("profiles", () => {
     await expect(db.query("update public.profiles set id = $1", [bob])).rejects.toThrow(
       /permission denied/
     )
+  })
+})
+
+/** Lets a user read the usage stats. Done by hand in production, as the database owner. */
+async function makeAdmin(userId: string): Promise<void> {
+  await db.exec("reset role")
+  await db.query("insert into private.admins (user_id) values ($1)", [userId])
+}
+
+/** Gives a user a day of activity, `daysAgo` days before today (UTC). */
+async function wasActive(userId: string, daysAgo: number): Promise<void> {
+  await db.exec("reset role")
+  await db.query(
+    "insert into private.activity_days (user_id, day) values ($1, (now() at time zone 'utc')::date - $2::int)",
+    [userId, daysAgo]
+  )
+}
+
+describe("visits", () => {
+  it("are recorded once a day for the signed-in user", async () => {
+    await db.query("select public.record_visit()")
+    await db.query("select public.record_visit()")
+    await db.exec("reset role")
+    const days = await db.query<{ user_id: string; today: boolean }>(
+      "select user_id, day = (now() at time zone 'utc')::date as today from private.activity_days"
+    )
+    expect(days.rows).toEqual([{ user_id: alice, today: true }])
+  })
+
+  it("cannot be recorded by visitors who are not signed in", async () => {
+    await signOut()
+    await expect(db.query("select public.record_visit()")).rejects.toThrow(/permission denied/)
+  })
+
+  it("cannot be read by users", async () => {
+    await db.query("select public.record_visit()")
+    await expect(db.query("select * from private.activity_days")).rejects.toThrow(
+      /permission denied/
+    )
+  })
+
+  it("are removed together with their user", async () => {
+    await db.query("select public.record_visit()")
+    await db.exec("reset role")
+    await db.query("delete from auth.users where id = $1", [alice])
+    const left = await db.query("select user_id from private.activity_days")
+    expect(left.rows).toEqual([])
+  })
+})
+
+describe("usage stats", () => {
+  interface Week {
+    weekStart: string
+    newPeople: number
+    active: number
+    returning: number
+  }
+  interface UsageStats {
+    generatedAt: string
+    people: { guests: number; accounts: number; withGarden: number }
+    gardens: {
+      total: number
+      editedLast7Days: number
+      editedLast30Days: number
+      shared: number
+      withLocation: number
+    }
+    weeks: Week[]
+    limits: { databaseBytes: number; monthlyUsers: number }
+  }
+
+  async function usageStats(): Promise<UsageStats> {
+    const result = await db.query<{ stats: UsageStats }>("select public.usage_stats() as stats")
+    return result.rows[0]!.stats
+  }
+
+  /** Monday of the current week and the ones before it, as the stats name them. */
+  async function weekStart(weeksAgo: number): Promise<string> {
+    const result = await db.query<{ day: string }>(
+      "select to_char(date_trunc('week', (now() at time zone 'utc')::date) - make_interval(weeks => $1::int), 'YYYY-MM-DD') as day",
+      [weeksAgo]
+    )
+    return result.rows[0]!.day
+  }
+
+  it("are refused to users who are not admins", async () => {
+    await expect(usageStats()).rejects.toThrow(/admins only/)
+  })
+
+  it("are refused to visitors who are not signed in", async () => {
+    await signOut()
+    await expect(usageStats()).rejects.toThrow(/permission denied/)
+  })
+
+  it("count people and gardens, leaving the admins out", async () => {
+    await makeAdmin(alice)
+    await db.query("insert into auth.users (is_anonymous) values (true)")
+    await db.query("insert into auth.users default values")
+    // Bob's gardens: one edited today, shared, with a location; one 10 days
+    // ago; one 40 days ago. The stats see dates the client cannot set.
+    const bobs = await db.query<{ id: string }>(
+      `insert into public.gardens (owner_id, name, plan, location, updated_at) values
+         ($1, 'Today', $2, '{"lat": 41.55, "lon": -8.43}', now()),
+         ($1, 'Ten days ago', $2, null, now() - interval '10 days'),
+         ($1, 'Forty days ago', $2, null, now() - interval '40 days')
+       returning id`,
+      [bob, PLAN]
+    )
+    await db.query("insert into public.garden_shares (garden_id) values ($1)", [bobs.rows[0]!.id])
+
+    await signInAs(alice)
+    const stats = await usageStats()
+    expect(stats.people).toEqual({ guests: 1, accounts: 2, withGarden: 1 })
+    expect(stats.gardens).toEqual({
+      total: 3,
+      editedLast7Days: 1,
+      editedLast30Days: 2,
+      shared: 1,
+      withLocation: 1,
+    })
+  })
+
+  it("give twelve weeks, oldest first, ending with this one", async () => {
+    await makeAdmin(alice)
+    await signInAs(alice)
+    const weeks = (await usageStats()).weeks
+    expect(weeks).toHaveLength(12)
+    expect(weeks[0]?.weekStart).toBe(await weekStart(11))
+    expect(weeks[11]?.weekStart).toBe(await weekStart(0))
+  })
+
+  it("count who was active each week and who came back", async () => {
+    await makeAdmin(alice)
+    const carol = await createUser()
+    await wasActive(alice, 0)
+    await wasActive(bob, 0)
+    await wasActive(carol, 0)
+    // Bob was also here two weeks ago, so this week he came back.
+    await db.query(
+      "insert into private.activity_days (user_id, day) values ($1, date_trunc('week', (now() at time zone 'utc')::date)::date - 14)",
+      [bob]
+    )
+
+    await signInAs(alice)
+    const weeks = (await usageStats()).weeks
+    expect(weeks[11]).toEqual({
+      weekStart: await weekStart(0),
+      newPeople: 2,
+      active: 2,
+      returning: 1,
+    })
+    expect(weeks[9]).toEqual({
+      weekStart: await weekStart(2),
+      newPeople: 0,
+      active: 1,
+      returning: 0,
+    })
+  })
+
+  it("estimate the monthly users with everyone in, admins too", async () => {
+    await makeAdmin(alice)
+    const carol = await createUser()
+    await wasActive(alice, 0)
+    await wasActive(bob, 20)
+    await wasActive(carol, 40)
+
+    await signInAs(alice)
+    const limits = (await usageStats()).limits
+    expect(limits.monthlyUsers).toBe(2)
+    expect(limits.databaseBytes).toBeGreaterThan(0)
+  })
+
+  it("keep the list of admins out of the users' reach", async () => {
+    await expect(db.query("select * from private.admins")).rejects.toThrow(/permission denied/)
   })
 })
 
