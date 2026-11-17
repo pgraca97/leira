@@ -21,6 +21,60 @@ export interface SiteFile {
  * script to run, and serving them costs the Worker nothing.
  */
 export function renderSite(assets: SiteAssets): SiteFile[] {
+  return [
+    ...pages(assets),
+    { path: "robots.txt", content: robots() },
+    { path: "sitemap.xml", content: sitemap() },
+  ]
+}
+
+/**
+ * The app's pages search engines may list: they work with no session. The
+ * Worker leaves these out of its `noindex` too.
+ */
+const PUBLIC_APP_PAGES = ["/privacy"]
+
+/**
+ * What crawlers may read. The app's pages would sign a guest in for every
+ * crawler that runs them. Shared gardens stay readable: their pages say
+ * `noindex` themselves, and a crawler kept out would never see that.
+ */
+function robots(): string {
+  return [
+    "User-agent: *",
+    "Allow: /",
+    "Disallow: /gardens",
+    "Disallow: /stats",
+    "Disallow: /app",
+    "Disallow: /api/",
+    "",
+    `Sitemap: ${siteUrl("/sitemap.xml")}`,
+    "",
+  ].join("\n")
+}
+
+/** The pages meant to be found, each landing page tied to its other language. */
+function sitemap(): string {
+  const alternates = [
+    ...SITE_LANGUAGES.map((language) => [LANGUAGE_TAG[language], siteUrl(HOME[language])]),
+    ["x-default", siteUrl(HOME.pt)],
+  ]
+    .map(([tag, href]) => `<xhtml:link rel="alternate" hreflang="${tag}" href="${href}"/>`)
+    .join("")
+  const urls = [
+    ...SITE_LANGUAGES.map(
+      (language) => `<url><loc>${siteUrl(HOME[language])}</loc>${alternates}</url>`
+    ),
+    ...PUBLIC_APP_PAGES.map((path) => `<url><loc>${siteUrl(path)}</loc></url>`),
+  ]
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
+${urls.join("\n")}
+</urlset>
+`
+}
+
+function pages(assets: SiteAssets): SiteFile[] {
   return SITE_LANGUAGES.flatMap((language) => {
     const strings = siteStrings(language)
     const t = strings.t

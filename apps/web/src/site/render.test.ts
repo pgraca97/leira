@@ -131,6 +131,62 @@ describe.each([
   })
 })
 
+describe("robots.txt", () => {
+  const robots = files.find((file) => file.path === "robots.txt")?.content ?? ""
+  const lines = robots.split("\n")
+
+  it("lets every crawler in", () => {
+    expect(lines).toContain("User-agent: *")
+    expect(lines).toContain("Allow: /")
+  })
+
+  // A crawler that runs the app there would sign a guest in for nothing.
+  it("keeps crawlers out of the app and the API", () => {
+    for (const path of ["/gardens", "/stats", "/app", "/api/"]) {
+      expect(lines).toContain(`Disallow: ${path}`)
+    }
+  })
+
+  // They must be read to be seen: their pages say noindex themselves.
+  it("lets crawlers read shared gardens and the privacy page", () => {
+    expect(robots).not.toContain("Disallow: /shared")
+    expect(robots).not.toContain("Disallow: /privacy")
+  })
+
+  it("points to the sitemap", () => {
+    expect(lines).toContain(`Sitemap: ${SITE_URL}/sitemap.xml`)
+  })
+})
+
+describe("sitemap.xml", () => {
+  const xml = files.find((file) => file.path === "sitemap.xml")?.content ?? ""
+  const doc = new DOMParser().parseFromString(xml, "application/xml")
+  const urls = [...doc.getElementsByTagName("url")]
+  const location = (url: Element) => url.getElementsByTagName("loc")[0]?.textContent
+
+  it("is well-formed XML", () => {
+    expect(doc.getElementsByTagName("parsererror")).toHaveLength(0)
+    expect(doc.documentElement.namespaceURI).toBe("http://www.sitemaps.org/schemas/sitemap/0.9")
+  })
+
+  it("lists the pages meant to be found, and only those", () => {
+    expect(urls.map(location)).toEqual([`${SITE_URL}/`, `${SITE_URL}/en/`, `${SITE_URL}/privacy`])
+  })
+
+  it("ties each landing page to its other language", () => {
+    for (const url of urls.slice(0, 2)) {
+      const alternates = [
+        ...url.getElementsByTagNameNS("http://www.w3.org/1999/xhtml", "link"),
+      ].map((link) => [link.getAttribute("hreflang"), link.getAttribute("href")])
+      expect(alternates).toEqual([
+        ["pt-PT", `${SITE_URL}/`],
+        ["en", `${SITE_URL}/en/`],
+        ["x-default", `${SITE_URL}/`],
+      ])
+    }
+  })
+})
+
 describe.each([
   { path: "404.html", home: "/", strings: pt },
   { path: "en/404.html", home: "/en/", strings: en },
