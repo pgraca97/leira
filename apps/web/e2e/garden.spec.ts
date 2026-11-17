@@ -654,6 +654,30 @@ test.describe("on a phone", () => {
     await expect(page.locator("html")).toHaveJSProperty("scrollWidth", SCREEN.width)
   })
 
+  test("the garden stays put while the tools change and the garden saves", async ({ page }) => {
+    await page.goto("/")
+    await page.getByRole("button", { name: "New garden" }).click()
+    const canvas = page.getByTestId("garden-canvas")
+    await expect(canvas).toHaveAttribute("data-status", "ready")
+    const top = async () => (await canvas.boundingBox())?.y
+    const start = await top()
+
+    await page.getByRole("button", { name: "Bed", exact: true }).click()
+    expect(await top()).toBe(start)
+    await dragOnGarden(page, [200, 100], [400, 300])
+    // Drawn but not saved yet, then saved: the indicator changes, the garden does not move.
+    await expect(page.getByText("Unsaved", { exact: true })).toBeVisible()
+    expect(await top()).toBe(start)
+    await expect(page.getByText("Saved", { exact: true })).toBeVisible()
+    expect(await top()).toBe(start)
+
+    await page.getByRole("button", { name: "Select several" }).click()
+    expect(await top()).toBe(start)
+    // A crop's advice is the longest of all.
+    await page.getByRole("button", { name: "Tomato", exact: true }).click()
+    expect(await top()).toBe(start)
+  })
+
   test("several beds are picked by touch, without a Shift key", async ({ page }) => {
     await page.goto("/")
     await page.getByRole("button", { name: "New garden" }).click()

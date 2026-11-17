@@ -8,12 +8,19 @@ import { i18n } from "../i18n"
 import { Palette } from "./Palette"
 import { seasonText } from "./season"
 import { editorStore } from "./store"
+import { ToolGuide } from "./ToolGuide"
 
 beforeEach(() => {
   // Today is 15 April 2026. Only the clock is faked, so the test tools' timers keep running.
   vi.useFakeTimers({ now: new Date(2026, 3, 15, 10, 0), toFake: ["Date"] })
   editorStore.getState().loadPlan(emptyPlan())
-  render(<Palette />)
+  // The guide says what the palette's tools do, so the two are tested together.
+  render(
+    <>
+      <Palette />
+      <ToolGuide />
+    </>
+  )
 })
 
 afterEach(async () => {

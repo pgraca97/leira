@@ -131,7 +131,7 @@ export function Inspector({ children }: { children?: ReactNode }) {
   }
 
   return (
-    <aside className="flex flex-col gap-4 border-t border-stone-200 bg-white p-3 lg:overflow-y-auto lg:border-t-0 lg:border-l">
+    <aside className="flex flex-col gap-4 border-t border-stone-200 bg-white p-3 lg:col-start-3 lg:row-span-2 lg:row-start-1 lg:overflow-y-auto lg:border-t-0 lg:border-l">
       <header>
         <h2 className="font-semibold text-stone-900">{t("inspector.title")}</h2>
         <div className="mt-1 flex gap-2">

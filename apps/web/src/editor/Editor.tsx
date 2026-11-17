@@ -7,6 +7,7 @@ import { DateFilter } from "./DateFilter"
 import { Inspector } from "./Inspector"
 import { Palette } from "./Palette"
 import { editorStore, redo, undo } from "./store"
+import { ToolGuide } from "./ToolGuide"
 import { useHistory } from "./useEditor"
 import { useEditorShortcuts } from "./useEditorShortcuts"
 import { useSharedClipboard } from "./useSharedClipboard"
@@ -29,11 +30,14 @@ export function Editor({ aside }: { aside?: ReactNode }) {
   }, [i18n.language])
 
   return (
-    // Three columns on a wide screen. On a narrow one the parts stack and the
-    // editor scrolls as a whole, so the canvas keeps a height worth drawing on.
-    <div className="grid h-full min-h-0 grid-cols-[minmax(0,1fr)] grid-rows-[auto_minmax(26rem,1fr)_auto] overflow-y-auto lg:grid-cols-[14rem_minmax(0,1fr)_18rem] lg:grid-rows-1 lg:overflow-hidden">
+    // Three columns on a wide screen, the tools' guide closing the first one.
+    // On a narrow one the parts stack and the editor scrolls as a whole, so
+    // the canvas keeps a height worth drawing on, and the guide comes after
+    // the canvas: its length changes with the tool, and above the garden it
+    // would move the garden every time.
+    <div className="grid h-full min-h-0 grid-cols-[minmax(0,1fr)] grid-rows-[auto_minmax(26rem,1fr)_auto_auto] overflow-y-auto lg:grid-cols-[14rem_minmax(0,1fr)_18rem] lg:grid-rows-[minmax(0,1fr)_auto] lg:overflow-hidden">
       <Palette />
-      <main className="relative flex min-h-0 flex-col">
+      <main className="relative flex min-h-0 flex-col lg:col-start-2 lg:row-span-2 lg:row-start-1">
         {/*
           A row of its own on a narrow screen, where it would cover the garden.
           On a wide one it floats over the canvas and lets presses through to
@@ -72,6 +76,7 @@ export function Editor({ aside }: { aside?: ReactNode }) {
           </div>
         </div>
       </main>
+      <ToolGuide className="border-b border-stone-200 bg-stone-100 p-3 lg:col-start-1 lg:row-start-2 lg:border-r lg:border-b-0" />
       <Inspector>{aside}</Inspector>
     </div>
   )

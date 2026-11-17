@@ -1,13 +1,21 @@
-import { getPlant, PLANTS, relationBetween, startsOn, toIsoDate } from "@leira/core"
+import { PLANTS, startsOn, toIsoDate } from "@leira/core"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { inputClass, toggleButtonClass } from "../components/ui"
 import { currentLanguage } from "../i18n"
-import { monthName, seasonText } from "./season"
+import { monthName } from "./season"
 import { editorStore } from "./store"
 import { useEditor } from "./useEditor"
 
-/** The tools and the plants that can be placed on the garden. */
+/**
+ * A tool's button. On a phone the three share a row and a long name takes two
+ * lines, pressed (in bold) or not: every button is two lines tall there, so
+ * picking a tool never changes the row's height and moves the garden below.
+ */
+// Two lines of text-sm (2 × 20 px), its padding (12 px) and border (2 px).
+const toolClass = `${toggleButtonClass} max-lg:min-h-[54px]`
+
+/** The tools and the plants that can be placed on the garden. What they do is said by `ToolGuide`. */
 export function Palette() {
   const { t } = useTranslation()
   const tool = useEditor((state) => state.tool)
@@ -37,25 +45,8 @@ export function Palette() {
     .map((plant) => ({ plant, ways: startNow ? startsOn(plant, now) : [] }))
     .filter(({ ways }) => !startNow || ways.length > 0)
 
-  // Advice for the plant about to be placed: who to put it next to, who to keep it from.
-  const chosen = tool.kind === "plant" ? getPlant(tool.plantId) : undefined
-  const neighbours = (relation: "good" | "bad") =>
-    chosen
-      ? sorted
-          .filter((plant) => relationBetween(chosen, plant) === relation)
-          .map((plant) => plant.name[language])
-      : []
-
-  const hint = selectingMany
-    ? t("editor.hintSelectMany")
-    : tool.kind === "select"
-      ? t("editor.hintSelect")
-      : tool.kind === "bed"
-        ? t("editor.hintBed")
-        : t("editor.hintPlant")
-
   return (
-    <aside className="flex flex-col gap-2 border-b border-stone-200 bg-stone-100 p-3 lg:gap-4 lg:overflow-y-auto lg:border-r lg:border-b-0">
+    <aside className="flex flex-col gap-2 border-b border-stone-200 bg-stone-100 p-3 lg:col-start-1 lg:row-start-1 lg:gap-4 lg:overflow-y-auto lg:border-r lg:border-b-0">
       <section aria-labelledby="palette-tools">
         <h2
           id="palette-tools"
@@ -67,7 +58,7 @@ export function Palette() {
         <div className="grid grid-cols-3 gap-1 lg:grid-cols-1">
           <button
             type="button"
-            className={toggleButtonClass}
+            className={toolClass}
             aria-pressed={tool.kind === "select" && !selectingMany}
             onClick={() => {
               setSelectingMany(false)
@@ -79,7 +70,7 @@ export function Palette() {
           {/* What Shift does with a mouse, for a screen with no keyboard. */}
           <button
             type="button"
-            className={toggleButtonClass}
+            className={toolClass}
             aria-pressed={selectingMany}
             onClick={() => setSelectingMany(!selectingMany)}
           >
@@ -87,7 +78,7 @@ export function Palette() {
           </button>
           <button
             type="button"
-            className={toggleButtonClass}
+            className={toolClass}
             aria-pressed={tool.kind === "bed"}
             onClick={() => setTool({ kind: "bed" })}
           >
@@ -153,21 +144,6 @@ export function Palette() {
           ))}
         </ul>
       </section>
-
-      <p className="text-xs text-stone-600">{hint}</p>
-      {chosen && (
-        <div className="flex flex-col gap-1 text-xs text-stone-600">
-          <p>{t("season.goesIn", { season: seasonText(chosen.groundMonths, language, t) })}</p>
-          {neighbours("good").length > 0 && (
-            <p>{t("companions.goodWith", { names: neighbours("good").join(", ") })}</p>
-          )}
-          {neighbours("bad").length > 0 && (
-            <p className="text-amber-800">
-              {t("companions.badWith", { names: neighbours("bad").join(", ") })}
-            </p>
-          )}
-        </div>
-      )}
     </aside>
   )
 }
