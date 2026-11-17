@@ -17,6 +17,7 @@ const PLATFORM = `
   create schema auth;
   create table auth.users (
     id uuid primary key default gen_random_uuid(),
+    email text,
     is_anonymous boolean not null default false,
     created_at timestamptz not null default now()
   );
@@ -671,6 +672,99 @@ describe("usage stats", () => {
 
   it("keep the list of admins out of the users' reach", async () => {
     await expect(db.query("select * from private.admins")).rejects.toThrow(/permission denied/)
+  })
+})
+
+describe("a user's own data", () => {
+  interface Export {
+    format: number
+    exportedAt: string
+    account: { email: string | null; createdAt: string }
+    profile: { displayName: string | null; locale: string }
+    gardens: {
+      name: string
+      plan: unknown
+      location: unknown
+      version: number
+      createdAt: string
+      updatedAt: string
+      share: { token: string; showLocation: boolean } | null
+    }[]
+    activityDays: string[]
+  }
+
+  async function exportMine(): Promise<Export> {
+    const result = await db.query<{ data: Export }>("select public.export_my_data() as data")
+    return result.rows[0]!.data
+  }
+
+  it("is handed over whole, gardens, links and days included", async () => {
+    await db.exec("reset role")
+    await db.query("update auth.users set email = 'alice@example.com' where id = $1", [alice])
+    await signInAs(alice)
+    await db.query("update public.gardens set location = $1 where id = $2", [
+      JSON.stringify({ lat: 41.55, lon: -8.43, name: "Braga" }),
+      gardenId,
+    ])
+    const shared = await db.query<{ token: string }>(
+      "insert into public.garden_shares (garden_id) values ($1) returning token",
+      [gardenId]
+    )
+    await db.query("select public.record_visit()")
+
+    const data = await exportMine()
+    expect(data.format).toBe(1)
+    expect(data.account.email).toBe("alice@example.com")
+    expect(data.profile).toEqual({ displayName: null, locale: "en" })
+    expect(data.gardens).toEqual([
+      {
+        name: "Alice's garden",
+        plan: JSON.parse(PLAN),
+        location: { lat: 41.55, lon: -8.43, name: "Braga" },
+        version: 2,
+        createdAt: expect.any(String),
+        updatedAt: expect.any(String),
+        share: { token: shared.rows[0]!.token, showLocation: false },
+      },
+    ])
+    expect(data.activityDays).toHaveLength(1)
+  })
+
+  it("holds nothing of anyone else", async () => {
+    await signInAs(bob)
+    const data = await exportMine()
+    expect(data.gardens).toEqual([])
+    expect(data.activityDays).toEqual([])
+    expect(data.account.email).toBeNull()
+  })
+
+  it("cannot be exported by visitors who are not signed in", async () => {
+    await signOut()
+    await expect(exportMine()).rejects.toThrow(/permission denied/)
+  })
+
+  it("is deleted with the account, and nobody else's goes with it", async () => {
+    await db.query("select public.record_visit()")
+    await db.query("insert into public.garden_shares (garden_id) values ($1)", [gardenId])
+    await signInAs(bob)
+    await db.query("insert into public.gardens (name, plan) values ('Bob''s garden', $1)", [PLAN])
+
+    await signInAs(alice)
+    await db.query("select public.delete_account()")
+
+    await db.exec("reset role")
+    const users = await db.query<{ id: string }>("select id from auth.users")
+    expect(users.rows).toEqual([{ id: bob }])
+    const gardens = await db.query<{ name: string }>("select name from public.gardens")
+    expect(gardens.rows).toEqual([{ name: "Bob's garden" }])
+    expect((await db.query("select * from public.garden_shares")).rows).toEqual([])
+    expect((await db.query("select * from private.activity_days")).rows).toEqual([])
+    expect((await db.query("select id from public.profiles")).rows).toEqual([{ id: bob }])
+  })
+
+  it("cannot be deleted by visitors who are not signed in", async () => {
+    await signOut()
+    await expect(db.query("select public.delete_account()")).rejects.toThrow(/permission denied/)
   })
 })
 
