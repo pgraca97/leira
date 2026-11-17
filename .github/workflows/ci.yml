@@ -58,6 +58,8 @@ jobs:
           printf 'SUPABASE_URL=http://127.0.0.1:54321\nSUPABASE_PUBLISHABLE_KEY=%s\nOPENWEATHER_API_KEY=\n' "$key" > apps/web/.dev.vars
           # Cloudflare's test key: it always passes, and matches the test secret in supabase/config.toml.
           echo 'TURNSTILE_SITE_KEY=1x00000000000000000000AA' >> apps/web/.dev.vars
+          # The stack's Mailpit, which takes mail on this port with no login.
+          printf 'SMTP_HOST=127.0.0.1\nSMTP_PORT=54325\nSMTP_USER=leiragarden@gmail.com\nSMTP_PASSWORD=mailpit\n' >> apps/web/.dev.vars
 
       - run: pnpm test:integration
 

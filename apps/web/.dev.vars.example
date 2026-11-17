@@ -12,6 +12,16 @@ SUPABASE_PUBLISHABLE_KEY=
 # (`wrangler secret put WEB_ANALYTICS_TOKEN`), so local and test visits are never counted.
 # WEB_ANALYTICS_TOKEN=
 
+# The SMTP server the Worker sends its own emails through (the confirmation of a request to
+# delete an account). Locally it is the stack's Mailpit, which needs no password: any value
+# will do, but leaving one empty turns the email off. Read the mail at http://127.0.0.1:54324.
+# In production it is Gmail: smtp.gmail.com, port 465, the project's address and an app
+# password (`wrangler secret put` each one).
+SMTP_HOST=127.0.0.1
+SMTP_PORT=54325
+SMTP_USER=leiragarden@gmail.com
+SMTP_PASSWORD=mailpit
+
 # Cloudflare Turnstile site key. Locally it is Cloudflare's test key, which always passes and
 # matches the test secret in supabase/config.toml. In production it is the key of the real
 # widget (`wrangler secret put TURNSTILE_SITE_KEY`).

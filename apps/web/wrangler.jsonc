@@ -40,9 +40,15 @@
   // Set per environment: `.dev.vars` locally, `wrangler secret put` when deployed.
   // The Supabase values and the Turnstile site key are public, but each environment
   // still needs its own. Only the keys listed here are read from `.dev.vars`.
+  // The SMTP ones are listed for that reason: the Worker sends no email while any of
+  // them is empty, but locally they point it at the stack's Mailpit.
   "secrets": {
     "required": [
       "OPENWEATHER_API_KEY",
+      "SMTP_HOST",
+      "SMTP_PASSWORD",
+      "SMTP_PORT",
+      "SMTP_USER",
       "SUPABASE_PUBLISHABLE_KEY",
       "SUPABASE_URL",
       "TURNSTILE_SITE_KEY"
