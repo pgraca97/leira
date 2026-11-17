@@ -114,6 +114,13 @@ The last two need `pnpm db:start` and a filled-in `.dev.vars`.
 - **A visitor cannot spend the weather quota.** The Worker counts calls per address: 60 a minute
   to the weather and place routes, and 10 a minute of those the cache cannot answer, since only
   these reach OpenWeather and write to KV.
+- **Usage is counted for the owner, not for advertisers.** Two sources, both free. Cloudflare Web
+  Analytics counts visits, pages and where people come from, with no cookies; its beacon loads only
+  where the Worker has a token, which is production. The database keeps one row per person for
+  each day they opened the app, so "came back" includes someone who only read their calendar. The
+  page `/stats` shows those numbers and the free plan limits to the admins listed in
+  `private.admins`, whose own use is left out. It is there to say when paying for a domain or a
+  bigger plan would be worth it.
 
 ## Repository layout
 
@@ -150,3 +157,12 @@ migrations and then publishes the Worker. It needs three secrets in the GitHub r
 | `CLOUDFLARE_API_TOKEN`  | A Cloudflare API token made from the "Edit Cloudflare Workers" template. |
 | `CLOUDFLARE_ACCOUNT_ID` | The id of the Cloudflare account the Worker is in.                       |
 | `SUPABASE_ACCESS_TOKEN` | A Supabase access token that may write to the project's database.        |
+
+Two steps are by hand, once:
+
+- **Web Analytics.** In the Cloudflare dashboard, open Web Analytics, add a site with the Worker's
+  hostname, and copy the token from its snippet. Then
+  `pnpm --filter @leira/web exec wrangler secret put WEB_ANALYTICS_TOKEN`. Without it the app
+  works the same, uncounted.
+- **The stats page.** In the Supabase SQL editor, make your account an admin:
+  `insert into private.admins (user_id) select id from auth.users where email = '<your email>';`
