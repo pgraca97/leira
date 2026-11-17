@@ -51,12 +51,25 @@ export function createGardenCanvas(parent: HTMLElement): GardenCanvasHandle {
     if (game.isBooted) fitToParent()
   })
   observer.observe(parent)
+
+  // Phaser places a press on the garden using where it last measured the
+  // canvas, and measures again only when the canvas changes size. Whatever
+  // sits above it can move it without resizing it (the save indicator, the
+  // tools' hint on a phone), and every press would then land off target. So
+  // the canvas is measured again before Phaser sees each press and each move.
+  const remeasure = () => {
+    if (game.isBooted) game.scale.updateBounds()
+  }
+  parent.addEventListener("pointerdown", remeasure, { capture: true })
+  parent.addEventListener("pointermove", remeasure, { capture: true })
   // Catch a resize that happened while Phaser was still booting.
   game.events.once(Phaser.Core.Events.READY, fitToParent)
 
   return {
     destroy() {
       observer.disconnect()
+      parent.removeEventListener("pointerdown", remeasure, { capture: true })
+      parent.removeEventListener("pointermove", remeasure, { capture: true })
       game.destroy(true)
     },
   }
