@@ -22,7 +22,8 @@ A _leira_ is what a plot of cultivated land is called in Minho, in the north of 
   Pick several items with Shift (a click adds one, a drag draws an area, Ctrl+A takes all), or
   with "Select several" on a touch screen, then move, duplicate or delete them together.
   Copy and paste them into this garden or another; "Paste into next year" puts the crops in the
-  same place a year later, which is how next season is planned.
+  same place a year later, which is how next season is planned. Save a selection as a named
+  template and insert it into any of your gardens, its crops moved to the year shown.
   Zoom with the wheel, a pinch or the buttons.
 - **45 crops** common in Portugal, with search, spacing, frost tolerance, days to harvest and the
   months each one goes in the ground. One tick narrows the list to what can be sown or planted
