@@ -557,6 +557,17 @@ export const en = {
       home: "Go to the home page",
     },
   },
+  /** The emails the Worker sends. Each paragraph is one key, in plain text and in HTML. */
+  email: {
+    deletion: {
+      subject: "Your Leira account will be deleted on {{date}}",
+      requested:
+        "We received a request to delete your Leira account. It will be deleted on {{date}}, with your gardens, their share links and everything else kept about you.",
+      keep: "You were signed out on every device. To keep the account, sign in again at {{url}} before {{date}}. That cancels the request, and everything stays as it was.",
+      meant: "If you meant to delete it, there is nothing else to do.",
+      contact: "If you have a question, write to leiragarden@gmail.com.",
+    },
+  },
 }
 
 export type Translation = typeof en

@@ -562,4 +562,14 @@ export const pt: Translation = {
       home: "Ir para a página inicial",
     },
   },
+  email: {
+    deletion: {
+      subject: "A tua conta do Leira vai ser apagada a {{date}}",
+      requested:
+        "Recebemos um pedido para apagar a tua conta do Leira. Vai ser apagada a {{date}}, com as tuas hortas, os links de partilha e tudo o resto que guardamos sobre ti.",
+      keep: "A tua sessão foi terminada em todos os dispositivos. Para manteres a conta, volta a entrar em {{url}} antes de {{date}}. Isso cancela o pedido, e fica tudo como estava.",
+      meant: "Se querias mesmo apagá-la, não tens de fazer mais nada.",
+      contact: "Se tiveres alguma dúvida, escreve para leiragarden@gmail.com.",
+    },
+  },
 }
