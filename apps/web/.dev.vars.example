@@ -11,3 +11,8 @@ SUPABASE_PUBLISHABLE_KEY=
 # Cloudflare Web Analytics site token. Leave it unset here: it is set in production only
 # (`wrangler secret put WEB_ANALYTICS_TOKEN`), so local and test visits are never counted.
 # WEB_ANALYTICS_TOKEN=
+
+# Cloudflare Turnstile site key. Locally it is Cloudflare's test key, which always passes and
+# matches the test secret in supabase/config.toml. In production it is the key of the real
+# widget (`wrangler secret put TURNSTILE_SITE_KEY`).
+TURNSTILE_SITE_KEY=1x00000000000000000000AA

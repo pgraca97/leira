@@ -2,7 +2,14 @@ import { emptyPlan } from "@leira/core"
 import { describe, expect, it } from "vitest"
 import { accountApi } from "../src/lib/account"
 import { gardensApi } from "../src/lib/gardens"
-import { emailedLink, followEmailedLink, signInVisitor, stackSettings } from "./localStack"
+import {
+  emailedLink,
+  followEmailedLink,
+  newClient,
+  signInVisitor,
+  stackSettings,
+  testCaptcha,
+} from "./localStack"
 
 /**
  * Keeping a guest's gardens by attaching an email, and getting back to them
@@ -66,7 +73,7 @@ describe("keeping the gardens with Google", () => {
   it("sends a guest to Google through the auth server, to come back to the app", async () => {
     const guest = await signInVisitor(settings)
     const url = await sentTo((navigate) =>
-      accountApi(guest.client, APP_URL, navigate).continueWithGoogle()
+      accountApi(guest.client, APP_URL, { navigate }).continueWithGoogle()
     )
 
     expect(url.hostname).toBe("accounts.google.com")
@@ -81,7 +88,7 @@ describe("keeping the gardens with Google", () => {
   it("can also sign in to the account a Google identity already has", async () => {
     const guest = await signInVisitor(settings)
     const url = await sentTo((navigate) =>
-      accountApi(guest.client, APP_URL, navigate).signInWithGoogle()
+      accountApi(guest.client, APP_URL, { navigate }).signInWithGoogle()
     )
 
     expect(`${url.origin}${url.pathname}`).toBe(`${settings.url}/auth/v1/authorize`)
@@ -101,7 +108,7 @@ describe("coming back on another device", () => {
 
     // Second device: another guest asks for a link with the same address.
     const second = await signInVisitor(settings)
-    await accountApi(second.client, APP_URL).requestEmailLink(address)
+    await accountApi(second.client, APP_URL, { captcha: testCaptcha }).requestEmailLink(address)
     const opened = await followEmailedLink(await emailedLink(address))
 
     // The link carries a session of the first account, not of the second guest.
@@ -120,5 +127,27 @@ describe("signing out", () => {
     await accountApi(guest.client, APP_URL).signOut()
     const { data } = await guest.client.auth.getSession()
     expect(data.session).toBeNull()
+  })
+})
+
+// The auth server asks for a captcha before it makes a guest or emails a
+// sign-in link, so a bot cannot do either by the thousand. Locally the test
+// secret lets any token through, so only production turns a bad one away.
+describe("the captcha", () => {
+  it("is needed to sign in as a guest", async () => {
+    const { error } = await newClient(settings).auth.signInAnonymously()
+    expect(error?.code).toBe("captcha_failed")
+  })
+
+  it("is needed to email a link to an address that has an account", async () => {
+    const first = await signInVisitor(settings)
+    const address = freshAddress()
+    await accountApi(first.client, APP_URL).requestEmailLink(address)
+    await followEmailedLink(await emailedLink(address))
+
+    const second = await signInVisitor(settings)
+    await expect(accountApi(second.client, APP_URL).requestEmailLink(address)).rejects.toThrow(
+      /captcha/i
+    )
   })
 })

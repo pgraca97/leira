@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
+import type { CaptchaSolver } from "./captcha"
 
 /** Who is using the app. A guest has no email: their gardens live in this browser's session only. */
 export interface Account {
@@ -58,14 +59,21 @@ export function authErrorCode(url: URL): string | null {
 /** The refusal for a Google identity that already belongs to another account. */
 export const IDENTITY_TAKEN = "identity_already_exists"
 
-/**
- * `appUrl` is where an emailed link or Google sends the user back to.
- * `navigate` takes the browser to another site.
- */
+interface AccountOptions {
+  /** Takes the browser to another site. */
+  navigate?: (url: string) => void
+  /**
+   * Proves the visitor is a person, where the auth server asks for it before
+   * emailing a sign-in link. Going to Google needs no captcha.
+   */
+  captcha?: CaptchaSolver
+}
+
+/** `appUrl` is where an emailed link or Google sends the user back to. */
 export function accountApi(
   client: SupabaseClient,
   appUrl: string,
-  navigate: (url: string) => void = (url) => window.location.assign(url)
+  { navigate = (url) => window.location.assign(url), captcha }: AccountOptions = {}
 ): SupabaseAccountApi {
   // The client would navigate by itself, but only in a browser. Asking for
   // the address instead behaves the same everywhere, tests included.
@@ -86,8 +94,12 @@ export function accountApi(
 
       const signIn = await client.auth.signInWithOtp({
         email,
-        // Never create an account here: the address is known to have one.
-        options: { shouldCreateUser: false, emailRedirectTo: appUrl },
+        options: {
+          // Never create an account here: the address is known to have one.
+          shouldCreateUser: false,
+          emailRedirectTo: appUrl,
+          ...(captcha ? { captchaToken: await captcha() } : {}),
+        },
       })
       if (signIn.error) throw new Error(signIn.error.message)
     },

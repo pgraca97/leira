@@ -217,10 +217,14 @@ token_verifications = 30
 web3 = 30
 
 # Configure one of the supported captcha providers: `hcaptcha`, `turnstile`.
-# [auth.captcha]
-# enabled = true
-# provider = "hcaptcha"
-# secret = ""
+# On here as in production, so a sign-in without a token fails here too. The secret
+# is Cloudflare's public test secret, which lets any token through; the browser gets
+# one from the test site key (TURNSTILE_SITE_KEY in apps/web/.dev.vars). Checking it
+# calls Cloudflare, so signing in locally needs a network.
+[auth.captcha]
+enabled = true
+provider = "turnstile"
+secret = "1x0000000000000000000000000000000AA"
 
 [auth.email]
 # Allow/disallow the email provider. When false, users can't sign up or sign in with email.

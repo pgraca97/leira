@@ -30,14 +30,31 @@ export function stackSettings(): StackSettings {
   return { url, publishableKey }
 }
 
+/**
+ * The token Cloudflare's test site key hands out. The local auth server checks
+ * captchas with Cloudflare's test secret (supabase/config.toml), which lets
+ * any token through: locally, what counts is that one is sent at all.
+ */
+export const TEST_CAPTCHA_TOKEN = "XXXX.DUMMY.TOKEN.XXXX"
+
+/** Answers the captcha the way a browser with the test site key would. */
+export const testCaptcha = async () => TEST_CAPTCHA_TOKEN
+
+/** A client of its own, with no session yet. */
+export function newClient(settings: StackSettings): SupabaseClient {
+  return createClient(settings.url, settings.publishableKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  })
+}
+
 /** A fresh anonymous visitor: a client with its own session, and that session's token. */
 export async function signInVisitor(
   settings: StackSettings
 ): Promise<{ client: SupabaseClient; userId: string; accessToken: string }> {
-  const client = createClient(settings.url, settings.publishableKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
+  const client = newClient(settings)
+  const { data, error } = await client.auth.signInAnonymously({
+    options: { captchaToken: TEST_CAPTCHA_TOKEN },
   })
-  const { data, error } = await client.auth.signInAnonymously()
   if (error || !data.session || !data.user) {
     throw new Error(`Anonymous sign-in failed: ${error?.message ?? "no session"}`)
   }

@@ -50,11 +50,14 @@ jobs:
         run: pnpm supabase start --exclude studio,imgproxy,storage-api,logflare,vector,edge-runtime,supavisor
 
       - name: Point the Worker at the local stack
-        # The key printed here belongs to the throwaway local stack, so it is not a secret.
+        # The keys written here belong to the throwaway local stack or are Cloudflare's
+        # public test key, so none is a secret.
         run: |
           key=$(pnpm --silent supabase status -o env | grep '^PUBLISHABLE_KEY=' | cut -d= -f2- | tr -d '"')
           test -n "$key"
           printf 'SUPABASE_URL=http://127.0.0.1:54321\nSUPABASE_PUBLISHABLE_KEY=%s\nOPENWEATHER_API_KEY=\n' "$key" > apps/web/.dev.vars
+          # Cloudflare's test key: it always passes, and matches the test secret in supabase/config.toml.
+          echo 'TURNSTILE_SITE_KEY=1x00000000000000000000AA' >> apps/web/.dev.vars
 
       - run: pnpm test:integration
 

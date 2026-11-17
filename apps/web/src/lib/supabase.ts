@@ -3,6 +3,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js"
 import type { z } from "zod"
 import { accountApi, authErrorCode, IDENTITY_TAKEN } from "./account"
 import type { Backend } from "./backend"
+import { type CaptchaSolver, captchaSolver } from "./captcha"
 import { loadConfig } from "./config"
 import { gardensApi } from "./gardens"
 import { statsApi } from "./stats"
@@ -12,14 +13,17 @@ import { recordVisit } from "./visits"
 /**
  * Returns the access token of the current session. A visitor without one is
  * signed in anonymously: they get a real user id, so their gardens are
- * protected by the same row level security as anyone else's.
+ * protected by the same row level security as anyone else's. The auth server
+ * asks for a captcha first, which `captcha` answers.
  */
-async function accessToken(client: SupabaseClient): Promise<string> {
+async function accessToken(client: SupabaseClient, captcha: CaptchaSolver): Promise<string> {
   const { data, error } = await client.auth.getSession()
   if (error) throw new Error(error.message)
   if (data.session) return data.session.access_token
 
-  const signedIn = await client.auth.signInAnonymously()
+  const signedIn = await client.auth.signInAnonymously({
+    options: { captchaToken: await captcha() },
+  })
   if (signedIn.error || !signedIn.data.session) {
     throw new Error(signedIn.error?.message ?? "Anonymous sign-in returned no session")
   }
@@ -33,11 +37,14 @@ export async function connectBackend(): Promise<Backend> {
   // the address, and the refusal must not stay there to be met again on reload.
   const refusal = authErrorCode(new URL(window.location.href))
   const client = createClient(config.supabaseUrl, config.supabasePublishableKey)
-  await accessToken(client)
+  const captcha = captchaSolver(config.turnstileSiteKey)
+  /** The session's token, signing in a new guest if there is none. */
+  const token = () => accessToken(client, captcha)
+  await token()
   recordVisit(client)
   if (refusal) window.history.replaceState(null, "", window.location.pathname)
 
-  const account = accountApi(client, window.location.origin)
+  const account = accountApi(client, window.location.origin, { captcha })
   if (refusal === IDENTITY_TAKEN) {
     // The guest chose a Google account that is already registered here, so
     // it cannot be attached to them: sign in to that account instead. The
@@ -54,7 +61,7 @@ export async function connectBackend(): Promise<Backend> {
   ) {
     const query = new URLSearchParams(params)
     const response = await fetch(`${path}?${query}`, {
-      headers: { Authorization: `Bearer ${await accessToken(client)}` },
+      headers: { Authorization: `Bearer ${await token()}` },
     })
     if (!response.ok) throw new Error(`${path} failed: ${response.status}`)
     return schema.parse(await response.json())
@@ -69,11 +76,11 @@ export async function connectBackend(): Promise<Backend> {
       async signOut() {
         await account.signOut()
         // Nobody uses the app without a session: start over as a new guest.
-        await accessToken(client)
+        await token()
       },
       async deleteAccount() {
         await account.deleteAccount()
-        await accessToken(client)
+        await token()
       },
     },
     weather: (lat, lon) => workerRoute("/api/weather", at(lat, lon), WeatherNowSchema),
