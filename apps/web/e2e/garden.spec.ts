@@ -556,6 +556,37 @@ test("a visitor takes their data away, then deletes everything", async ({ page }
   await expect(page.getByText(/You have no gardens yet/)).toBeVisible()
 })
 
+test("an account asked to be deleted stays when its owner signs in again", async ({ page }) => {
+  const address = `leaving-${crypto.randomUUID()}@example.com`
+  await page.goto("/gardens")
+  await page.getByRole("button", { name: "New garden" }).click()
+  await page.getByRole("textbox", { name: "Garden name" }).fill("Second thoughts")
+  await expect(page.getByText("Saved", { exact: true })).toBeVisible()
+  await page.getByRole("button", { name: "Keep your gardens" }).click()
+  await page.getByRole("textbox", { name: "Email" }).fill(address)
+  await page.getByRole("button", { name: "Send link" }).click()
+  await page.goto(await emailedLink(address))
+  await expect(page.getByRole("button", { name: address })).toBeVisible()
+
+  await page.getByRole("button", { name: address }).click()
+  await page.getByRole("button", { name: "Delete account" }).click()
+  await expect(page.getByText(/will be deleted on .*, 30 days from now/)).toBeVisible()
+  await page.getByRole("button", { name: "Delete my account" }).click()
+
+  // The browser goes on as a new guest, told until when the account waits.
+  await expect(page.getByText(/Your account will be deleted on/)).toBeVisible()
+  await expect(page.getByRole("button", { name: "Keep your gardens" })).toBeVisible()
+  await expect(page.getByText(/You have no gardens yet/)).toBeVisible()
+
+  await page.getByRole("button", { name: "Keep your gardens" }).click()
+  await page.getByRole("textbox", { name: "Email" }).fill(address)
+  await page.getByRole("button", { name: "Send link" }).click()
+  await expect(page.getByText(`We sent a link to ${address}`)).toBeVisible()
+  await page.goto(await emailedLink(address))
+  await expect(page.getByText(/Since you signed in again, it stays/)).toBeVisible()
+  await expect(page.getByRole("link", { name: "Second thoughts" })).toBeVisible()
+})
+
 test("a new visitor opens the example garden and finds the advice at work", async ({ page }) => {
   await page.goto("/gardens")
   await page.getByRole("button", { name: "See an example" }).click()
