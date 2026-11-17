@@ -1,6 +1,6 @@
 import { type Bed, emptyPlan, type Planting } from "@leira/core"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { editorStore, redo, shownPlan, undo } from "./store"
+import { editorStore, redo, selectedBed, selectedPlanting, shownPlan, undo } from "./store"
 
 const TOMATO: Planting = {
   id: "p1",
@@ -353,7 +353,7 @@ describe("duplicateSelection", () => {
     const [original, copy] = state().plan.plantings
     expect(copy).toMatchObject({ plantId: "tomato", rect: { x: 10, y: 10, w: 100, h: 100 } })
     expect(copy?.id).not.toBe(original?.id)
-    expect(state().selection).toEqual({ kind: "planting", id: copy?.id })
+    expect(state().selection).toEqual([{ kind: "planting", id: copy?.id }])
   })
 
   it("does nothing without a selection", () => {
@@ -464,5 +464,97 @@ describe("the view date", () => {
     vi.useFakeTimers({ now: new Date(2026, 10, 11, 9, 0) })
     state().addPlanting("lettuce", { x: 300, y: 0, w: 100, h: 100 }, "row")
     expect(state().plan.plantings.at(-1)?.inGround.from).toBe("2026-11-11")
+  })
+})
+
+describe("a selection of several items", () => {
+  const TOMATO_REF = { kind: "planting", id: "p1" } as const
+  const BED_REF = { kind: "bed", id: "b1" } as const
+
+  it("starts empty, and holds one item once one is selected", () => {
+    expect(state().selection).toEqual([])
+    state().select(BED_REF)
+    expect(state().selection).toEqual([BED_REF])
+    state().select(null)
+    expect(state().selection).toEqual([])
+  })
+
+  it("adds an item, or takes it out when it is already in", () => {
+    state().select(BED_REF)
+    state().toggleSelected(TOMATO_REF)
+    expect(state().selection).toEqual([BED_REF, TOMATO_REF])
+    state().toggleSelected(BED_REF)
+    expect(state().selection).toEqual([TOMATO_REF])
+  })
+
+  it("can be replaced as a whole, without the same item twice", () => {
+    state().selectItems([TOMATO_REF, BED_REF, TOMATO_REF])
+    expect(state().selection).toEqual([TOMATO_REF, BED_REF])
+  })
+
+  it("describes an item on its own only when it is the only one", () => {
+    state().selectItems([TOMATO_REF, BED_REF])
+    expect(selectedBed(state())).toBeUndefined()
+    expect(selectedPlanting(state())).toBeUndefined()
+    state().select(TOMATO_REF)
+    expect(selectedPlanting(state())).toEqual(TOMATO)
+  })
+
+  it("moves together, in one undo step", () => {
+    state().selectItems([TOMATO_REF, BED_REF])
+    expect(state().moveSelection(100, 50)).toBe(true)
+    expect(planting()?.rect).toMatchObject({ x: 100, y: 50 })
+    expect(bed()?.rect).toMatchObject({ x: 300, y: 250 })
+    undo()
+    expect(planting()?.rect).toEqual(TOMATO.rect)
+    expect(bed()?.rect).toEqual(BED.rect)
+  })
+
+  it("is nudged together", () => {
+    state().selectItems([TOMATO_REF, BED_REF])
+    expect(state().nudgeSelection(1, 1)).toBe(true)
+    expect(planting()?.rect).toMatchObject({ x: 10, y: 10 })
+    expect(bed()?.rect).toMatchObject({ x: 210, y: 210 })
+  })
+
+  it("is duplicated together, and the copies become the selection", () => {
+    state().selectItems([TOMATO_REF, BED_REF])
+    expect(state().duplicateSelection()).toBe(true)
+    const copies = [state().plan.beds[1], state().plan.plantings[1]]
+    expect(state().selection).toEqual([
+      { kind: "bed", id: copies[0]?.id },
+      { kind: "planting", id: copies[1]?.id },
+    ])
+  })
+
+  it("is removed together, in one undo step", () => {
+    state().selectItems([TOMATO_REF, BED_REF])
+    state().removeSelection()
+    expect(state().plan.beds).toEqual([])
+    expect(state().plan.plantings).toEqual([])
+    expect(state().selection).toEqual([])
+    undo()
+    expect(state().plan.beds).toHaveLength(1)
+    expect(state().plan.plantings).toHaveLength(1)
+  })
+})
+
+describe("selecting several items by touch", () => {
+  it("is a mode that a drawing tool or a new plan turns off", () => {
+    state().setSelectingMany(true)
+    expect(state().selectingMany).toBe(true)
+    state().setTool({ kind: "bed" })
+    expect(state().selectingMany).toBe(false)
+
+    state().setTool({ kind: "select" })
+    state().setSelectingMany(true)
+    state().loadPlan(emptyPlan())
+    expect(state().selectingMany).toBe(false)
+  })
+
+  it("puts the select tool back when it is turned on", () => {
+    state().setTool({ kind: "bed" })
+    state().setSelectingMany(true)
+    expect(state().tool).toEqual({ kind: "select" })
   })
 })

@@ -46,7 +46,7 @@ describe("rotation warnings", () => {
     ])
     const warnings = screen.getByRole("region", { name: "Crop rotation" })
     await userEvent.click(within(warnings).getByRole("button"))
-    expect(editorStore.getState().selection).toEqual({ kind: "planting", id: "new" })
+    expect(editorStore.getState().selection).toEqual([{ kind: "planting", id: "new" }])
   })
 
   it("stays quiet when the plantings are on different ground", () => {
@@ -248,7 +248,7 @@ describe("companion planting", () => {
       "Green bean and Onion grow poorly side by side. Move them apart."
     )
     await userEvent.click(warning)
-    expect(editorStore.getState().selection).toEqual({ kind: "planting", id: "beans" })
+    expect(editorStore.getState().selection).toEqual([{ kind: "planting", id: "beans" }])
   })
 
   it("notes neighbours that help each other", () => {
@@ -308,7 +308,7 @@ describe("out of season warnings", () => {
     await userEvent.click(
       within(screen.getByRole("region", { name: "Out of season" })).getByRole("button")
     )
-    expect(editorStore.getState().selection).toEqual({ kind: "planting", id: "early" })
+    expect(editorStore.getState().selection).toEqual([{ kind: "planting", id: "early" }])
   })
 
   it("stays quiet for a crop in season, and for one already in the ground", () => {

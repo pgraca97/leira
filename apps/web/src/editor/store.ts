@@ -3,7 +3,7 @@ import {
   type Bed,
   BedSchema,
   defaultInGround,
-  duplicateItem,
+  duplicateItems,
   emptyPlan,
   fitRectToPlan,
   type GardenPlan,
@@ -13,6 +13,7 @@ import {
   HarvestSchema,
   type IsoDate,
   moveItem,
+  moveItems,
   PLAN_LIMITS,
   type PlanItemRef,
   type Planting,
@@ -24,6 +25,7 @@ import {
   type ResizeHandle,
   recordTask,
   removeHarvest,
+  removeItems,
   resizeItem,
   resizePlan,
   toIsoDate,
@@ -41,7 +43,17 @@ export type ViewAction = "zoom-in" | "zoom-out" | "fit"
 export interface EditorState {
   /** The document being edited. Replaced, never mutated, so `===` detects any change. */
   plan: GardenPlan
-  selection: PlanItemRef | null
+  /**
+   * The items selected, in the order they were picked. Empty when nothing is.
+   * It may still name an item an undo took away: read it through `selectedItems`.
+   */
+  selection: PlanItemRef[]
+  /**
+   * Whether a press adds an item to the selection (or takes it out) instead of
+   * replacing it, and a drag on empty ground draws an area to select. It is
+   * what Shift does with a mouse, for screens that have no Shift key.
+   */
+  selectingMany: boolean
   tool: Tool
   /** Language for names drawn on the canvas. */
   locale: "pt" | "en"
@@ -71,9 +83,11 @@ export interface EditorState {
   moveItem(ref: PlanItemRef, dx: number, dy: number): boolean
   /** Drags one of an item's resize handles to a point. Returns false when the size is unchanged. */
   resizeItem(ref: PlanItemRef, handle: ResizeHandle, point: Point): boolean
-  /** Moves the selected item by whole grid cells. */
+  /** Moves the selected items together, as one block, by a distance in centimetres. */
+  moveSelection(dx: number, dy: number): boolean
+  /** Moves the selected items together by whole grid cells. */
   nudgeSelection(cellsX: number, cellsY: number): boolean
-  /** Adds a copy of the selected item beside it and selects the copy. */
+  /** Adds a copy of the selected items beside them and selects the copies. */
   duplicateSelection(): boolean
   /** Renames a bed or changes its kind. Returns false when nothing changes or the name is too long. */
   updateBed(id: string, changes: Partial<Pick<Bed, "name" | "kind">>): boolean
@@ -107,8 +121,17 @@ export interface EditorState {
   setPlantingNotes(plantingId: string, notes: string): boolean
   /** Stores the garden's note. An empty one removes it. Returns false when it is too long. */
   setPlanNotes(notes: string): boolean
+  /** Removes every selected item, in one undo step. */
   removeSelection(): void
-  select(selection: PlanItemRef | null): void
+  /** Selects one item on its own, or nothing when given null. */
+  select(ref: PlanItemRef | null): void
+  /** Replaces the selection with these items. */
+  selectItems(refs: readonly PlanItemRef[]): void
+  /** Adds an item to the selection, or takes it out when it is already in. */
+  toggleSelected(ref: PlanItemRef): void
+  /** Turns selecting several items by touch on or off. Turning it on picks the select tool. */
+  setSelectingMany(on: boolean): void
+  /** Picks a tool. A drawing tool ends selecting several items. */
   setTool(tool: Tool): void
   setLocale(locale: "pt" | "en"): void
   /** Sets the day to show. Null, or anything that is not a date, shows the whole plan. */
@@ -160,7 +183,8 @@ export const editorStore = createStore<EditorState>()(
 
       return {
         plan: emptyPlan(),
-        selection: null,
+        selection: [],
+        selectingMany: false,
         tool: { kind: "select" },
         locale: "en",
         viewDate: null,
@@ -170,7 +194,13 @@ export const editorStore = createStore<EditorState>()(
         loadPlan: (plan) => {
           const history = editorStore.temporal.getState()
           history.pause()
-          set({ plan, selection: null, tool: { kind: "select" }, viewDate: null })
+          set({
+            plan,
+            selection: [],
+            selectingMany: false,
+            tool: { kind: "select" },
+            viewDate: null,
+          })
           history.resume()
           history.clear()
         },
@@ -182,7 +212,7 @@ export const editorStore = createStore<EditorState>()(
           const bed: Bed = { id: crypto.randomUUID(), name: "", kind: "bed", rect: fitted }
           set({
             plan: { ...plan, beds: [...plan.beds, bed] },
-            selection: { kind: "bed", id: bed.id },
+            selection: [{ kind: "bed", id: bed.id }],
             // One bed per use of the tool: drawing beds back to back is rare.
             tool: { kind: "select" },
           })
@@ -204,7 +234,7 @@ export const editorStore = createStore<EditorState>()(
           }
           set({
             plan: { ...plan, plantings: [...plan.plantings, planting] },
-            selection: { kind: "planting", id: planting.id },
+            selection: [{ kind: "planting", id: planting.id }],
           })
           return true
         },
@@ -213,17 +243,21 @@ export const editorStore = createStore<EditorState>()(
 
         resizeItem: (ref, handle, point) => replacePlan(resizeItem(get().plan, ref, handle, point)),
 
+        moveSelection: (dx, dy) => {
+          const { plan, selection } = get()
+          return replacePlan(moveItems(plan, selection, dx, dy))
+        },
+
         nudgeSelection: (cellsX, cellsY) => {
           const { plan, selection } = get()
-          if (!selection) return false
-          return replacePlan(moveItem(plan, selection, cellsX * plan.cellCm, cellsY * plan.cellCm))
+          return replacePlan(moveItems(plan, selection, cellsX * plan.cellCm, cellsY * plan.cellCm))
         },
 
         duplicateSelection: () => {
           const { plan, selection } = get()
-          const copy = selection && duplicateItem(plan, selection, crypto.randomUUID())
+          const copy = duplicateItems(plan, selection, () => crypto.randomUUID())
           if (!copy) return false
-          set({ plan: copy.plan, selection: copy.ref })
+          set({ plan: copy.plan, selection: copy.refs })
           return true
         },
 
@@ -341,21 +375,23 @@ export const editorStore = createStore<EditorState>()(
 
         removeSelection: () => {
           const { plan, selection } = get()
-          if (!selection) return
-          set({
-            plan:
-              selection.kind === "bed"
-                ? { ...plan, beds: plan.beds.filter((bed) => bed.id !== selection.id) }
-                : {
-                    ...plan,
-                    plantings: plan.plantings.filter((planting) => planting.id !== selection.id),
-                  },
-            selection: null,
-          })
+          set({ plan: removeItems(plan, selection), selection: [] })
         },
 
-        select: (selection) => set({ selection }),
-        setTool: (tool) => set({ tool }),
+        select: (ref) => set({ selection: ref ? [ref] : [] }),
+        selectItems: (refs) =>
+          set({ selection: refs.filter((ref, index) => indexOfRef(refs, ref) === index) }),
+        toggleSelected: (ref) => {
+          const { selection } = get()
+          set({
+            selection: isSelected(selection, ref)
+              ? selection.filter((item) => !sameRef(item, ref))
+              : [...selection, ref],
+          })
+        },
+        setSelectingMany: (on) =>
+          set(on ? { selectingMany: true, tool: { kind: "select" } } : { selectingMany: false }),
+        setTool: (tool) => set(tool.kind === "select" ? { tool } : { tool, selectingMany: false }),
         setLocale: (locale) => set({ locale }),
         requestView: (action) => set({ viewRequest: { action } }),
         reportView: (view) => {
@@ -410,18 +446,47 @@ export function shownPlan(state: Pick<EditorState, "plan" | "viewDate">): Garden
   return state.viewDate ? plantingsInGround(state.plan, state.viewDate) : state.plan
 }
 
-/** The bed the selection points at, or undefined when it is gone (e.g. after an undo). */
-export function selectedBed(state: Pick<EditorState, "plan" | "selection">): Bed | undefined {
-  const { selection } = state
-  if (selection?.kind !== "bed") return undefined
-  return state.plan.beds.find((bed) => bed.id === selection.id)
+function sameRef(a: PlanItemRef, b: PlanItemRef): boolean {
+  return a.kind === b.kind && a.id === b.id
 }
 
-/** The planting the selection points at, or undefined when it is gone. */
+function indexOfRef(refs: readonly PlanItemRef[], ref: PlanItemRef): number {
+  return refs.findIndex((item) => sameRef(item, ref))
+}
+
+/** Whether an item is among the selected ones. */
+export function isSelected(selection: readonly PlanItemRef[], ref: PlanItemRef): boolean {
+  return indexOfRef(selection, ref) !== -1
+}
+
+/** The selected items that are still on the plan (an undo may have taken some away). */
+export function selectedItems(state: Pick<EditorState, "plan" | "selection">): PlanItemRef[] {
+  const { plan } = state
+  return state.selection.filter((ref) =>
+    ref.kind === "bed"
+      ? plan.beds.some((bed) => bed.id === ref.id)
+      : plan.plantings.some((planting) => planting.id === ref.id)
+  )
+}
+
+/** The one item selected, or null when there are none or several. */
+function onlySelected(state: Pick<EditorState, "plan" | "selection">): PlanItemRef | null {
+  const items = selectedItems(state)
+  return items.length === 1 ? (items[0] ?? null) : null
+}
+
+/** The bed selected on its own, or undefined when it is gone or not alone. */
+export function selectedBed(state: Pick<EditorState, "plan" | "selection">): Bed | undefined {
+  const only = onlySelected(state)
+  if (only?.kind !== "bed") return undefined
+  return state.plan.beds.find((bed) => bed.id === only.id)
+}
+
+/** The planting selected on its own, or undefined when it is gone or not alone. */
 export function selectedPlanting(
   state: Pick<EditorState, "plan" | "selection">
 ): Planting | undefined {
-  const { selection } = state
-  if (selection?.kind !== "planting") return undefined
-  return state.plan.plantings.find((planting) => planting.id === selection.id)
+  const only = onlySelected(state)
+  if (only?.kind !== "planting") return undefined
+  return state.plan.plantings.find((planting) => planting.id === only.id)
 }

@@ -44,13 +44,13 @@ export function useEditorShortcuts(): void {
         event.preventDefault()
         state.duplicateSelection()
       } else if (ARROWS[key] && !command && !event.altKey) {
-        if (!state.selection) return
+        if (state.selection.length === 0) return
         event.preventDefault()
         const [x, y] = ARROWS[key]
         const cells = event.shiftKey ? BIG_NUDGE_CELLS : 1
         state.nudgeSelection(x * cells, y * cells)
       } else if (key === "delete" || key === "backspace") {
-        if (!state.selection) return
+        if (state.selection.length === 0) return
         event.preventDefault()
         state.removeSelection()
       } else if (key === "escape") {

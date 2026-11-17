@@ -10,7 +10,7 @@ import {
   hitTest,
   isInGround,
   itemRect,
-  moveItem,
+  moveItems,
   type PlanItemRef,
   type Planting,
   type Point,
@@ -22,7 +22,14 @@ import {
 } from "@leira/core"
 import Phaser from "phaser"
 import { BED_STYLE, GROUND_STYLE } from "../bedStyles"
-import { type EditorState, editorStore, shownPlan, type Tool, type ViewAction } from "../store"
+import {
+  type EditorState,
+  editorStore,
+  selectedItems,
+  shownPlan,
+  type Tool,
+  type ViewAction,
+} from "../store"
 import { cursorFor, pointerTarget } from "./pointerTarget"
 import { clampZoom, pinchZoom, scrollToKeep, viewState, ZOOM_STEP, zoomLimits } from "./zoom"
 
@@ -70,7 +77,8 @@ interface Press {
 type Gesture =
   | (Press & { kind: "pan"; lastX: number; lastY: number })
   | (Press & { kind: "draw"; start: Point; end: Point })
-  | (Press & { kind: "move"; ref: PlanItemRef; start: Point; end: Point })
+  /** Drags every selected item together. */
+  | (Press & { kind: "move"; start: Point; end: Point })
   | (Press & { kind: "resize"; ref: PlanItemRef; handle: ResizeHandle; end: Point })
   /** Two fingers: `anchor` is the garden point that started between them and stays there. */
   | { kind: "pinch"; startDistance: number; startZoom: number; anchor: Point }
@@ -312,13 +320,14 @@ export class GardenScene extends Phaser.Scene {
       strokeRect(this.outlines, planting.rect)
     }
 
-    const rect = state.selection && itemRect(state.plan, state.selection)
-    if (!rect) return
+    const rects = selectedItems(state).flatMap((ref) => itemRect(state.plan, ref) ?? [])
     this.outlines.lineStyle(3 * pixel, COLOR.selection, 1)
-    strokeRect(this.outlines, grow(rect, 1.5 * pixel))
+    for (const rect of rects) strokeRect(this.outlines, grow(rect, 1.5 * pixel))
 
-    // Handles are an offer to resize, which only the select tool can take up.
-    if (state.tool.kind !== "select") return
+    // Handles are an offer to resize, which only the select tool can take up,
+    // and only for an item selected on its own.
+    const [rect] = rects
+    if (!rect || rects.length !== 1 || state.tool.kind !== "select") return
     const half = HANDLE_HALF_PX * pixel
     this.outlines.fillStyle(COLOR.handle, 1)
     this.outlines.lineStyle(1.5 * pixel, COLOR.selection, 1)
@@ -417,7 +426,7 @@ export class GardenScene extends Phaser.Scene {
           end: point,
         }
       } else if (target.kind === "move") {
-        this.gesture = { kind: "move", ...press, ref: target.ref, start: point, end: point }
+        this.gesture = { kind: "move", ...press, start: point, end: point }
       } else {
         this.gesture = pan()
       }
@@ -493,7 +502,7 @@ export class GardenScene extends Phaser.Scene {
     if (gesture.kind === "move" || gesture.kind === "resize") {
       // The drag is stored once, on release, so it is a single undo step and a single save.
       if (!gesture.moved) state.select(hitTest(shownPlan(state), this.worldPoint(pointer)))
-      else if (gesture.kind === "move") state.moveItem(gesture.ref, ...dragDistance(gesture))
+      else if (gesture.kind === "move") state.moveSelection(...dragDistance(gesture))
       else state.resizeItem(gesture.ref, gesture.handle, gesture.end)
       this.showHoverCursor(pointer)
       return
@@ -578,8 +587,9 @@ export class GardenScene extends Phaser.Scene {
 
   /** Shows where releasing the pointer now would leave the item being moved or resized. */
   private drawEditPreview(gesture: EditGesture): void {
-    const { plan, locale } = editorStore.getState()
-    const preview = editedPlan(plan, gesture)
+    const state = editorStore.getState()
+    const { plan, locale } = state
+    const preview = editedPlan(state, gesture)
     const pixel = this.worldPerPixel()
     this.overlay.clear()
 
@@ -599,8 +609,8 @@ export class GardenScene extends Phaser.Scene {
       ghost(planting, preview.plantings[index], plant ? hexColor(plant.color) : COLOR.unknownPlant)
     })
 
-    const rect = itemRect(preview, gesture.ref)
-    if (!rect || gesture.kind !== "resize") {
+    const rect = gesture.kind === "resize" && itemRect(preview, gesture.ref)
+    if (!rect) {
       this.draftLabel.setVisible(false)
       return
     }
@@ -755,10 +765,10 @@ function dragDistance(gesture: { start: Point; end: Point }): [dx: number, dy: n
 }
 
 /** The plan as it would be if the gesture ended now. */
-function editedPlan(plan: GardenPlan, gesture: EditGesture): GardenPlan {
+function editedPlan(state: EditorState, gesture: EditGesture): GardenPlan {
   return gesture.kind === "move"
-    ? moveItem(plan, gesture.ref, ...dragDistance(gesture))
-    : resizeItem(plan, gesture.ref, gesture.handle, gesture.end)
+    ? moveItems(state.plan, selectedItems(state), ...dragDistance(gesture))
+    : resizeItem(state.plan, gesture.ref, gesture.handle, gesture.end)
 }
 
 /** A rectangle's size in metres, e.g. "1.2 × 0.8 m". */

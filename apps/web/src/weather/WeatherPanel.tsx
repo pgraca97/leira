@@ -12,7 +12,7 @@ import { useMutation, useQuery } from "@tanstack/react-query"
 import { type FormEvent, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { buttonClass, inputClass, toggleButtonClass } from "../components/ui"
-import { editorStore } from "../editor/store"
+import { editorStore, isSelected } from "../editor/store"
 import { useEditor } from "../editor/useEditor"
 import { currentLanguage } from "../i18n"
 import { useBackend } from "../lib/backend"
@@ -117,7 +117,7 @@ function WeatherWarnings({ forecast }: { forecast: Forecast }) {
             <button
               type="button"
               className={`${toggleButtonClass} bg-amber-50 text-amber-900`}
-              aria-pressed={selection?.kind === "planting" && selection.id === risk.plantingId}
+              aria-pressed={isSelected(selection, { kind: "planting", id: risk.plantingId })}
               onClick={() =>
                 editorStore.getState().select({ kind: "planting", id: risk.plantingId })
               }

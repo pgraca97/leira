@@ -21,7 +21,7 @@ const REACH = 5
 
 describe("pointerTarget", () => {
   it("resizes when the press lands on a handle of the selected item", () => {
-    expect(pointerTarget({ plan, selection: BED }, { x: 302, y: 201 }, REACH)).toEqual({
+    expect(pointerTarget({ plan, selection: [BED] }, { x: 302, y: 201 }, REACH)).toEqual({
       kind: "resize",
       ref: BED,
       handle: "se",
@@ -29,34 +29,45 @@ describe("pointerTarget", () => {
   })
 
   it("moves when the press lands inside the selected item", () => {
-    expect(pointerTarget({ plan, selection: BED }, { x: 250, y: 150 }, REACH)).toEqual({
+    expect(pointerTarget({ plan, selection: [BED] }, { x: 250, y: 150 }, REACH)).toEqual({
       kind: "move",
-      ref: BED,
     })
   })
 
   it("moves the selected bed even where a crop lies on top of it", () => {
-    expect(pointerTarget({ plan, selection: BED }, { x: 150, y: 150 }, REACH)).toEqual({
+    expect(pointerTarget({ plan, selection: [BED] }, { x: 150, y: 150 }, REACH)).toEqual({
       kind: "move",
-      ref: BED,
     })
   })
 
   it("pans when the press misses the selected item", () => {
-    expect(pointerTarget({ plan, selection: BED }, { x: 450, y: 300 }, REACH)).toEqual({
+    expect(pointerTarget({ plan, selection: [BED] }, { x: 450, y: 300 }, REACH)).toEqual({
       kind: "pan",
     })
   })
 
   it("pans over an item that is not selected, so a stray drag moves nothing", () => {
-    expect(pointerTarget({ plan, selection: null }, { x: 250, y: 150 }, REACH)).toEqual({
+    expect(pointerTarget({ plan, selection: [] }, { x: 250, y: 150 }, REACH)).toEqual({
+      kind: "pan",
+    })
+  })
+
+  it("moves when the press lands inside any of several selected items", () => {
+    const CROP = { kind: "planting", id: "crop" } as const
+    const selection = [BED, CROP]
+    expect(pointerTarget({ plan, selection }, { x: 250, y: 150 }, REACH)).toEqual({ kind: "move" })
+  })
+
+  it("offers no handles while several items are selected", () => {
+    const CROP = { kind: "planting", id: "crop" } as const
+    expect(pointerTarget({ plan, selection: [BED, CROP] }, { x: 302, y: 201 }, REACH)).toEqual({
       kind: "pan",
     })
   })
 
   it("pans when the selected item no longer exists", () => {
     const gone = { kind: "bed", id: "deleted" } as const
-    expect(pointerTarget({ plan, selection: gone }, { x: 250, y: 150 }, REACH)).toEqual({
+    expect(pointerTarget({ plan, selection: [gone] }, { x: 250, y: 150 }, REACH)).toEqual({
       kind: "pan",
     })
   })
@@ -73,7 +84,7 @@ describe("cursorFor", () => {
   })
 
   it("shows that an item can be moved and the view can be panned", () => {
-    expect(cursorFor({ kind: "move", ref: BED })).toBe("move")
+    expect(cursorFor({ kind: "move" })).toBe("move")
     expect(cursorFor({ kind: "pan" })).toBe("grab")
   })
 })

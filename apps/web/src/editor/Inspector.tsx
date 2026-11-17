@@ -21,7 +21,7 @@ import { currentLanguage } from "../i18n"
 import { cropName } from "./cropName"
 import { PlantingMarks, PlantingRecord } from "./PlantingRecord"
 import { monthName, seasonText } from "./season"
-import { editorStore, selectedBed, selectedPlanting } from "./store"
+import { editorStore, isSelected, selectedBed, selectedPlanting } from "./store"
 import { useEditor } from "./useEditor"
 
 /** Years a botanical family should stay away from ground it has just used. */
@@ -325,9 +325,10 @@ export function Inspector({ children }: { children?: ReactNode }) {
                 <button
                   type="button"
                   className={`${toggleButtonClass} bg-amber-50 text-amber-900`}
-                  aria-pressed={
-                    selection?.kind === "planting" && selection.id === conflict.plantingId
-                  }
+                  aria-pressed={isSelected(selection, {
+                    kind: "planting",
+                    id: conflict.plantingId,
+                  })}
                   onClick={() => select({ kind: "planting", id: conflict.plantingId })}
                 >
                   {t("rotation.conflict", {
@@ -361,7 +362,7 @@ export function Inspector({ children }: { children?: ReactNode }) {
                 <button
                   type="button"
                   className={`${toggleButtonClass} bg-amber-50 text-amber-900`}
-                  aria-pressed={selection?.kind === "planting" && selection.id === late.plantingId}
+                  aria-pressed={isSelected(selection, { kind: "planting", id: late.plantingId })}
                   onClick={() => select({ kind: "planting", id: late.plantingId })}
                 >
                   {t("season.outOfSeason", {
@@ -396,9 +397,10 @@ export function Inspector({ children }: { children?: ReactNode }) {
                     <button
                       type="button"
                       className={`${toggleButtonClass} bg-amber-50 text-amber-900`}
-                      aria-pressed={
-                        selection?.kind === "planting" && selection.id === pair.plantingId
-                      }
+                      aria-pressed={isSelected(selection, {
+                        kind: "planting",
+                        id: pair.plantingId,
+                      })}
                       onClick={() => select({ kind: "planting", id: pair.plantingId })}
                     >
                       {t("companions.bad", names)}
@@ -429,7 +431,7 @@ export function Inspector({ children }: { children?: ReactNode }) {
                 <button
                   type="button"
                   className={toggleButtonClass}
-                  aria-pressed={selection?.kind === "planting" && selection.id === planting.id}
+                  aria-pressed={isSelected(selection, { kind: "planting", id: planting.id })}
                   onClick={() => select({ kind: "planting", id: planting.id })}
                 >
                   <span
@@ -464,7 +466,7 @@ export function Inspector({ children }: { children?: ReactNode }) {
                 <button
                   type="button"
                   className={toggleButtonClass}
-                  aria-pressed={selection?.kind === "bed" && selection.id === item.id}
+                  aria-pressed={isSelected(selection, { kind: "bed", id: item.id })}
                   onClick={() => select({ kind: "bed", id: item.id })}
                 >
                   <span className="flex-1">

@@ -747,7 +747,7 @@ describe("the garden's forecast", () => {
     expect(warning).toHaveTextContent("Frost on Apr 10 (1 °C): protect Tomato.")
 
     await userEvent.click(warning)
-    expect(editorStore.getState().selection).toEqual({ kind: "planting", id: TOMATO_ID })
+    expect(editorStore.getState().selection).toEqual([{ kind: "planting", id: TOMATO_ID }])
   })
 
   it("warns of a cold night for a seedling that has just been planted out", async () => {
@@ -762,7 +762,7 @@ describe("the garden's forecast", () => {
     )
 
     await userEvent.click(warning)
-    expect(editorStore.getState().selection).toEqual({ kind: "planting", id: TOMATO_ID })
+    expect(editorStore.getState().selection).toEqual([{ kind: "planting", id: TOMATO_ID }])
   })
 
   it("gives the soil temperature of each day, and credits where it comes from", async () => {
@@ -816,7 +816,7 @@ describe("the garden's forecast", () => {
     )
 
     await userEvent.click(warning)
-    expect(editorStore.getState().selection).toEqual({ kind: "planting", id: BEANS_ID })
+    expect(editorStore.getState().selection).toEqual([{ kind: "planting", id: BEANS_ID }])
   })
 
   it("stays quiet when the forecast threatens nothing in the ground", async () => {
@@ -878,10 +878,12 @@ describe("the garden's calendar", () => {
     await userEvent.click(await screen.findByRole("button", { name: /^Tomato × 4: / }))
 
     expect(await screen.findByTestId("garden-canvas")).toBeVisible()
-    expect(editorStore.getState().selection).toEqual({
-      kind: "planting",
-      id: "33333333-3333-4333-8333-333333333333",
-    })
+    expect(editorStore.getState().selection).toEqual([
+      {
+        kind: "planting",
+        id: "33333333-3333-4333-8333-333333333333",
+      },
+    ])
   })
 
   it("keeps unsaved edits when switching views", async () => {
