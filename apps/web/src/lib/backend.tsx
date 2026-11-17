@@ -2,6 +2,7 @@ import type { Forecast, Place, WeatherNow } from "@leira/core"
 import { createContext, useContext } from "react"
 import type { AccountApi } from "./account"
 import type { GardensApi, SharedGarden } from "./gardens"
+import type { StatsApi } from "./stats"
 
 /** Everything the pages need from the server. Tests pass an in-memory one. */
 export interface Backend {
@@ -13,6 +14,8 @@ export interface Backend {
   forecast(lat: number, lon: number): Promise<Forecast>
   /** The places a name may refer to, best match first. Empty when nothing matches. */
   places(query: string): Promise<Place[]>
+  /** How the app is used, for its admins only. */
+  stats: StatsApi
 }
 
 export const BackendContext = createContext<Backend | null>(null)

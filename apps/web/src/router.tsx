@@ -13,6 +13,7 @@ import { Notice } from "./components/Notice"
 import { GardenPage } from "./pages/GardenPage"
 import { GardensPage } from "./pages/GardensPage"
 import { SharedGardenPage } from "./pages/SharedGardenPage"
+import { StatsPage } from "./pages/StatsPage"
 
 const rootRoute = createRootRoute({ notFoundComponent: PageNotFound })
 
@@ -56,6 +57,13 @@ export const gardenRoute = createRoute({
   },
 })
 
+/** How the app is used. The page itself turns away anyone who is not an admin. */
+const statsRoute = createRoute({
+  getParentRoute: () => sessionRoute,
+  path: "/stats",
+  component: StatsPage,
+})
+
 /** A garden opened from its share link: read-only, and with no session. */
 export const sharedGardenRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -69,7 +77,7 @@ export const sharedGardenRoute = createRoute({
 })
 
 const routeTree = rootRoute.addChildren([
-  sessionRoute.addChildren([gardensRoute, gardenRoute]),
+  sessionRoute.addChildren([gardensRoute, gardenRoute, statsRoute]),
   sharedGardenRoute,
 ])
 

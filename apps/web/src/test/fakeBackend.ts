@@ -7,6 +7,7 @@ import {
   type GardenShare,
   type GardensApi,
 } from "../lib/gardens"
+import { StatsForbiddenError, type UsageStats } from "../lib/stats"
 
 export interface FakeBackend extends Backend {
   /** The stored gardens, to seed and to inspect. */
@@ -38,6 +39,10 @@ export interface FakeBackend extends Backend {
   googleStarts: number
   /** Makes the next trip to Google fail before it starts. */
   failNextGoogle(): void
+  /** Whether the visitor may read the usage stats. Nobody may, at first. */
+  admin: boolean
+  /** What the stats answer an admin: the numbers, or an error to throw. */
+  statsResult: UsageStats | Error
 }
 
 /** A backend that keeps gardens in memory and follows the real one's rules. */
@@ -193,6 +198,16 @@ export function fakeBackend(seed: Garden[] = []): FakeBackend {
       backend.placeQueries.push(query)
       if (backend.placesResult instanceof Error) throw backend.placesResult
       return backend.placesResult
+    },
+    admin: false,
+    statsResult: new Error("no stats set"),
+    stats: {
+      async usage() {
+        // Like the database, which refuses anyone who is not an admin.
+        if (!backend.admin) throw new StatsForbiddenError()
+        if (backend.statsResult instanceof Error) throw backend.statsResult
+        return structuredClone(backend.statsResult)
+      },
     },
     async weather(lat, lon) {
       backend.weatherCalls.push({ lat, lon })

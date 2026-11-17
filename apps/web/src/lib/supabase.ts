@@ -4,6 +4,7 @@ import { z } from "zod"
 import { accountApi, authErrorCode, IDENTITY_TAKEN } from "./account"
 import type { Backend } from "./backend"
 import { gardensApi } from "./gardens"
+import { statsApi } from "./stats"
 import { recordVisit } from "./visits"
 
 const ConfigSchema = z.object({
@@ -84,5 +85,6 @@ export async function connectBackend(): Promise<Backend> {
     weather: (lat, lon) => workerRoute("/api/weather", at(lat, lon), WeatherNowSchema),
     forecast: (lat, lon) => workerRoute("/api/forecast", at(lat, lon), ForecastSchema),
     places: (query) => workerRoute("/api/places", { q: query }, PlacesSchema),
+    stats: statsApi(client),
   }
 }

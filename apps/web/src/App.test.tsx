@@ -1021,3 +1021,94 @@ describe("a shared garden", () => {
     expect(connect).toHaveBeenCalledTimes(1)
   })
 })
+
+describe("the usage stats", () => {
+  /** Twelve weeks, the last one starting on Monday 16 November 2026. */
+  const WEEKS = Array.from({ length: 12 }, (_, index) => ({
+    weekStart: new Date(Date.UTC(2026, 7, 31 + index * 7)).toISOString().slice(0, 10),
+    newPeople: index,
+    active: index * 2,
+    returning: index,
+  }))
+  WEEKS[11] = { weekStart: "2026-11-16", newPeople: 12, active: 30, returning: 18 }
+
+  beforeEach(() => {
+    backend.statsResult = {
+      generatedAt: "2026-11-17T11:08:49.026624+00:00",
+      people: { guests: 196, accounts: 16, withGarden: 156 },
+      gardens: {
+        total: 202,
+        editedLast7Days: 40,
+        editedLast30Days: 90,
+        shared: 29,
+        withLocation: 12,
+      },
+      weeks: WEEKS,
+      limits: { databaseBytes: 12_300_000, monthlyUsers: 157 },
+    }
+  })
+
+  /** The number shown under a label in one of the page's sections. */
+  function figure(section: string, label: string): string | null | undefined {
+    const region = screen.getByRole("region", { name: section })
+    return within(region).getByText(label).closest("div")?.querySelector("dd")?.textContent
+  }
+
+  it("show the owner who uses the app, leaving the owner out", async () => {
+    backend.admin = true
+    open("/stats")
+    expect(await screen.findByText(/Your own use is left out/)).toBeInTheDocument()
+    expect(screen.getByRole("heading", { level: 1, name: "Usage" })).toBeInTheDocument()
+
+    expect(figure("People", "With a garden")).toBe("156")
+    expect(figure("People", "With an account")).toBe("16")
+    expect(figure("People", "Guests")).toBe("196")
+    expect(figure("Gardens", "In all")).toBe("202")
+    expect(figure("Gardens", "Edited in the last 7 days")).toBe("40")
+    expect(figure("Gardens", "Edited in the last 30 days")).toBe("90")
+    expect(figure("Gardens", "Shared")).toBe("29")
+    expect(figure("Gardens", "With a location")).toBe("12")
+  })
+
+  it("show who came back each week, as a chart and as a table", async () => {
+    backend.admin = true
+    open("/stats")
+    expect(
+      await screen.findByRole("img", {
+        name: "This week 30 people were active and 18 of them came back.",
+      })
+    ).toBeInTheDocument()
+
+    await userEvent.click(screen.getByText("See the numbers"))
+    const rows = within(screen.getByRole("table")).getAllByRole("row")
+    expect(rows).toHaveLength(13)
+    expect(
+      within(rows[12]!)
+        .getAllByRole("cell")
+        .map((cell) => cell.textContent)
+    ).toEqual(["30", "18", "12"])
+    expect(within(rows[12]!).getByRole("rowheader")).toHaveTextContent(/16/)
+  })
+
+  it("show how close the free tiers are", async () => {
+    backend.admin = true
+    open("/stats")
+    const limits = await screen.findByRole("region", { name: "Free tiers" })
+    expect(within(limits).getByText("12.3 MB of 500 MB")).toBeInTheDocument()
+    expect(within(limits).getByText("157 of 50,000")).toBeInTheDocument()
+  })
+
+  it("are not shown to anyone else", async () => {
+    open("/stats")
+    expect(await screen.findByText("This page is not available.")).toBeInTheDocument()
+    expect(screen.queryByRole("heading", { name: "Usage" })).not.toBeInTheDocument()
+  })
+
+  it("offer to try again when they cannot be loaded", async () => {
+    backend.admin = true
+    backend.statsResult = new Error("database down")
+    open("/stats")
+    expect(await screen.findByText("The stats could not be loaded.")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument()
+  })
+})
