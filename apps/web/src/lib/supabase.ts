@@ -4,6 +4,7 @@ import { z } from "zod"
 import { accountApi, authErrorCode, IDENTITY_TAKEN } from "./account"
 import type { Backend } from "./backend"
 import { gardensApi } from "./gardens"
+import { recordVisit } from "./visits"
 
 const ConfigSchema = z.object({
   supabaseUrl: z.url(),
@@ -42,6 +43,7 @@ export async function connectBackend(): Promise<Backend> {
   const refusal = authErrorCode(new URL(window.location.href))
   const client = createClient(config.supabaseUrl, config.supabasePublishableKey)
   await accessToken(client)
+  recordVisit(client)
   if (refusal) window.history.replaceState(null, "", window.location.pathname)
 
   const account = accountApi(client, window.location.origin)
