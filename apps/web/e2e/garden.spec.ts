@@ -23,6 +23,46 @@ async function clickOnCanvas(page: Page, at: [number, number]) {
   await page.mouse.click(box.x + box.width * at[0], box.y + box.height * at[1])
 }
 
+/**
+ * Where a point of a new 6 m by 4 m garden is on the page, in centimetres
+ * from its top-left corner. It follows the canvas's own rule for a view nobody
+ * has panned or zoomed: the whole garden fits, centred, 32 px from the edges.
+ * Read afresh each time, once the canvas has stopped moving: it changes size
+ * when the tools' hint does, and the garden is fitted to the new size a frame later.
+ */
+async function onGarden(page: Page, [x, y]: readonly [number, number]): Promise<[number, number]> {
+  const canvas = page.getByTestId("garden-canvas")
+  await expect(canvas).toHaveAttribute("data-status", "ready")
+  await canvas.scrollIntoViewIfNeeded()
+  // A string, because these tests are typed for Node, which has no requestAnimationFrame.
+  const frame = () => page.evaluate("new Promise((settled) => requestAnimationFrame(settled))")
+  let box = await canvas.boundingBox()
+  for (let tries = 0; tries < 10; tries++) {
+    await frame()
+    await frame()
+    const next = await canvas.boundingBox()
+    if (JSON.stringify(next) === JSON.stringify(box)) break
+    box = next
+  }
+  if (!box) throw new Error("The canvas is not on the page")
+  const zoom = Math.min((box.width - 64) / 600, (box.height - 64) / 400)
+  const left = box.x + box.width / 2 - 300 * zoom
+  const top = box.y + box.height / 2 - 200 * zoom
+  return [left + x * zoom, top + y * zoom]
+}
+
+/** Drags between two points of the garden, given in centimetres. */
+async function dragOnGarden(
+  page: Page,
+  from: readonly [number, number],
+  to: readonly [number, number]
+) {
+  await page.mouse.move(...(await onGarden(page, from)))
+  await page.mouse.down()
+  await page.mouse.move(...(await onGarden(page, to)), { steps: 8 })
+  await page.mouse.up()
+}
+
 test("a garden survives a reload", async ({ page }) => {
   await page.goto("/")
   await page.getByRole("button", { name: "New garden" }).click()
@@ -563,6 +603,40 @@ test.describe("on a phone", () => {
     // Nothing is wider than the screen: the plants are swiped through in their own row.
     expect(garden.x + garden.width).toBeLessThanOrEqual(SCREEN.width)
     await expect(page.locator("html")).toHaveJSProperty("scrollWidth", SCREEN.width)
+  })
+
+  test("several beds are picked by touch, without a Shift key", async ({ page }) => {
+    await page.goto("/")
+    await page.getByRole("button", { name: "New garden" }).click()
+    for (const [from, to] of [
+      [
+        [50, 100],
+        [200, 250],
+      ],
+      [
+        [350, 100],
+        [500, 250],
+      ],
+    ] as const) {
+      await page.getByRole("button", { name: "Bed", exact: true }).click()
+      await dragOnGarden(page, from, to)
+      // The save indicator changes the header's height on a phone: let it settle first.
+      await expect(page.getByText("Saved", { exact: true })).toBeVisible()
+    }
+
+    await page.getByRole("button", { name: "Select several" }).click()
+    // Bed 2 is still selected from drawing it: a tap on Bed 1 adds it.
+    await page.mouse.click(...(await onGarden(page, [120, 170])))
+    const selected = page.getByRole("region", { name: "Selected" })
+    await expect(selected.getByText("2 selected: 2 beds")).toBeVisible()
+
+    // Let go of both, then drag over empty ground to draw an area around them.
+    await selected.getByRole("button", { name: "Clear selection" }).click()
+    await dragOnGarden(page, [10, 10], [590, 390])
+    await expect(selected.getByText("2 selected: 2 beds")).toBeVisible()
+
+    await selected.getByRole("button", { name: "Delete" }).click()
+    await expect(page.getByRole("button", { name: /^Bed \d/ })).toHaveCount(0)
   })
 
   test("the header keeps to two lines, with the rest behind a menu", async ({ page }) => {

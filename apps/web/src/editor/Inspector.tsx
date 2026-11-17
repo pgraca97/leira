@@ -9,6 +9,7 @@ import {
   isInGround,
   PLAN_LIMITS,
   PLANTING_LAYOUTS,
+  type PlanItemRef,
   type PlantingLayout,
   plantingFill,
   plantingSchedule,
@@ -16,12 +17,12 @@ import {
 import { type ReactNode, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { CommitField } from "../components/CommitField"
-import { dangerButtonClass, inputClass, toggleButtonClass } from "../components/ui"
+import { buttonClass, dangerButtonClass, inputClass, toggleButtonClass } from "../components/ui"
 import { currentLanguage } from "../i18n"
 import { cropName } from "./cropName"
 import { PlantingMarks, PlantingRecord } from "./PlantingRecord"
 import { monthName, seasonText } from "./season"
-import { editorStore, isSelected, selectedBed, selectedPlanting } from "./store"
+import { editorStore, isSelected, selectedBed, selectedItems, selectedPlanting } from "./store"
 import { useEditor } from "./useEditor"
 
 /** Years a botanical family should stay away from ground it has just used. */
@@ -36,10 +37,13 @@ export function Inspector({ children }: { children?: ReactNode }) {
   const { t } = useTranslation()
   const plan = useEditor((state) => state.plan)
   const selection = useEditor((state) => state.selection)
+  const selectingMany = useEditor((state) => state.selectingMany)
   const viewDate = useEditor((state) => state.viewDate)
   const {
+    pickItem,
     select,
     removeSelection,
+    duplicateSelection,
     setPlantingDates,
     setPlantingLayout,
     setPlantingSowDate,
@@ -79,6 +83,10 @@ export function Inspector({ children }: { children?: ReactNode }) {
   const companions = findCompanions(plan, getPlant)
   const outOfSeason = findOutOfSeason(plan, getPlant)
 
+  const group = selectedItems({ plan, selection })
+  /** A click on a list adds to the selection the way a click on the canvas does. */
+  const pickFromList = (ref: PlanItemRef, event: MouseEvent) =>
+    pickItem(ref, { adding: selectingMany || event.shiftKey || event.ctrlKey || event.metaKey })
   const bed = selectedBed({ plan, selection })
   const planted = plantings.find((item) => item.planting === selectedPlanting({ plan, selection }))
   const selectedRect = bed?.rect ?? planted?.planting.rect
@@ -144,6 +152,46 @@ export function Inspector({ children }: { children?: ReactNode }) {
 
       {plan.beds.length === 0 && plan.plantings.length === 0 && (
         <p className="text-sm text-stone-600">{t("inspector.empty")}</p>
+      )}
+
+      {group.length > 1 && (
+        <section aria-labelledby="inspector-selected" className="rounded-md bg-stone-100 p-3">
+          <h3
+            id="inspector-selected"
+            className="text-xs font-semibold tracking-wide text-stone-500 uppercase"
+          >
+            {t("inspector.selected")}
+          </h3>
+          <p className="font-medium text-stone-900">
+            {t("inspector.selectedCount", {
+              number: group.length,
+              kinds: [
+                [
+                  t("inspector.selectedBeds", { count: countOf(group, "bed") }),
+                  countOf(group, "bed"),
+                ],
+                [
+                  t("inspector.selectedPlantings", { count: countOf(group, "planting") }),
+                  countOf(group, "planting"),
+                ],
+              ]
+                .filter(([, count]) => count)
+                .map(([text]) => text)
+                .join(", "),
+            })}
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <button type="button" className={buttonClass} onClick={() => duplicateSelection()}>
+              {t("inspector.duplicateSelection")}
+            </button>
+            <button type="button" className={buttonClass} onClick={() => select(null)}>
+              {t("inspector.clearSelection")}
+            </button>
+            <button type="button" className={dangerButtonClass} onClick={removeSelection}>
+              {t("inspector.delete")}
+            </button>
+          </div>
+        </section>
       )}
 
       {selectedRect && (
@@ -432,7 +480,9 @@ export function Inspector({ children }: { children?: ReactNode }) {
                   type="button"
                   className={toggleButtonClass}
                   aria-pressed={isSelected(selection, { kind: "planting", id: planting.id })}
-                  onClick={() => select({ kind: "planting", id: planting.id })}
+                  onClick={(event) =>
+                    pickFromList({ kind: "planting", id: planting.id }, event.nativeEvent)
+                  }
                 >
                   <span
                     aria-hidden="true"
@@ -467,7 +517,7 @@ export function Inspector({ children }: { children?: ReactNode }) {
                   type="button"
                   className={toggleButtonClass}
                   aria-pressed={isSelected(selection, { kind: "bed", id: item.id })}
-                  onClick={() => select({ kind: "bed", id: item.id })}
+                  onClick={(event) => pickFromList({ kind: "bed", id: item.id }, event.nativeEvent)}
                 >
                   <span className="flex-1">
                     {item.name || t("inspector.bedName", { number: index + 1 })}
@@ -493,4 +543,8 @@ export function Inspector({ children }: { children?: ReactNode }) {
       {children}
     </aside>
   )
+}
+
+function countOf(refs: readonly PlanItemRef[], kind: PlanItemRef["kind"]): number {
+  return refs.filter((ref) => ref.kind === kind).length
 }

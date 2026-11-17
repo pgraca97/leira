@@ -330,3 +330,56 @@ describe("the variety of the selected planting", () => {
     expect(listed).toHaveTextContent("Tomato 'Coração de Boi' × 4")
   })
 })
+
+describe("several items selected", () => {
+  const LETTUCE = planting("lettuce", "lettuce", "2026-03-01", "2026-05-15")
+  const LETTUCE_REF: PlanItemRef = { kind: "planting", id: "lettuce" }
+
+  function showBoth() {
+    editorStore.getState().loadPlan({ ...emptyPlan(), beds: [BED], plantings: [LETTUCE] })
+    editorStore.getState().selectItems([BED_REF, LETTUCE_REF])
+    render(<Inspector />)
+  }
+
+  it("says how many are selected, and of which kind", () => {
+    showBoth()
+    const selected = screen.getByRole("region", { name: "Selected" })
+    expect(within(selected).getByText("2 selected: 1 bed, 1 crop")).toBeVisible()
+    // The fields of one item make no sense for a group.
+    expect(within(selected).queryByRole("textbox", { name: "Name" })).toBeNull()
+  })
+
+  it("duplicates them together", async () => {
+    showBoth()
+    await userEvent.click(screen.getByRole("button", { name: "Duplicate" }))
+    const { plan, selection } = editorStore.getState()
+    expect(plan.beds).toHaveLength(2)
+    expect(plan.plantings).toHaveLength(2)
+    expect(selection).toHaveLength(2)
+  })
+
+  it("deletes them together", async () => {
+    showBoth()
+    await userEvent.click(screen.getByRole("button", { name: "Delete" }))
+    expect(editorStore.getState().plan.beds).toEqual([])
+    expect(editorStore.getState().plan.plantings).toEqual([])
+  })
+
+  it("can all be let go of at once", async () => {
+    showBoth()
+    await userEvent.click(screen.getByRole("button", { name: "Clear selection" }))
+    expect(editorStore.getState().selection).toEqual([])
+  })
+
+  it("grow by Shift-clicking the lists", async () => {
+    editorStore.getState().loadPlan({ ...emptyPlan(), beds: [BED], plantings: [LETTUCE] })
+    render(<Inspector />)
+    // One session, so the Shift held down is still held for the click.
+    const user = userEvent.setup()
+    await user.click(screen.getByRole("button", { name: /^Herbs/ }))
+    await user.keyboard("{Shift>}")
+    await user.click(screen.getByRole("button", { name: /^Lettuce/ }))
+    await user.keyboard("{/Shift}")
+    expect(editorStore.getState().selection).toEqual([BED_REF, LETTUCE_REF])
+  })
+})

@@ -63,7 +63,8 @@ export function Palette() {
         >
           {t("editor.tools")}
         </h2>
-        <div className="grid grid-cols-2 gap-1 lg:grid-cols-1">
+        {/* One row on a phone, so the garden below keeps its height. */}
+        <div className="grid grid-cols-3 gap-1 lg:grid-cols-1">
           <button
             type="button"
             className={toggleButtonClass}
