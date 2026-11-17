@@ -23,6 +23,7 @@ export {
   resizePlan,
   visibleHandles,
 } from "./edit"
+export { EXPORT_FORMAT, type GardenFile, GardenFileSchema, gardenFile } from "./exportFile"
 export {
   clampRect,
   containsPoint,
