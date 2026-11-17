@@ -33,6 +33,15 @@ export const en = {
     signedInAs: "Signed in as {{email}}. Your gardens are kept in your account.",
     signOut: "Sign out",
     signOutFailed: "You could not be signed out. Try again.",
+    exportData: "Download my data",
+    exportFileName: "leira-data-{{date}}.json",
+    exportFailed: "Your data could not be downloaded. Try again.",
+    delete: "Delete account",
+    deleteWarning:
+      "This deletes your gardens, their share links and everything else kept about you. It cannot be undone. Download your data first if you want a copy.",
+    deleteConfirm: "Delete for good",
+    deleteCancel: "Cancel",
+    deleteFailed: "Your account could not be deleted. Nothing was lost. Try again.",
   },
   gardens: {
     title: "Your gardens",

@@ -70,6 +70,10 @@ export async function connectBackend(): Promise<Backend> {
         // Nobody uses the app without a session: start over as a new guest.
         await accessToken(client)
       },
+      async deleteAccount() {
+        await account.deleteAccount()
+        await accessToken(client)
+      },
     },
     weather: (lat, lon) => workerRoute("/api/weather", at(lat, lon), WeatherNowSchema),
     forecast: (lat, lon) => workerRoute("/api/forecast", at(lat, lon), ForecastSchema),

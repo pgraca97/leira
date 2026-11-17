@@ -1,10 +1,12 @@
+import { toIsoDate } from "@leira/core"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import { type FormEvent, useCallback, useId, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { z } from "zod"
-import { buttonClass, inputClass, primaryButtonClass } from "../components/ui"
+import { buttonClass, dangerButtonClass, inputClass, primaryButtonClass } from "../components/ui"
 import { useDismiss } from "../components/useDismiss"
+import { downloadText } from "../export/downloadFile"
 import { useBackend } from "../lib/backend"
 
 const ACCOUNT_KEY = ["account"]
@@ -30,14 +32,22 @@ export function AccountMenu() {
     refetchOnWindowFocus: true,
   })
 
+  /** Leaves the account behind: whatever `leave` does, the visitor goes on as a new guest. */
+  const startOver = async (leave: () => Promise<void>) => {
+    // Leave the editor first, so its last save still goes out as this user.
+    await navigate({ to: "/" })
+    await leave()
+    // Everything on screen belonged to the account. The connection itself stays.
+    await queryClient.resetQueries({ predicate: (query) => query.queryKey[0] !== "backend" })
+  }
+
   const signOut = useMutation({
-    mutationFn: async () => {
-      // Leave the editor first, so its last save still goes out as this user.
-      await navigate({ to: "/" })
-      await backend.account.signOut()
-      // Everything on screen belonged to the account. The connection itself stays.
-      await queryClient.resetQueries({ predicate: (query) => query.queryKey[0] !== "backend" })
-    },
+    mutationFn: () => startOver(() => backend.account.signOut()),
+    onSuccess: () => setOpen(false),
+  })
+
+  const deleteAccount = useMutation({
+    mutationFn: () => startOver(() => backend.account.deleteAccount()),
     onSuccess: () => setOpen(false),
   })
 
@@ -84,6 +94,11 @@ export function AccountMenu() {
           ) : (
             <GuestSignIn />
           )}
+          <YourData
+            deleting={deleteAccount.isPending}
+            deleteFailed={deleteAccount.isError}
+            onDelete={() => deleteAccount.mutate()}
+          />
         </div>
       )}
     </div>
@@ -189,5 +204,91 @@ function GoogleMark() {
         d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.59C13.46.89 11.43 0 9 0A9 9 0 0 0 .96 4.96l3 2.33C4.67 5.16 6.66 3.58 9 3.58Z"
       />
     </svg>
+  )
+}
+
+/**
+ * Taking one's data away, and deleting the account. Deleting asks once more,
+ * in place, and offers the download again: it cannot be undone.
+ */
+function YourData({
+  deleting,
+  deleteFailed,
+  onDelete,
+}: {
+  deleting: boolean
+  deleteFailed: boolean
+  onDelete(): void
+}) {
+  const { t } = useTranslation()
+  const backend = useBackend()
+  const [confirming, setConfirming] = useState(false)
+
+  const download = useMutation({
+    mutationFn: async () => {
+      const data = await backend.account.exportData()
+      downloadText(
+        JSON.stringify(data, null, 2),
+        "application/json",
+        t("account.exportFileName", { date: toIsoDate(new Date()) })
+      )
+    },
+  })
+
+  const downloadButton = (
+    <button
+      type="button"
+      className={buttonClass}
+      disabled={download.isPending}
+      onClick={() => download.mutate()}
+    >
+      {t("account.exportData")}
+    </button>
+  )
+
+  return (
+    <div className="flex flex-col gap-2 border-t border-stone-200 pt-3">
+      {download.isError && (
+        <p role="alert" className="text-red-800">
+          {t("account.exportFailed")}
+        </p>
+      )}
+      {deleteFailed && (
+        <p role="alert" className="text-red-800">
+          {t("account.deleteFailed")}
+        </p>
+      )}
+      {confirming ? (
+        <>
+          <p>{t("account.deleteWarning")}</p>
+          {downloadButton}
+          <div className="flex gap-2">
+            <button
+              type="button"
+              className={`${buttonClass} flex-1`}
+              disabled={deleting}
+              onClick={() => setConfirming(false)}
+            >
+              {t("account.deleteCancel")}
+            </button>
+            <button
+              type="button"
+              className={`${dangerButtonClass} flex-1`}
+              disabled={deleting}
+              onClick={onDelete}
+            >
+              {t("account.deleteConfirm")}
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          {downloadButton}
+          <button type="button" className={dangerButtonClass} onClick={() => setConfirming(true)}>
+            {t("account.delete")}
+          </button>
+        </>
+      )}
+    </div>
   )
 }

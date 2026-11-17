@@ -338,6 +338,30 @@ test("a guest keeps their gardens with an emailed link, then signs out", async (
   await expect(page.getByText(/You have no gardens yet/)).toBeVisible()
 })
 
+test("a visitor takes their data away, then deletes everything", async ({ page }) => {
+  await page.goto("/")
+  await page.getByRole("button", { name: "New garden" }).click()
+  await page.getByRole("textbox", { name: "Garden name" }).fill("Short-lived plot")
+  await expect(page.getByText("Saved", { exact: true })).toBeVisible()
+
+  await page.getByRole("button", { name: "Keep your gardens" }).click()
+  const download = page.waitForEvent("download")
+  await page.getByRole("button", { name: "Download my data" }).click()
+  const file = await download
+  expect(file.suggestedFilename()).toMatch(/^leira-data-\d{4}-\d{2}-\d{2}\.json$/)
+  const data = JSON.parse(readFileSync(await file.path(), "utf8"))
+  expect(data.format).toBe(1)
+  expect(data.gardens.map((garden: { name: string }) => garden.name)).toEqual(["Short-lived plot"])
+
+  await page.getByRole("button", { name: "Delete account" }).click()
+  await page.getByRole("button", { name: "Delete for good" }).click()
+  await expect(page.getByText(/You have no gardens yet/)).toBeVisible()
+
+  // The visitor goes on as a new guest, and the garden is not coming back.
+  await page.reload()
+  await expect(page.getByText(/You have no gardens yet/)).toBeVisible()
+})
+
 test("a new visitor opens the example garden and finds the advice at work", async ({ page }) => {
   await page.goto("/")
   await page.getByRole("button", { name: "See an example" }).click()

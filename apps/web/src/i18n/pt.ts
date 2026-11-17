@@ -35,6 +35,15 @@ export const pt: Translation = {
     signedInAs: "Sessão iniciada como {{email}}. As tuas hortas ficam guardadas na tua conta.",
     signOut: "Terminar sessão",
     signOutFailed: "Não foi possível terminar a sessão. Tenta outra vez.",
+    exportData: "Descarregar os meus dados",
+    exportFileName: "leira-dados-{{date}}.json",
+    exportFailed: "Não foi possível descarregar os teus dados. Tenta outra vez.",
+    delete: "Apagar conta",
+    deleteWarning:
+      "Isto apaga as tuas hortas, os links de partilha e tudo o resto que guardamos sobre ti. Não tem volta. Descarrega os teus dados antes, se quiseres uma cópia.",
+    deleteConfirm: "Apagar para sempre",
+    deleteCancel: "Cancelar",
+    deleteFailed: "Não foi possível apagar a tua conta. Não se perdeu nada. Tenta outra vez.",
   },
   gardens: {
     title: "As tuas hortas",

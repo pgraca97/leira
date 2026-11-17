@@ -39,6 +39,12 @@ export interface FakeBackend extends Backend {
   googleStarts: number
   /** Makes the next trip to Google fail before it starts. */
   failNextGoogle(): void
+  /** How many times the user deleted their account. */
+  deletedAccounts: number
+  /** Makes the next export of the user's data fail. */
+  failNextExport(): void
+  /** Makes the next deletion of the account fail, keeping everything. */
+  failNextDelete(): void
   /** Whether the visitor may read the usage stats. Nobody may, at first. */
   admin: boolean
   /** What the stats answer an admin: the numbers, or an error to throw. */
@@ -139,6 +145,8 @@ export function fakeBackend(seed: Garden[] = []): FakeBackend {
 
   let linkFailure = false
   let googleFailure = false
+  let exportFailure = false
+  let deleteFailure = false
 
   const backend: FakeBackend = {
     email: null,
@@ -149,6 +157,13 @@ export function fakeBackend(seed: Garden[] = []): FakeBackend {
     googleStarts: 0,
     failNextGoogle() {
       googleFailure = true
+    },
+    deletedAccounts: 0,
+    failNextExport() {
+      exportFailure = true
+    },
+    failNextDelete() {
+      deleteFailure = true
     },
     account: {
       async get() {
@@ -171,6 +186,35 @@ export function fakeBackend(seed: Garden[] = []): FakeBackend {
       async signOut() {
         backend.email = null
         // The real backend starts over as a new guest, who owns no gardens.
+        rows.clear()
+        shares.clear()
+      },
+      async exportData() {
+        if (exportFailure) {
+          exportFailure = false
+          throw new Error("database down")
+        }
+        // The real document has more in it; the gardens are what tests look at.
+        return {
+          format: 1,
+          account: { email: backend.email },
+          gardens: [...rows.values()].map(({ name, plan, location, version, updatedAt }) => ({
+            name,
+            plan: structuredClone(plan),
+            location,
+            version,
+            updatedAt,
+          })),
+        }
+      },
+      async deleteAccount() {
+        if (deleteFailure) {
+          deleteFailure = false
+          throw new Error("database down")
+        }
+        backend.deletedAccounts += 1
+        // Like signing out, the visitor starts over as a new guest with nothing.
+        backend.email = null
         rows.clear()
         shares.clear()
       },

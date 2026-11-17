@@ -26,6 +26,13 @@ export interface AccountApi {
    */
   continueWithGoogle(): Promise<void>
   signOut(): Promise<void>
+  /** Everything kept about the user, as one JSON document, for them to take away. */
+  exportData(): Promise<unknown>
+  /**
+   * Deletes the user, their gardens and everything else kept about them.
+   * The browser is left with no session.
+   */
+  deleteAccount(): Promise<void>
 }
 
 /** The real account also knows how to finish a trip to Google that was refused. */
@@ -102,6 +109,21 @@ export function accountApi(
     async signOut() {
       const { error } = await client.auth.signOut()
       if (error) throw new Error(error.message)
+    },
+
+    async exportData() {
+      const { data, error } = await client.rpc("export_my_data")
+      if (error) throw new Error(error.message)
+      return data
+    },
+
+    async deleteAccount() {
+      const { error } = await client.rpc("delete_account")
+      if (error) throw new Error(error.message)
+      // The user is gone, so the auth server has nothing to sign out: only
+      // this browser's copy of the session is left to forget.
+      const local = await client.auth.signOut({ scope: "local" })
+      if (local.error) throw new Error(local.error.message)
     },
   }
 }

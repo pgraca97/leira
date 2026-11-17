@@ -8,9 +8,13 @@ import userEvent from "@testing-library/user-event"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { App } from "./App"
 import { editorStore } from "./editor/store"
+import { downloadText } from "./export/downloadFile"
 import { downloadPng } from "./export/downloadImage"
 import type { Garden } from "./lib/gardens"
 import { type FakeBackend, fakeBackend } from "./test/fakeBackend"
+
+// jsdom cannot hand a file to the user.
+vi.mock("./export/downloadFile", () => ({ downloadText: vi.fn(), saveBlob: vi.fn() }))
 
 // Turning a picture into a PNG needs a real canvas too.
 vi.mock("./export/downloadImage", () => ({ downloadPng: vi.fn(async () => {}) }))
@@ -555,6 +559,72 @@ describe("the account", () => {
     window.dispatchEvent(new Event("visibilitychange"))
 
     expect(await screen.findByRole("button", { name: "ana@example.com" })).toBeVisible()
+  })
+
+  it("lets anyone download everything kept about them", async () => {
+    vi.useFakeTimers({ now: new Date("2026-11-17T10:00:00Z"), toFake: ["Date"] })
+    try {
+      open("/")
+      await openPanel()
+      await userEvent.click(screen.getByRole("button", { name: "Download my data" }))
+      await waitFor(() => expect(downloadText).toHaveBeenCalledTimes(1))
+      const [text, type, name] = vi.mocked(downloadText).mock.calls[0] ?? []
+      expect(type).toBe("application/json")
+      expect(name).toBe("leira-data-2026-11-17.json")
+      expect(JSON.parse(text ?? "").gardens.map((garden: { name: string }) => garden.name)).toEqual(
+        ["Tomato patch", "Herb spiral"]
+      )
+    } finally {
+      vi.useRealTimers()
+      vi.mocked(downloadText).mockClear()
+    }
+  })
+
+  it("says so when the data could not be downloaded", async () => {
+    backend.failNextExport()
+    open("/")
+    await openPanel()
+    await userEvent.click(screen.getByRole("button", { name: "Download my data" }))
+    expect(await screen.findByRole("alert")).toHaveTextContent("Your data could not be downloaded.")
+  })
+
+  it("deletes the account only once the user confirms, and starts over as a guest", async () => {
+    backend.email = "ana@example.com"
+    const history = open(`/gardens/${TOMATOES.id}`)
+    await screen.findByRole("textbox", { name: "Garden name" })
+    await userEvent.click(screen.getByRole("button", { name: "ana@example.com" }))
+    await userEvent.click(screen.getByRole("button", { name: "Delete account" }))
+
+    expect(screen.getByText(/cannot be undone/)).toBeVisible()
+    expect(backend.deletedAccounts).toBe(0)
+    await userEvent.click(screen.getByRole("button", { name: "Delete for good" }))
+
+    expect(await screen.findByText(/You have no gardens yet/)).toBeVisible()
+    expect(history.location.pathname).toBe("/")
+    expect(backend.deletedAccounts).toBe(1)
+    expect(screen.getByRole("button", { name: "Keep your gardens" })).toBeVisible()
+  })
+
+  it("keeps the account when the user changes their mind", async () => {
+    open("/")
+    await openPanel()
+    await userEvent.click(screen.getByRole("button", { name: "Delete account" }))
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" }))
+
+    expect(screen.getByRole("button", { name: "Delete account" })).toBeVisible()
+    expect(backend.deletedAccounts).toBe(0)
+    expect(backend.rows.size).toBe(2)
+  })
+
+  it("says so when the account could not be deleted, and keeps everything", async () => {
+    backend.failNextDelete()
+    open("/")
+    await openPanel()
+    await userEvent.click(screen.getByRole("button", { name: "Delete account" }))
+    await userEvent.click(screen.getByRole("button", { name: "Delete for good" }))
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Your account could not be deleted.")
+    expect(backend.rows.size).toBe(2)
   })
 
   it("closes the panel on Escape", async () => {
