@@ -19,7 +19,8 @@ const PLATFORM = `
     id uuid primary key default gen_random_uuid(),
     email text,
     is_anonymous boolean not null default false,
-    created_at timestamptz not null default now()
+    created_at timestamptz not null default now(),
+    last_sign_in_at timestamptz
   );
   create function auth.uid() returns uuid language sql stable
     as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
@@ -850,5 +851,128 @@ describe("templates", () => {
     await db.query("select public.delete_account()")
     await db.exec("reset role")
     expect((await db.query("select id from public.templates")).rows).toEqual([])
+  })
+})
+
+describe("purge of stale guests", () => {
+  /** A guest who arrived `daysAgo` days ago, and signed in again `signedInDaysAgo` days ago. */
+  async function createGuest(daysAgo: number, signedInDaysAgo?: number): Promise<string> {
+    await db.exec("reset role")
+    const result = await db.query<{ id: string }>(
+      `insert into auth.users (is_anonymous, created_at, last_sign_in_at)
+       values (true, now() - make_interval(days => $1), now() - make_interval(days => $2))
+       returning id`,
+      [daysAgo, signedInDaysAgo ?? daysAgo]
+    )
+    return result.rows[0]!.id
+  }
+
+  /** A garden of `ownerId`'s, last saved `daysAgo` days ago. */
+  async function gardenOf(ownerId: string, daysAgo: number): Promise<string> {
+    await db.exec("reset role")
+    const result = await db.query<{ id: string }>(
+      `insert into public.gardens (name, plan, owner_id, created_at, updated_at)
+       values ('Old garden', $1, $2, now() - make_interval(days => $3), now() - make_interval(days => $3))
+       returning id`,
+      [PLAN, ownerId, daysAgo]
+    )
+    return result.rows[0]!.id
+  }
+
+  async function purge(batch?: number): Promise<number> {
+    await db.exec("reset role")
+    const result = await db.query<{ purged: number }>(
+      batch === undefined
+        ? "select private.purge_stale_guests() as purged"
+        : "select private.purge_stale_guests($1) as purged",
+      batch === undefined ? [] : [batch]
+    )
+    return result.rows[0]!.purged
+  }
+
+  async function users(): Promise<string[]> {
+    await db.exec("reset role")
+    const result = await db.query<{ id: string }>("select id from auth.users")
+    return result.rows.map((row) => row.id)
+  }
+
+  it("removes guests who left nothing and have not been seen for 30 days", async () => {
+    const gone = await createGuest(31)
+    await wasActive(gone, 31)
+    const fresh = await createGuest(29)
+    expect(await purge()).toBe(1)
+    const left = await users()
+    expect(left).not.toContain(gone)
+    expect(left).toContain(fresh)
+    expect((await db.query("select id from public.profiles where id = $1", [gone])).rows).toEqual(
+      []
+    )
+  })
+
+  it("keeps a guest who came back or signed in within 30 days", async () => {
+    const visited = await createGuest(31)
+    await wasActive(visited, 5)
+    const signedIn = await createGuest(31, 5)
+    expect(await purge()).toBe(0)
+    expect(await users()).toEqual(expect.arrayContaining([visited, signedIn]))
+  })
+
+  it("keeps a guest with a garden for a year, and removes them after it", async () => {
+    const recent = await createGuest(31)
+    await gardenOf(recent, 31)
+    const old = await createGuest(400)
+    const oldGarden = await gardenOf(old, 400)
+    await db.query("insert into public.garden_shares (garden_id) values ($1)", [oldGarden])
+
+    expect(await purge()).toBe(1)
+    const left = await users()
+    expect(left).toContain(recent)
+    expect(left).not.toContain(old)
+    expect(
+      (await db.query("select id from public.gardens where id = $1", [oldGarden])).rows
+    ).toEqual([])
+    expect((await db.query("select * from public.garden_shares")).rows).toEqual([])
+  })
+
+  it("keeps a guest whose only belonging is a template", async () => {
+    const guest = await createGuest(31)
+    await db.query(
+      "insert into public.templates (name, items, owner_id) values ('Rotation', $1, $2)",
+      [JSON.stringify({ format: 1, beds: [], plantings: [] }), guest]
+    )
+    expect(await purge()).toBe(0)
+    expect(await users()).toContain(guest)
+  })
+
+  it("counts saving a garden as being seen", async () => {
+    const guest = await createGuest(400)
+    await gardenOf(guest, 2)
+    expect(await purge()).toBe(0)
+    expect(await users()).toContain(guest)
+  })
+
+  it("never removes an account or an admin", async () => {
+    await db.exec("reset role")
+    const account = await db.query<{ id: string }>(
+      "insert into auth.users (created_at) values (now() - interval '800 days') returning id"
+    )
+    const admin = await createGuest(800)
+    await makeAdmin(admin)
+    expect(await purge()).toBe(0)
+    expect(await users()).toEqual(expect.arrayContaining([account.rows[0]!.id, admin]))
+  })
+
+  it("removes at most a batch at a time", async () => {
+    await createGuest(31)
+    await createGuest(31)
+    expect(await purge(1)).toBe(1)
+    expect(await purge(1)).toBe(1)
+    expect(await purge(1)).toBe(0)
+  })
+
+  it("cannot be run by users", async () => {
+    await expect(db.query("select private.purge_stale_guests()")).rejects.toThrow(
+      /permission denied/
+    )
   })
 })
