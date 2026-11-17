@@ -54,6 +54,11 @@ export async function connectBackend(): Promise<Backend> {
     return new Promise<never>(() => {})
   }
 
+  // Every sign-in, by emailed link or by Google, comes back to the app as a
+  // page load, so this is where signing in again keeps an account that asked
+  // to be deleted. A failure is dropped: the next page load tries again.
+  const cancelledDeletion = await account.resume().catch(() => null)
+
   /** Calls one of the Worker's routes as the signed-in visitor. */
   async function workerRoute<T>(
     path: string,
@@ -83,7 +88,13 @@ export async function connectBackend(): Promise<Backend> {
         await account.deleteAccount()
         await token()
       },
+      async requestDeletion() {
+        const deleteOn = await account.requestDeletion()
+        await token()
+        return deleteOn
+      },
     },
+    cancelledDeletion,
     weather: (lat, lon) => workerRoute("/api/weather", at(lat, lon), WeatherNowSchema),
     forecast: (lat, lon) => workerRoute("/api/forecast", at(lat, lon), ForecastSchema),
     places: (query) => workerRoute("/api/places", { q: query }, PlacesSchema),

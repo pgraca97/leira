@@ -44,6 +44,13 @@ export const pt: Translation = {
     deleteConfirm: "Apagar para sempre",
     deleteCancel: "Cancelar",
     deleteFailed: "Não foi possível apagar a tua conta. Não se perdeu nada. Tenta outra vez.",
+    deletionWarning:
+      "A tua conta será apagada a {{date}}, daqui a 30 dias, com as tuas hortas e tudo o resto que guardamos sobre ti. A sessão termina em todos os dispositivos e, até lá, os teus links de partilha não mostram nada. Para manteres a conta, volta a entrar antes disso. Descarrega os teus dados antes, se quiseres uma cópia.",
+    deletionConfirm: "Apagar a minha conta",
+    deletionRequested:
+      "A tua conta será apagada a {{date}}. Para a manteres, volta a entrar antes disso.",
+    deletionCancelled: "A tua conta ia ser apagada a {{date}}. Como voltaste a entrar, fica.",
+    deletionDismiss: "Fechar",
     privacy: "Privacidade",
   },
   gardens: {

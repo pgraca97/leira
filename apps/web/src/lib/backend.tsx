@@ -19,6 +19,11 @@ export interface Backend {
   stats: StatsApi
   /** The user's saved groups of beds and crops. */
   templates: TemplatesApi
+  /**
+   * When the account would have been deleted, if opening the app signed in
+   * to it cancelled a deletion it had asked for. Null on any other visit.
+   */
+  cancelledDeletion: Date | null
 }
 
 export const BackendContext = createContext<Backend | null>(null)

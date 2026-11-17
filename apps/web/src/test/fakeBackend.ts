@@ -1,4 +1,5 @@
 import { type Forecast, type Place, publicPlan, type WeatherNow } from "@leira/core"
+import { deletionDue } from "../lib/account"
 import type { Backend, PublicBackend } from "../lib/backend"
 import {
   type Garden,
@@ -40,11 +41,19 @@ export interface FakeBackend extends Backend {
   googleStarts: number
   /** Makes the next trip to Google fail before it starts. */
   failNextGoogle(): void
-  /** How many times the user deleted their account. */
+  /** How many times the user deleted their account at once. */
   deletedAccounts: number
+  /**
+   * When the account is due to be deleted, while it waits after asking.
+   * Null when nothing waits. Set it with `email` to stand for signing in
+   * again to an account that asked, then open the app with `connect`.
+   */
+  pendingDeletion: Date | null
+  /** Opens the app the way `connectBackend` does, which cancels a waiting deletion. */
+  connect(): Promise<FakeBackend>
   /** Makes the next export of the user's data fail. */
   failNextExport(): void
-  /** Makes the next deletion of the account fail, keeping everything. */
+  /** Makes the next deletion of the account fail, at once or later, keeping everything. */
   failNextDelete(): void
   /** Whether the visitor may read the usage stats. Nobody may, at first. */
   admin: boolean
@@ -141,7 +150,8 @@ export function fakeBackend(seed: Garden[] = []): FakeBackend {
     async sharedGarden(token) {
       const [gardenId, share] = [...shares].find(([, share]) => share.token === token) ?? []
       const garden = gardenId ? rows.get(gardenId) : undefined
-      if (!garden || !share) throw new GardenNotFoundError(token)
+      // Like the database, which hides the links of an account waiting to be deleted.
+      if (!garden || !share || backend.pendingDeletion) throw new GardenNotFoundError(token)
       const { name, plan, location, updatedAt } = structuredClone(garden)
       return {
         name,
@@ -158,6 +168,18 @@ export function fakeBackend(seed: Garden[] = []): FakeBackend {
   let templateSaveFailure = false
   let nextTemplate = 1
   let deleteFailure = false
+  const failingDelete = () => {
+    if (!deleteFailure) return
+    deleteFailure = false
+    throw new Error("database down")
+  }
+  /** Like signing out: the visitor starts over as a new guest with nothing. */
+  const startOverAsGuest = () => {
+    backend.email = null
+    rows.clear()
+    shares.clear()
+    backend.savedTemplates = []
+  }
 
   const backend: FakeBackend = {
     email: null,
@@ -170,6 +192,12 @@ export function fakeBackend(seed: Garden[] = []): FakeBackend {
       googleFailure = true
     },
     deletedAccounts: 0,
+    pendingDeletion: null,
+    cancelledDeletion: null,
+    async connect() {
+      backend.cancelledDeletion = await backend.account.resume().catch(() => null)
+      return backend
+    },
     failNextExport() {
       exportFailure = true
     },
@@ -240,16 +268,27 @@ export function fakeBackend(seed: Garden[] = []): FakeBackend {
         }
       },
       async deleteAccount() {
-        if (deleteFailure) {
-          deleteFailure = false
-          throw new Error("database down")
-        }
+        failingDelete()
         backend.deletedAccounts += 1
-        // Like signing out, the visitor starts over as a new guest with nothing.
-        backend.email = null
-        rows.clear()
-        shares.clear()
-        backend.savedTemplates = []
+        startOverAsGuest()
+      },
+      async requestDeletion() {
+        failingDelete()
+        // The real database refuses guests, who delete at once.
+        if (backend.email === null) throw new Error("only an account can ask to be deleted later")
+        // Asking again keeps the first date.
+        const due = backend.pendingDeletion ?? deletionDue(new Date())
+        backend.pendingDeletion = due
+        // Its sessions end everywhere, and this browser goes on as a new guest.
+        startOverAsGuest()
+        return new Date(due)
+      },
+      async resume() {
+        // Only the account itself, signed in again, can cancel; a guest has nothing waiting.
+        const due = backend.pendingDeletion
+        if (backend.email === null || !due) return null
+        backend.pendingDeletion = null
+        return new Date(due)
       },
     },
     rows,

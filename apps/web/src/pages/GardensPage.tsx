@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link, useNavigate } from "@tanstack/react-router"
 import { useEffect, useRef } from "react"
 import { useTranslation } from "react-i18next"
+import { AccountNoticeBanner } from "../account/AccountNotice"
 import { AppHeader } from "../components/AppHeader"
 import { Notice } from "../components/Notice"
 import { buttonClass, dangerButtonClass, primaryButtonClass } from "../components/ui"
@@ -126,6 +127,8 @@ export function GardensPage() {
             </button>
           </div>
         </div>
+
+        <AccountNoticeBanner />
 
         {failed && (
           <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-800">

@@ -615,11 +615,10 @@ describe("the account", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("Your data could not be downloaded.")
   })
 
-  it("deletes the account only once the user confirms, and starts over as a guest", async () => {
-    backend.email = "ana@example.com"
+  it("deletes a guest at once, only once they confirm, and starts over as a new guest", async () => {
     const history = open(`/gardens/${TOMATOES.id}`)
     await screen.findByRole("textbox", { name: "Garden name" })
-    await userEvent.click(screen.getByRole("button", { name: "ana@example.com" }))
+    await openPanel()
     await userEvent.click(screen.getByRole("button", { name: "Delete account" }))
 
     expect(screen.getByText(/cannot be undone/)).toBeVisible()
@@ -629,7 +628,73 @@ describe("the account", () => {
     expect(await screen.findByText(/You have no gardens yet/)).toBeVisible()
     expect(history.location.pathname).toBe("/gardens")
     expect(backend.deletedAccounts).toBe(1)
+    expect(backend.pendingDeletion).toBeNull()
+    expect(screen.queryByText(/will be deleted/)).toBeNull()
     expect(screen.getByRole("button", { name: "Keep your gardens" })).toBeVisible()
+  })
+
+  it("deletes an account 30 days after it asks, and tells the new guest left behind when", async () => {
+    vi.useFakeTimers({ now: new Date("2026-11-17T10:00:00Z"), toFake: ["Date"] })
+    try {
+      backend.email = "ana@example.com"
+      const history = open(`/gardens/${TOMATOES.id}`)
+      await screen.findByRole("textbox", { name: "Garden name" })
+      await userEvent.click(screen.getByRole("button", { name: "ana@example.com" }))
+      await userEvent.click(screen.getByRole("button", { name: "Delete account" }))
+
+      expect(screen.getByText(/will be deleted on December 17, 2026/)).toHaveTextContent(
+        /sign in again before then/
+      )
+      expect(backend.pendingDeletion).toBeNull()
+      await userEvent.click(screen.getByRole("button", { name: "Delete my account" }))
+
+      expect(await screen.findByText(/You have no gardens yet/)).toBeVisible()
+      expect(history.location.pathname).toBe("/gardens")
+      expect(
+        screen.getByText(
+          "Your account will be deleted on December 17, 2026. To keep it, sign in again before then."
+        )
+      ).toBeVisible()
+      expect(screen.getByRole("button", { name: "Keep your gardens" })).toBeVisible()
+      expect(backend.pendingDeletion).toEqual(new Date("2026-12-17T10:00:00Z"))
+      expect(backend.deletedAccounts).toBe(0)
+
+      await userEvent.click(screen.getByRole("button", { name: "Close" }))
+      expect(screen.queryByText(/will be deleted/)).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it("tells an account that signing in again kept it from being deleted", async () => {
+    backend.email = "ana@example.com"
+    backend.pendingDeletion = new Date("2026-12-17T10:00:00Z")
+    open("/gardens", () => backend.connect())
+
+    expect(
+      await screen.findByText(
+        "Your account was going to be deleted on December 17, 2026. Since you signed in again, it stays."
+      )
+    ).toBeVisible()
+    expect(backend.pendingDeletion).toBeNull()
+    expect(await screen.findAllByRole("link", { name: /Tomato patch|Herb spiral/ })).toHaveLength(2)
+
+    await userEvent.click(screen.getByRole("button", { name: "Close" }))
+    expect(screen.queryByText(/was going to be deleted/)).toBeNull()
+  })
+
+  it("says so when an account could not ask to be deleted, and keeps everything", async () => {
+    backend.email = "ana@example.com"
+    backend.failNextDelete()
+    open("/gardens")
+    await userEvent.click(await screen.findByRole("button", { name: "ana@example.com" }))
+    await userEvent.click(screen.getByRole("button", { name: "Delete account" }))
+    await userEvent.click(screen.getByRole("button", { name: "Delete my account" }))
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Your account could not be deleted.")
+    expect(backend.email).toBe("ana@example.com")
+    expect(backend.pendingDeletion).toBeNull()
+    expect(backend.rows.size).toBe(2)
   })
 
   it("keeps the account when the user changes their mind", async () => {

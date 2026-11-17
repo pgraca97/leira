@@ -7,7 +7,9 @@ import { z } from "zod"
 import { buttonClass, dangerButtonClass, inputClass, primaryButtonClass } from "../components/ui"
 import { useDismiss } from "../components/useDismiss"
 import { downloadText } from "../export/downloadFile"
+import { deletionDue } from "../lib/account"
 import { useBackend } from "../lib/backend"
+import { deletionDate, useAccountNotice } from "./AccountNotice"
 
 const ACCOUNT_KEY = ["account"]
 
@@ -20,6 +22,7 @@ export function AccountMenu() {
   const backend = useBackend()
   const queryClient = useQueryClient()
   const navigate = useNavigate()
+  const { setNotice } = useAccountNotice()
   const [open, setOpen] = useState(false)
   const container = useRef<HTMLDivElement>(null)
   const toggle = useRef<HTMLButtonElement>(null)
@@ -33,12 +36,15 @@ export function AccountMenu() {
   })
 
   /** Leaves the account behind: whatever `leave` does, the visitor goes on as a new guest. */
-  const startOver = async (leave: () => Promise<void>) => {
+  const startOver = async <T,>(leave: () => Promise<T>): Promise<T> => {
     // Leave the editor first, so its last save still goes out as this user.
     await navigate({ to: "/gardens" })
-    await leave()
+    const left = await leave()
+    // A notice about the account is not for the guest who comes after it.
+    setNotice(null)
     // Everything on screen belonged to the account. The connection itself stays.
     await queryClient.resetQueries({ predicate: (query) => query.queryKey[0] !== "backend" })
+    return left
   }
 
   const signOut = useMutation({
@@ -47,7 +53,16 @@ export function AccountMenu() {
   })
 
   const deleteAccount = useMutation({
-    mutationFn: () => startOver(() => backend.account.deleteAccount()),
+    // A guest has no way to sign in again, so they go at once. An account
+    // waits 30 days, and the guest left in this browser is told until when.
+    mutationFn: async (guest: boolean) => {
+      if (guest) {
+        await startOver(() => backend.account.deleteAccount())
+        return
+      }
+      const deleteOn = await startOver(() => backend.account.requestDeletion())
+      setNotice({ kind: "requested", deleteOn })
+    },
     onSuccess: () => setOpen(false),
   })
 
@@ -95,9 +110,10 @@ export function AccountMenu() {
             <GuestSignIn />
           )}
           <YourData
+            guest={email === null}
             deleting={deleteAccount.isPending}
             deleteFailed={deleteAccount.isError}
-            onDelete={() => deleteAccount.mutate()}
+            onDelete={() => deleteAccount.mutate(email === null)}
           />
         </div>
       )}
@@ -209,13 +225,16 @@ function GoogleMark() {
 
 /**
  * Taking one's data away, and deleting the account. Deleting asks once more,
- * in place, and offers the download again: it cannot be undone.
+ * in place, and offers the download again: for a guest it cannot be undone,
+ * and an account is told the day it will go.
  */
 function YourData({
+  guest,
   deleting,
   deleteFailed,
   onDelete,
 }: {
+  guest: boolean
   deleting: boolean
   deleteFailed: boolean
   onDelete(): void
@@ -260,7 +279,11 @@ function YourData({
       )}
       {confirming ? (
         <>
-          <p>{t("account.deleteWarning")}</p>
+          <p>
+            {guest
+              ? t("account.deleteWarning")
+              : t("account.deletionWarning", { date: deletionDate(deletionDue(new Date())) })}
+          </p>
           {downloadButton}
           <div className="flex gap-2">
             <button
@@ -277,7 +300,7 @@ function YourData({
               disabled={deleting}
               onClick={onDelete}
             >
-              {t("account.deleteConfirm")}
+              {guest ? t("account.deleteConfirm") : t("account.deletionConfirm")}
             </button>
           </div>
         </>

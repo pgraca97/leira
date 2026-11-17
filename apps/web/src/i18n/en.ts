@@ -42,6 +42,14 @@ export const en = {
     deleteConfirm: "Delete for good",
     deleteCancel: "Cancel",
     deleteFailed: "Your account could not be deleted. Nothing was lost. Try again.",
+    deletionWarning:
+      "Your account will be deleted on {{date}}, 30 days from now, with your gardens and everything else kept about you. You will be signed out on every device, and until then your share links show nothing. To keep the account, sign in again before then. Download your data first if you want a copy.",
+    deletionConfirm: "Delete my account",
+    deletionRequested:
+      "Your account will be deleted on {{date}}. To keep it, sign in again before then.",
+    deletionCancelled:
+      "Your account was going to be deleted on {{date}}. Since you signed in again, it stays.",
+    deletionDismiss: "Close",
     privacy: "Privacy",
   },
   gardens: {

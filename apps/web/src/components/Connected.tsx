@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query"
 import { createContext, type ReactNode, useContext } from "react"
 import { useTranslation } from "react-i18next"
+import { AccountNoticeProvider } from "../account/AccountNotice"
 import { type Backend, BackendContext } from "../lib/backend"
 import { AppHeader } from "./AppHeader"
 import { Notice } from "./Notice"
@@ -24,7 +25,13 @@ export function Connected({ children }: { children: ReactNode }) {
     gcTime: Number.POSITIVE_INFINITY,
   })
 
-  if (connection.data) return <BackendContext value={connection.data}>{children}</BackendContext>
+  if (connection.data) {
+    return (
+      <BackendContext value={connection.data}>
+        <AccountNoticeProvider>{children}</AccountNoticeProvider>
+      </BackendContext>
+    )
+  }
 
   return (
     <div className="flex h-full flex-col">

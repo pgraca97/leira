@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
+import { z } from "zod"
 import type { CaptchaSolver } from "./captcha"
 
 /** Who is using the app. A guest has no email: their gardens live in this browser's session only. */
@@ -30,10 +31,43 @@ export interface AccountApi {
   /** Everything kept about the user, as one JSON document, for them to take away. */
   exportData(): Promise<unknown>
   /**
-   * Deletes the user, their gardens and everything else kept about them.
+   * Deletes the user, their gardens and everything else kept about them, at
+   * once. For guests: an account asks with `requestDeletion` instead.
    * The browser is left with no session.
    */
   deleteAccount(): Promise<void>
+  /**
+   * Asks for the account to be deleted 30 days from now, and signs it out on
+   * every device. Signing in again before then keeps it.
+   * Resolves to when it will be deleted. A guest cannot ask: with no way to
+   * sign in again, they delete at once. The browser is left with no session.
+   */
+  requestDeletion(): Promise<Date>
+  /**
+   * Keeps the account if its deletion was waiting, now that its user has
+   * signed in again. Resolves to when it would have been deleted, or null
+   * when nothing was waiting.
+   */
+  resume(): Promise<Date | null>
+}
+
+/** How long an account waits between asking to be deleted and being deleted. */
+const DELETION_GRACE_DAYS = 30
+
+/**
+ * When an account that asks to be deleted at `askedAt` will go. The database
+ * keeps the real date: this one is for saying it before the account asks.
+ */
+export function deletionDue(askedAt: Date): Date {
+  return new Date(askedAt.getTime() + DELETION_GRACE_DAYS * 24 * 60 * 60 * 1000)
+}
+
+/** A date the database sent as text, or nothing. */
+const DueDateSchema = z.iso.datetime({ offset: true }).nullable()
+
+function dueDate(value: unknown): Date | null {
+  const due = DueDateSchema.parse(value)
+  return due === null ? null : new Date(due)
 }
 
 /** The real account also knows how to finish a trip to Google that was refused. */
@@ -136,6 +170,29 @@ export function accountApi(
       // this browser's copy of the session is left to forget.
       const local = await client.auth.signOut({ scope: "local" })
       if (local.error) throw new Error(local.error.message)
+    },
+
+    async requestDeletion() {
+      const { data, error } = await client.rpc("request_account_deletion")
+      if (error) throw new Error(error.message)
+      const due = dueDate(data)
+      if (!due) throw new Error("The database gave no date for the deletion")
+      // The database ended every session of the account, this one too: only
+      // this browser's copy is left to forget.
+      const local = await client.auth.signOut({ scope: "local" })
+      if (local.error) throw new Error(local.error.message)
+      return due
+    },
+
+    async resume() {
+      const { data: signedIn, error: sessionError } = await client.auth.getSession()
+      if (sessionError) throw new Error(sessionError.message)
+      // A guest cannot have asked for a deletion, and most visitors are
+      // guests: this saves them a request on every page load.
+      if (!signedIn.session || signedIn.session.user.is_anonymous) return null
+      const { data, error } = await client.rpc("resume_account")
+      if (error) throw new Error(error.message)
+      return dueDate(data)
     },
   }
 }
