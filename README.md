@@ -120,9 +120,16 @@ The last two need `pnpm db:start` and a filled-in `.dev.vars`.
   document, not tables of their own, so they are saved, undone and checked for conflicts the same
   way as a moved bed. The document has a version, and older ones are brought up to date as they
   are read.
-- **A visitor cannot spend the weather quota.** The Worker counts calls per address: 60 a minute
-  to the weather and place routes, and 10 a minute of those the cache cannot answer, since only
-  these reach OpenWeather and write to KV.
+- **One visitor cannot spend the weather quota, and running out of cache writes breaks nothing.**
+  The Worker counts calls per address, an IPv6 one by its /64 block since a machine can take any
+  address in it: 60 a minute to the weather and place routes, and 10 a minute of those the cache
+  cannot answer, since only these reach OpenWeather and write to KV. Cloudflare's limiter counts
+  by the minute at most, so one address can still use up the free plan's 1000 daily KV writes in
+  about 100 minutes. That only stops new answers being cached until midnight UTC: the routes keep
+  answering from OpenWeather. Two gaps are left open while the app has a handful of users. A daily
+  budget for everyone together would need a Durable Object. And the free plan's 100,000 daily
+  Worker requests, which a refused request spends too, can only be guarded by Cloudflare rules in
+  front of the Worker, which need a domain of its own.
 - **Usage is counted for the owner, not for advertisers.** Two sources, both free. Cloudflare Web
   Analytics counts visits, pages and where people come from, with no cookies; its beacon loads only
   where the Worker has a token, which is production. The database keeps one row per person for
