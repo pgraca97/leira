@@ -44,6 +44,7 @@ export const pt: Translation = {
     deleteConfirm: "Apagar para sempre",
     deleteCancel: "Cancelar",
     deleteFailed: "Não foi possível apagar a tua conta. Não se perdeu nada. Tenta outra vez.",
+    privacy: "Privacidade",
   },
   gardens: {
     title: "As tuas hortas",
@@ -404,5 +405,78 @@ export const pt: Translation = {
     delete: "Apagar",
     deleteNamed: "Apagar o modelo {{name}}",
     doesNotFit: "Esse modelo não cabe nesta horta.",
+  },
+  privacy: {
+    title: "Privacidade",
+    updated: "Alterada pela última vez a 17 de novembro de 2026.",
+    intro:
+      "A Leira é um planeador de hortas gratuito, feito e mantido por uma pessoa, como projeto pessoal. Não mostra anúncios e não vende nada, nem os teus dados. Esta página diz o que se guarda sobre ti e porquê, quem mais trata esses dados, durante quanto tempo e o que podes fazer.",
+    who: {
+      heading: "Quem é responsável",
+      body: "O responsável pelos teus dados é Paulo Graça. Escreve para <email>leiragarden@gmail.com</email> sobre qualquer assunto desta página.",
+    },
+    kept: {
+      heading: "O que se guarda, e para quê",
+      intro: "Só o que a app precisa para funcionar:",
+      gardens:
+        "As tuas hortas: os nomes, canteiros e culturas, as tarefas que dás como feitas, as colheitas e notas, e os modelos que guardas. É isso a própria app.",
+      location:
+        "A localização de uma horta, só se a deres, arredondada a cerca de 1 km. Serve para a meteorologia e para os conselhos de sementeira.",
+      account:
+        "Quem abre a app é convidado até entrar numa conta, e um convidado é um identificador aleatório e mais nada. Depois de entrares: o teu email, as formas como já entraste e, se usares o Google, o nome e a fotografia que o Google envia com ele.",
+      visits:
+        "Os dias em que abriste a app, uma linha por dia, para saber quantas pessoas a usam e voltam.",
+      sessions:
+        "Cada sessão num browser, com o endereço IP e o nome do browser, que o serviço de autenticação guarda por segurança até saíres da conta. Esse serviço regista também as entradas, as saídas e as alterações da conta, com o email dela, até a conta ser apagada.",
+      logs: "Registos curtos dos pedidos aos servidores, que podem ter o teu endereço IP e o endereço pedido.",
+      optional: "Nada disto é obrigatório: podes planear sem email e sem localização.",
+    },
+    browser: {
+      heading: "O que fica no teu browser",
+      storage:
+        "A Leira não põe cookies suas. No armazenamento do browser guarda a tua sessão, para que as hortas lá estejam da próxima vez (sem ela, um convidado perdia-as), o idioma e o que copiaste por último no editor. Apagar os dados deste site termina a sessão, e um convidado perde as hortas.",
+      turnstile:
+        "Antes de criar um convidado ou de enviar um link de entrada por email, a app confirma que és uma pessoa com o Cloudflare Turnstile. O Turnstile lê sinais como o teu endereço IP e o teu browser, e usa cookies e o armazenamento do browser, para distinguir pessoas de bots. A Cloudflare usa também esses sinais para melhorar o Turnstile, e nisso decide por si. Vê a <policy>adenda de privacidade do Turnstile</policy>, da Cloudflare.",
+      analytics:
+        "As visitas são contadas com o Cloudflare Web Analytics, que não usa cookies nem o armazenamento do browser, não te identifica pela impressão digital do browser e não guarda o teu endereço IP.",
+    },
+    others: {
+      heading: "Quem mais trata os teus dados",
+      intro: "Estes serviços fazem parte do trabalho, e cada um recebe só o que precisa:",
+      supabase:
+        "O <policy>Supabase</policy> guarda a base de dados e trata das entradas na conta. Os teus dados ficam na Irlanda.",
+      cloudflare:
+        "A <policy>Cloudflare</policy> serve a app, corre o Turnstile e conta as visitas.",
+      google:
+        "O <policy>Google</policy> faz a entrada quando escolhes o Google, e leva os emails com o link de entrada, que saem de uma conta Gmail.",
+      weather:
+        "O <openweather>OpenWeather</openweather> e o <openmeteo>Open-Meteo</openmeteo> dão a meteorologia e a temperatura do solo. Recebem a zona da horta arredondada a cerca de 11 km, e o OpenWeather também os nomes de terras que pesquisas. Quem lhes pede é o servidor da Leira, nunca o teu browser, por isso não veem o teu endereço IP.",
+      transfers:
+        "A Cloudflare e o Google podem tratar dados fora da União Europeia, ao abrigo das cláusulas contratuais-tipo da UE ou do Quadro de Proteção de Dados UE-EUA. O Supabase é uma empresa de Singapura que guarda os dados na Irlanda, ao abrigo das cláusulas contratuais-tipo. O OpenWeather está no Reino Unido e o Open-Meteo na Suíça, que a UE reconhece como protegendo os dados de forma adequada.",
+    },
+    shared: {
+      heading: "Links partilhados",
+      body: "Se partilhares uma horta, quem tiver o link vê o nome, o plano e o calendário, sem conta. A localização só aparece se o permitires, e as tuas notas e as quantidades colhidas nunca aparecem. Desligar o link acaba com ele.",
+    },
+    retention: {
+      heading: "Durante quanto tempo",
+      account: "Uma conta, as suas hortas e o registo das entradas: até apagares a conta.",
+      guests:
+        "Um convidado que não guardou nada é apagado 30 dias depois da última vez que foi visto, e um convidado com uma horta ou um modelo ao fim de um ano (visto quer dizer que abriu a app, entrou na conta ou guardou uma horta). Um convidado não tem email, por isso não há aviso antes: entra numa conta para guardar as hortas por mais tempo.",
+      logs: "Registos: 1 dia no Supabase, 3 dias na Cloudflare. O Open-Meteo guarda os registos do seu próprio servidor, que podem ter a zona da horta, durante 90 dias.",
+      backups: "Não há cópias de segurança, por isso o que apagas desaparece.",
+    },
+    basis: {
+      heading: "Porque é que isto é permitido",
+      body: "Guardar as tuas hortas, a tua conta e as tuas sessões é necessário para te dar o serviço que pediste (RGPD, artigo 6.º, n.º 1, alínea b)). O captcha, os limites de pedidos e os registos protegem a app de abusos, e os dias de visita dizem se ela é usada: ambos são interesses legítimos (alínea f) do mesmo número). Nenhuma decisão sobre ti é tomada automaticamente, e não se constrói nenhum perfil teu.",
+    },
+    rights: {
+      heading: "Os teus direitos",
+      body: "No painel da conta podes descarregar as tuas hortas, modelos, dados da conta, sessões e dias de visita, num ficheiro que outro serviço consegue ler, e apagar a conta com tudo isso. Podes alterar as tuas hortas na app a qualquer momento. Podes também pedir qualquer destas coisas, ou opor-te ou pedir que se limite o que se faz com os teus dados, por <email>leiragarden@gmail.com</email>. Se achares que os teus dados estão a ser mal tratados, podes queixar-te à autoridade portuguesa de proteção de dados, a <cnpd>CNPD</cnpd>.",
+    },
+    changes: {
+      heading: "Alterações",
+      body: "Quando esta página mudar, a data no topo muda com ela. Uma mudança no que se faz com os teus dados é dita aqui antes de acontecer.",
+    },
   },
 }

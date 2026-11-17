@@ -483,6 +483,25 @@ test("a guest keeps their gardens with an emailed link, then signs out", async (
   await expect(page.getByText(/You have no gardens yet/)).toBeVisible()
 })
 
+test("the privacy page opens on its own without making a guest, and from the account panel", async ({
+  page,
+}) => {
+  const signUps: string[] = []
+  page.on("request", (request) => {
+    if (request.url().includes("/auth/v1/signup")) signUps.push(request.url())
+  })
+  await page.goto("/privacy")
+  await expect(page.getByRole("heading", { level: 1, name: "Privacy" })).toBeVisible()
+  await expect(page.getByRole("link", { name: "CNPD" })).toBeVisible()
+  expect(signUps).toEqual([])
+
+  await page.goto("/")
+  await page.getByRole("button", { name: "Keep your gardens" }).click()
+  await page.getByRole("link", { name: "Privacy" }).click()
+  await expect(page).toHaveURL(/\/privacy$/)
+  await expect(page.getByRole("heading", { level: 1, name: "Privacy" })).toBeVisible()
+})
+
 test("a visitor takes their data away, then deletes everything", async ({ page }) => {
   await page.goto("/")
   await page.getByRole("button", { name: "New garden" }).click()

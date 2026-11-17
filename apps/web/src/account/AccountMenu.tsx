@@ -1,6 +1,6 @@
 import { toIsoDate } from "@leira/core"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { useNavigate } from "@tanstack/react-router"
+import { Link, useNavigate } from "@tanstack/react-router"
 import { type FormEvent, useCallback, useId, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { z } from "zod"
@@ -289,6 +289,9 @@ function YourData({
           </button>
         </>
       )}
+      <Link to="/privacy" className="self-center text-emerald-800 underline">
+        {t("account.privacy")}
+      </Link>
     </div>
   )
 }

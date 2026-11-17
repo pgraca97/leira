@@ -5,6 +5,8 @@ import { emptyPlan, type Forecast, type WeatherNow } from "@leira/core"
 import { createMemoryHistory } from "@tanstack/react-router"
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
+// The instance "./i18n" sets up, to put the language back after a test changes it.
+import i18n from "i18next"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { App } from "./App"
 import { editorStore } from "./editor/store"
@@ -1292,5 +1294,59 @@ describe("templates", () => {
     const list = await screen.findByRole("region", { name: "My templates" })
     await userEvent.click(await within(list).findByRole("button", { name: "Insert Wide bed" }))
     expect(await within(list).findByRole("alert")).toHaveTextContent("does not fit this garden")
+  })
+})
+
+describe("the privacy page", () => {
+  /** Fails the test if the page asks for a session: reading it must not make a guest. */
+  const noSession = vi.fn(async (): Promise<FakeBackend> => {
+    throw new Error("the privacy page must not connect")
+  })
+
+  beforeEach(() => {
+    noSession.mockClear()
+  })
+
+  it("opens with no session, and says who is responsible and where to complain", async () => {
+    open("/privacy", noSession)
+    expect(await screen.findByRole("heading", { level: 1, name: "Privacy" })).toBeVisible()
+    expect(screen.getByText(/Paulo Graça/)).toBeVisible()
+    for (const link of screen.getAllByRole("link", { name: "leiragarden@gmail.com" })) {
+      expect(link).toHaveAttribute("href", "mailto:leiragarden@gmail.com")
+    }
+    expect(screen.getByRole("link", { name: "CNPD" })).toHaveAttribute(
+      "href",
+      expect.stringContaining("cnpd.pt")
+    )
+    expect(screen.getByRole("link", { name: /Turnstile privacy addendum/ })).toHaveAttribute(
+      "href",
+      "https://www.cloudflare.com/turnstile-privacy-policy/"
+    )
+    expect(noSession).not.toHaveBeenCalled()
+    expect(document.title).toBe("Privacy")
+  })
+
+  it("says when guests are deleted, since nobody can warn them", async () => {
+    open("/privacy", noSession)
+    expect(await screen.findByText(/30 days after/)).toBeVisible()
+    expect(screen.getByText(/after a year/)).toBeVisible()
+  })
+
+  it("reads in Portuguese too", async () => {
+    open("/privacy", noSession)
+    try {
+      await userEvent.selectOptions(await screen.findByRole("combobox", { name: "Language" }), "pt")
+      expect(await screen.findByRole("heading", { level: 1, name: "Privacidade" })).toBeVisible()
+      expect(screen.getByRole("link", { name: "CNPD" })).toBeVisible()
+    } finally {
+      await i18n.changeLanguage("en")
+    }
+  })
+
+  it("is reached from the account panel", async () => {
+    open("/")
+    await userEvent.click(await screen.findByRole("button", { name: "Keep your gardens" }))
+    await userEvent.click(screen.getByRole("link", { name: "Privacy" }))
+    expect(await screen.findByRole("heading", { level: 1, name: "Privacy" })).toBeVisible()
   })
 })

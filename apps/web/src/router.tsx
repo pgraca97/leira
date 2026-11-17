@@ -12,6 +12,7 @@ import { Connected } from "./components/Connected"
 import { Notice } from "./components/Notice"
 import { GardenPage } from "./pages/GardenPage"
 import { GardensPage } from "./pages/GardensPage"
+import { PrivacyPage } from "./pages/PrivacyPage"
 import { SharedGardenPage } from "./pages/SharedGardenPage"
 import { StatsPage } from "./pages/StatsPage"
 
@@ -76,9 +77,17 @@ export const sharedGardenRoute = createRoute({
   },
 })
 
+/** What is kept and who sees it. Outside the session, so reading it makes nobody a guest. */
+const privacyRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/privacy",
+  component: PrivacyPage,
+})
+
 const routeTree = rootRoute.addChildren([
   sessionRoute.addChildren([gardensRoute, gardenRoute, statsRoute]),
   sharedGardenRoute,
+  privacyRoute,
 ])
 
 export function createAppRouter(history?: RouterHistory) {

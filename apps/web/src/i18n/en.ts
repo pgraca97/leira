@@ -42,6 +42,7 @@ export const en = {
     deleteConfirm: "Delete for good",
     deleteCancel: "Cancel",
     deleteFailed: "Your account could not be deleted. Nothing was lost. Try again.",
+    privacy: "Privacy",
   },
   gardens: {
     title: "Your gardens",
@@ -398,6 +399,79 @@ export const en = {
     delete: "Delete",
     deleteNamed: "Delete template {{name}}",
     doesNotFit: "That template does not fit this garden.",
+  },
+  privacy: {
+    title: "Privacy",
+    updated: "Last changed on 17 November 2026.",
+    intro:
+      "Leira is a free garden planner, made and run by one person as a personal project. It shows no ads and sells nothing, your data included. This page says what is kept about you and why, who else handles it, for how long, and what you can do about it.",
+    who: {
+      heading: "Who is responsible",
+      body: "Paulo Graça is responsible for your data. Write to <email>leiragarden@gmail.com</email> about anything on this page.",
+    },
+    kept: {
+      heading: "What is kept, and why",
+      intro: "Only what the app needs to work:",
+      gardens:
+        "Your gardens: their names, beds and crops, the jobs you tick off, your harvests and notes, and the templates you save. That is the app itself.",
+      location:
+        "A garden's location, only if you give one, rounded to about 1 km. It gives the weather and the sowing advice.",
+      account:
+        "Anyone who opens the app is a guest until they sign in, and a guest is a random user id and nothing more. Once you sign in: your email address, the ways you have signed in, and, if you use Google, the name and picture Google sends with it.",
+      visits:
+        "The days you opened the app, one line per day, to count how many people use it and come back.",
+      sessions:
+        "Each session in a browser, with its IP address and the name of the browser, which the sign-in service keeps for security until you sign out. That service also logs sign-ins, sign-outs and changes to the account, with its email address, until the account is deleted.",
+      logs: "Short logs of the requests to the servers, which can hold your IP address and the address that was asked for.",
+      optional:
+        "None of this is required: you can plan without an email address and without a location.",
+    },
+    browser: {
+      heading: "What is kept in your browser",
+      storage:
+        "Leira sets no cookies of its own. In your browser's storage it keeps your session, so your gardens are still there next time (without it, a guest would lose them), your language, and what you last copied in the editor. Clearing this site's data signs you out, and a guest loses their gardens.",
+      turnstile:
+        "Before it makes a guest or emails a sign-in link, the app checks that you are a person with Cloudflare Turnstile. Turnstile reads signals such as your IP address and your browser, and uses cookies and browser storage, to tell people from bots. Cloudflare also uses those signals to improve Turnstile, and for that it decides on its own. See <policy>Cloudflare's Turnstile privacy addendum</policy>.",
+      analytics:
+        "Visits are counted with Cloudflare Web Analytics, which uses no cookies or browser storage, does not fingerprint you and does not keep your IP address.",
+    },
+    others: {
+      heading: "Who else handles your data",
+      intro: "These services do part of the work, and each one gets only what it needs:",
+      supabase:
+        "<policy>Supabase</policy> keeps the database and signs you in. Your data is stored in Ireland.",
+      cloudflare: "<policy>Cloudflare</policy> serves the app, runs Turnstile and counts visits.",
+      google:
+        "<policy>Google</policy> signs you in when you choose Google, and carries the sign-in emails, which are sent from a Gmail account.",
+      weather:
+        "<openweather>OpenWeather</openweather> and <openmeteo>Open-Meteo</openmeteo> give the weather and the soil temperature. They get the garden's area rounded to about 11 km, and OpenWeather also the town names you search for. Leira's server asks them, never your browser, so they do not see your IP address.",
+      transfers:
+        "Cloudflare and Google may handle data outside the European Union, under the EU's standard contractual clauses or the EU-US Data Privacy Framework. Supabase is a company in Singapore that keeps the data in Ireland, under the standard contractual clauses. OpenWeather is in the United Kingdom and Open-Meteo in Switzerland, which the EU recognises as protecting data adequately.",
+    },
+    shared: {
+      heading: "Share links",
+      body: "If you share a garden, anyone with its link can see its name, plan and calendar, without an account. Its location shows only if you allow it, and your notes and harvest amounts never do. Turning the link off ends it.",
+    },
+    retention: {
+      heading: "How long it is kept",
+      account: "An account, its gardens and its sign-in log: until you delete the account.",
+      guests:
+        "A guest who kept nothing is deleted 30 days after they were last seen, and a guest with a garden or a template after a year (seen means opening the app, signing in or saving a garden). A guest has no email address, so there is no warning first: sign in to keep your gardens for longer.",
+      logs: "Logs: 1 day at Supabase, 3 days at Cloudflare. Open-Meteo keeps its own server logs, which may hold the garden's area, for 90 days.",
+      backups: "There are no backups, so what you delete is gone.",
+    },
+    basis: {
+      heading: "Why this is allowed",
+      body: "Keeping your gardens, your account and your sessions is needed to give you the service you asked for (GDPR, article 6(1)(b)). The captcha, the limits on requests and the logs protect the app from abuse, and the days of visits tell whether it is used: both are legitimate interests (article 6(1)(f)). No decision about you is made automatically, and no profile of you is built.",
+    },
+    rights: {
+      heading: "Your rights",
+      body: "In the account panel you can download your gardens, templates, account details, sessions and days of visits, as a file another service can read, and delete your account with all of it. You can change your gardens in the app at any time. You can also ask for any of this, or object to or ask to limit what is done with your data, at <email>leiragarden@gmail.com</email>. If you think your data is mishandled, you can complain to the Portuguese data protection authority, the <cnpd>CNPD</cnpd>.",
+    },
+    changes: {
+      heading: "Changes",
+      body: "When this page changes, the date at the top changes with it. A change in what is done with your data is told here before it happens.",
+    },
   },
 }
 
