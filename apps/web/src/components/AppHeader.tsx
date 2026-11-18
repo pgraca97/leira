@@ -56,7 +56,9 @@ export function AppHeader({ children, secondary }: AppHeaderProps) {
 /**
  * Shows its controls in the header's row on a wide screen. On a narrow one
  * they wait in a panel behind a "More" button. The controls are the same
- * elements either way: only where they are drawn changes.
+ * elements either way: only where they are drawn changes. "Narrow" goes up
+ * to 768 px: below that, the editor's controls all in the row would take
+ * three lines.
  */
 function NarrowScreenMenu({ children }: { children: ReactNode }) {
   const { t } = useTranslation()
@@ -69,13 +71,13 @@ function NarrowScreenMenu({ children }: { children: ReactNode }) {
   useDismiss(open, close, container, toggle)
 
   return (
-    // `sm:contents` takes this box out of the layout on a wide screen, so the
+    // `md:contents` takes this box out of the layout on a wide screen, so the
     // controls line up with the rest of the header as if it were not there.
-    <div ref={container} className="relative sm:contents">
+    <div ref={container} className="relative md:contents">
       <button
         ref={toggle}
         type="button"
-        className={`${buttonClass} sm:hidden`}
+        className={`${buttonClass} md:hidden`}
         aria-expanded={open}
         aria-controls={panelId}
         onClick={() => setOpen(!open)}
@@ -86,7 +88,7 @@ function NarrowScreenMenu({ children }: { children: ReactNode }) {
         id={panelId}
         className={`${
           open ? "flex" : "hidden"
-        } absolute top-full right-0 z-20 mt-2 flex-col items-end gap-3 rounded-md border border-stone-200 bg-white p-3 shadow-lg sm:contents`}
+        } absolute top-full right-0 z-20 mt-2 flex-col items-end gap-3 rounded-md border border-stone-200 bg-white p-3 shadow-lg md:contents`}
       >
         {children}
       </div>

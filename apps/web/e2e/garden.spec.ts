@@ -849,6 +849,26 @@ test.describe("on a phone", () => {
   })
 })
 
+// Between a phone and a laptop: a tablet, or a narrow window. The header
+// must not take a third line from the garden at any of these widths.
+for (const width of [640, 700, 767, 900, 1023]) {
+  test.describe(`at ${width} px wide`, () => {
+    test.use({ viewport: { width, height: 800 } })
+
+    test("the editor's header keeps to two lines", async ({ page }) => {
+      await page.goto("/gardens")
+      await page.getByRole("button", { name: "See an example" }).click()
+      await expect(page.getByTestId("garden-canvas")).toHaveAttribute("data-status", "ready")
+
+      const header = await page.getByRole("banner").boundingBox()
+      if (!header) throw new Error("The header is not on the page")
+      expect(header.height).toBeLessThanOrEqual(110)
+      await expect(page.getByRole("textbox", { name: "Garden name" })).toBeVisible()
+      await expect(page.locator("html")).toHaveJSProperty("scrollWidth", width)
+    })
+  })
+}
+
 test("the interface switches to Portuguese", async ({ page }) => {
   await page.goto("/gardens")
   await page.getByRole("combobox", { name: "Language" }).selectOption("pt")

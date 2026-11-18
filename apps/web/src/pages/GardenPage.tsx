@@ -182,7 +182,7 @@ function NameField({ name, onRename }: { name: string; onRename(name: string): b
     <input
       type="text"
       aria-label={t("garden.nameLabel")}
-      className={`${inputClass} min-w-24 flex-1 font-medium sm:w-48 sm:flex-none`}
+      className={`${inputClass} min-w-24 flex-1 font-medium md:w-48 md:flex-none`}
       maxLength={GARDEN_NAME_MAX}
       value={draft}
       onChange={(event) => {
