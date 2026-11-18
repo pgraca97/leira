@@ -615,13 +615,17 @@ describe("usage stats", () => {
   }
   interface UsageStats {
     generatedAt: string
-    people: { guests: number; accounts: number; withGarden: number }
+    people: { guests: number; accounts: number; withGarden: number; accountsWithGarden: number }
     gardens: {
       total: number
       editedLast7Days: number
       editedLast30Days: number
       shared: number
       withLocation: number
+      withPlantings: number
+      withRecords: number
+      recordedLast7Days: number
+      severalYears: number
     }
     weeks: Week[]
     limits: { databaseBytes: number; monthlyUsers: number }
@@ -668,13 +672,131 @@ describe("usage stats", () => {
 
     await signInAs(alice)
     const stats = await usageStats()
-    expect(stats.people).toEqual({ guests: 1, accounts: 2, withGarden: 1 })
-    expect(stats.gardens).toEqual({
+    expect(stats.people).toEqual({ guests: 1, accounts: 2, withGarden: 1, accountsWithGarden: 1 })
+    expect(stats.gardens).toMatchObject({
       total: 3,
       editedLast7Days: 1,
       editedLast30Days: 2,
       shared: 1,
       withLocation: 1,
+    })
+  })
+
+  it("count the people with a garden who have an account, guests apart", async () => {
+    await makeAdmin(alice)
+    const guest = await createUser()
+    await makeGuest(guest)
+    await db.query("insert into public.gardens (owner_id, name, plan) values ($1, 'Guest', $2)", [
+      guest,
+      PLAN,
+    ])
+    await db.query("insert into public.gardens (owner_id, name, plan) values ($1, 'Bob', $2)", [
+      bob,
+      PLAN,
+    ])
+
+    await signInAs(alice)
+    const people = (await usageStats()).people
+    expect(people.withGarden).toBe(2)
+    expect(people.accountsWithGarden).toBe(1)
+  })
+
+  describe("of what is planted and recorded", () => {
+    /** The day `daysAgo` days before today in UTC, as the plan writes it. */
+    function dayAgo(daysAgo: number): string {
+      return new Date(Date.now() - daysAgo * 86_400_000).toISOString().slice(0, 10)
+    }
+
+    /** A crop that is only planned, in the ground on the day `from`. */
+    function crop(from: string, fields: Record<string, unknown> = {}) {
+      return {
+        id: crypto.randomUUID(),
+        plantId: "lettuce",
+        rect: { x: 0, y: 0, w: 30, h: 30 },
+        layout: "single",
+        inGround: { from, to: from },
+        ...fields,
+      }
+    }
+
+    /** Gives Bob a garden with these plantings, as the stored plan holds them. */
+    async function bobsGarden(plantings: unknown): Promise<void> {
+      await db.exec("reset role")
+      await db.query("insert into public.gardens (owner_id, name, plan) values ($1, 'Bob', $2)", [
+        bob,
+        JSON.stringify({ ...JSON.parse(PLAN), plantings }),
+      ])
+    }
+
+    async function gardens(): Promise<UsageStats["gardens"]> {
+      await signInAs(alice)
+      return (await usageStats()).gardens
+    }
+
+    beforeEach(async () => {
+      await makeAdmin(alice)
+    })
+
+    it("count gardens with crops, recorded or not", async () => {
+      await bobsGarden([])
+      await bobsGarden([crop("2027-03-01")])
+      expect(await gardens()).toMatchObject({ total: 2, withPlantings: 1, withRecords: 0 })
+    })
+
+    it.each([
+      ["in the ground", { planted: true }],
+      ["out of the ground", { cleared: true }],
+      ["sown under cover", { sowDate: "2025-02-01" }],
+      ["harvested", { harvests: [{ date: "2025-06-01" }] }],
+    ])("count a garden with a crop marked %s as recorded", async (_, marks) => {
+      await bobsGarden([crop("2025-03-01", marks)])
+      await bobsGarden([crop("2025-03-01", { harvests: [] })])
+      expect(await gardens()).toMatchObject({ withRecords: 1, recordedLast7Days: 0 })
+    })
+
+    it.each([
+      ["put in the ground", (day: string) => crop(day, { planted: true })],
+      [
+        "taken out",
+        (day: string) => ({
+          ...crop("2025-03-01"),
+          inGround: { from: "2025-03-01", to: day },
+          cleared: true,
+        }),
+      ],
+      ["sown under cover", (day: string) => crop("2027-03-01", { sowDate: day })],
+      [
+        "harvested",
+        (day: string) => crop("2025-03-01", { harvests: [{ date: "2025-04-01" }, { date: day }] }),
+      ],
+    ])("count a crop %s in the last 7 days by the day it names", async (_, recordedOn) => {
+      await bobsGarden([recordedOn(dayAgo(0))])
+      await bobsGarden([recordedOn(dayAgo(6))])
+      await bobsGarden([recordedOn(dayAgo(7))])
+      expect(await gardens()).toMatchObject({ withRecords: 3, recordedLast7Days: 2 })
+    })
+
+    it("do not count a planned crop as recorded because its days are recent", async () => {
+      await bobsGarden([crop(dayAgo(1))])
+      expect(await gardens()).toMatchObject({ withRecords: 0, recordedLast7Days: 0 })
+    })
+
+    it("count gardens whose crops go into the ground in more than one year", async () => {
+      await bobsGarden([crop("2026-03-01"), crop("2026-09-01")])
+      await bobsGarden([crop("2026-03-01"), crop("2027-03-01")])
+      // Garlic planted in the autumn and lifted next summer is one season.
+      await bobsGarden([
+        { ...crop("2026-11-01"), inGround: { from: "2026-11-01", to: "2027-06-30" } },
+      ])
+      expect(await gardens()).toMatchObject({ severalYears: 1 })
+    })
+
+    it("are not stopped by a plan whose crops have an unexpected shape", async () => {
+      // The database stores any object as a plan: only the app checks its shape.
+      await bobsGarden("lots")
+      await bobsGarden([42, crop("2025-03-01", { harvests: "many", sowDate: 7 })])
+      await bobsGarden([crop("not a date", { planted: true })])
+      expect(await gardens()).toMatchObject({ total: 3, withPlantings: 2, withRecords: 2 })
     })
   })
 
