@@ -1,19 +1,8 @@
-import {
-  doneDateBounds,
-  HARVEST_UNITS,
-  type Harvest,
-  type HarvestUnit,
-  harvestTotals,
-  type IsoDate,
-  PLAN_LIMITS,
-  type Planting,
-  toIsoDate,
-} from "@leira/core"
-import { type FormEvent, useState } from "react"
+import { type IsoDate, PLAN_LIMITS, type Planting, toIsoDate } from "@leira/core"
 import { useTranslation } from "react-i18next"
 import { CommitField } from "../components/CommitField"
-import { buttonClass, inputClass } from "../components/ui"
 import { currentLanguage } from "../i18n"
+import { HarvestForm, useHarvestWords } from "./HarvestForm"
 import { editorStore } from "./store"
 
 interface PlantingMarksProps {
@@ -62,17 +51,6 @@ export function PlantingMarks({ planting, onResult }: PlantingMarksProps) {
 }
 
 /**
- * Reads an amount as people type it: a comma or a point for the decimals.
- * Undefined when nothing was typed, null when it is not a plain number.
- */
-function parseAmount(typed: string): number | null | undefined {
-  const text = typed.trim()
-  if (text === "") return undefined
-  // Number() alone would also take "1e3" and "0x10", which nobody means here.
-  return /^\d+([.,]\d+)?$/.test(text) ? Number(text.replace(",", ".")) : null
-}
-
-/**
  * What a planting gave and what there is to say about it: its harvests,
  * oldest first, with a form to record one, and free notes. Give it the
  * planting's id as `key`, so a half-filled form does not follow the selection
@@ -82,42 +60,12 @@ export function PlantingRecord({ planting }: { planting: Planting }) {
   const { t } = useTranslation()
   const language = currentLanguage()
   const { addHarvest, removeHarvest, setPlantingNotes } = editorStore.getState()
-  const bounds = doneDateBounds(planting, "harvest")
-  const today = toIsoDate(new Date())
-  // Nothing is picked from a crop still to go in, nor on a day still to come.
-  const notInGround = bounds.min !== undefined && today < bounds.min
-  const latest = bounds.max && bounds.max < today ? bounds.max : today
-  // Today, unless the crop was not in the ground today.
-  const [date, setDate] = useState<IsoDate>(() => (notInGround ? today : latest))
-  const [amount, setAmount] = useState("")
-  const [unit, setUnit] = useState<HarvestUnit>("kg")
-  const [refused, setRefused] = useState(false)
-
   const harvests = planting.harvests ?? []
   // Dates carry no zone, so they are formatted in UTC to stay on the same day everywhere.
   const dateFormat = new Intl.DateTimeFormat(language, { dateStyle: "medium", timeZone: "UTC" })
   const day = (value: IsoDate) => dateFormat.format(new Date(`${value}T00:00:00Z`))
-  const number = new Intl.NumberFormat(language, { maximumFractionDigits: 3 })
-  const amountOf = (quantity: number, of: HarvestUnit) =>
-    of === "kg"
-      ? t("record.kg", { amount: number.format(quantity) })
-      : t("record.units", { count: quantity, amount: number.format(quantity) })
-
-  const totals = harvestTotals(planting)
-  const total = new Intl.ListFormat(language, { type: "conjunction" }).format(
-    HARVEST_UNITS.filter((of) => totals[of] > 0).map((of) => amountOf(totals[of], of))
-  )
-
-  const record = (event: FormEvent) => {
-    event.preventDefault()
-    const quantity = parseAmount(amount)
-    const harvest: Harvest =
-      quantity === undefined ? { date } : { date, quantity: quantity ?? 0, unit }
-    // An amount that is not a number goes in as 0, which the plan refuses like any other bad amount.
-    const taken = addHarvest(planting.id, harvest)
-    setRefused(!taken)
-    if (taken) setAmount("")
-  }
+  const { amountOf, totalOf } = useHarvestWords()
+  const total = totalOf(planting)
 
   return (
     <section aria-labelledby="record-harvests" className="mt-3 flex flex-col gap-1.5">
@@ -150,60 +98,7 @@ export function PlantingRecord({ planting }: { planting: Planting }) {
       {total && (
         <p className="text-sm font-medium text-stone-800">{t("record.total", { total })}</p>
       )}
-      {/* The browser's own checks are off: its messages come in the browser's language, not the app's. */}
-      <form noValidate className="flex flex-wrap items-end gap-2" onSubmit={record}>
-        <label className="flex flex-col text-xs text-stone-600">
-          {t("record.pickedOn")}
-          <input
-            type="date"
-            className={inputClass}
-            value={date}
-            min={bounds.min}
-            max={latest}
-            disabled={notInGround}
-            onChange={(event) => setDate(event.target.value)}
-          />
-        </label>
-        <label className="flex flex-col text-xs text-stone-600">
-          {t("record.amount")}
-          <input
-            type="text"
-            inputMode="decimal"
-            className={`${inputClass} w-20`}
-            value={amount}
-            onChange={(event) => setAmount(event.target.value)}
-          />
-        </label>
-        <label className="flex flex-col text-xs text-stone-600">
-          {t("record.unit")}
-          <select
-            className={inputClass}
-            value={unit}
-            onChange={(event) => setUnit(event.target.value as HarvestUnit)}
-          >
-            {HARVEST_UNITS.map((of) => (
-              <option key={of} value={of}>
-                {t(`record.unitName.${of}`)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button
-          type="submit"
-          className={buttonClass}
-          disabled={notInGround || harvests.length >= PLAN_LIMITS.maxHarvests}
-        >
-          {t("record.add")}
-        </button>
-        {notInGround && (
-          <span className="self-center text-xs text-stone-500">{t("calendar.tooSoon")}</span>
-        )}
-      </form>
-      {refused && (
-        <p role="alert" className="text-sm text-red-800">
-          {t("record.harvestRefused")}
-        </p>
-      )}
+      <HarvestForm planting={planting} onAdd={(harvest) => addHarvest(planting.id, harvest)} />
       <CommitField
         multiline
         label={t("record.notes")}
