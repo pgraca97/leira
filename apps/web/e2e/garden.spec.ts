@@ -753,6 +753,21 @@ test.describe("on a phone", () => {
     await expect(page.locator("html")).toHaveJSProperty("scrollWidth", SCREEN.width)
   })
 
+  test("the account's panel leaves the language within reach in the menu", async ({ page }) => {
+    await page.goto("/gardens")
+    await page.getByRole("button", { name: "New garden" }).click()
+    await page.getByRole("button", { name: "More" }).click()
+    await page.getByRole("button", { name: "Keep your gardens" }).click()
+
+    const panel = await page.getByRole("dialog", { name: "Account" }).boundingBox()
+    const language = page.getByRole("combobox", { name: "Language" })
+    const select = await language.boundingBox()
+    if (!panel || !select) throw new Error("The panel or the language is not on the page")
+    expect(select.y + select.height).toBeLessThanOrEqual(panel.y)
+    // A trial press checks that nothing lies over it, without opening it.
+    await language.click({ trial: true, timeout: 2_000 })
+  })
+
   test("the garden stays put while the tools change and the garden saves", async ({ page }) => {
     await page.goto("/gardens")
     await page.getByRole("button", { name: "New garden" }).click()

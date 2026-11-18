@@ -507,6 +507,17 @@ describe("the account", () => {
   const openPanel = async () =>
     userEvent.click(await screen.findByRole("button", { name: "Keep your gardens" }))
 
+  // The panel opens downwards from the button. Last in the header, and at the
+  // foot of the narrow screen's menu, it has nothing under it to cover.
+  it("comes last in the header, after the language", async () => {
+    open(`/gardens/${TOMATOES.id}`)
+    // The garden's own header, not the one shown while it loads.
+    await screen.findByRole("textbox", { name: "Garden name" })
+    const account = await screen.findByRole("button", { name: "Keep your gardens" })
+    const language = screen.getByRole("combobox", { name: "Language" })
+    expect(language.compareDocumentPosition(account)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+  })
+
   it("tells a guest how to keep their gardens and emails them a link", async () => {
     open("/gardens")
     await openPanel()

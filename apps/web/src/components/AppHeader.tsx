@@ -22,10 +22,12 @@ export function AppHeader({ children, secondary }: AppHeaderProps) {
   const { t } = useTranslation()
   // The header also shows while the app is still connecting, with no account to ask about.
   const connected = useContext(BackendContext) !== null
+  // The account comes last: its panel opens downwards, and in the narrow
+  // screen's menu anything below the button would sit under the panel.
   const general = (
     <>
-      {connected && <AccountMenu />}
       <LanguageSwitcher />
+      {connected && <AccountMenu />}
     </>
   )
 
