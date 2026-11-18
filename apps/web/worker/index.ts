@@ -1,12 +1,14 @@
 import { requestAccountDeletion } from "./account"
 import { createApp } from "./app"
 import { verifySupabaseToken } from "./auth"
+import { keepAwake } from "./keepAwake"
 import { smtpMailer } from "./mail"
 import { fetchSharedGarden } from "./shared"
+import { supabaseClient } from "./supabase"
 import { openMeteo, openMeteoPlaces } from "./weather/openmeteo"
 import { openWeather } from "./weather/openweather"
 
-export default createApp({
+const app = createApp({
   verifyToken: verifySupabaseToken,
   sharedGarden: fetchSharedGarden,
   requestDeletion: requestAccountDeletion,
@@ -16,3 +18,11 @@ export default createApp({
   soilProvider: () => openMeteo(),
   placeProvider: () => openMeteoPlaces(),
 })
+
+export default {
+  fetch: app.fetch,
+  // The crons in wrangler.jsonc. A run that throws shows as failed in the Worker's logs.
+  scheduled(_controller, env, ctx) {
+    ctx.waitUntil(keepAwake(supabaseClient(env)))
+  },
+} satisfies ExportedHandler<Env>

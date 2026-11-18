@@ -55,6 +55,10 @@
       "TURNSTILE_SITE_KEY"
     ]
   },
+  // Every six hours, a small database call keeps the free Supabase project from
+  // being paused after a quiet week (see worker/keepAwake.ts). Supabase asks for
+  // "a few requests each day"; the minute is off the hour, when crons crowd.
+  "triggers": { "crons": ["17 0,6,12,18 * * *"] },
   "observability": {
     "enabled": true
   },

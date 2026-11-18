@@ -1731,3 +1731,11 @@ describe("a guest's gardens handed over to an account", () => {
     )
   })
 })
+
+describe("keeping the project awake", () => {
+  it("can be asked for by a visitor with no session, as the Worker's cron does", async () => {
+    await signOut()
+    const result = await db.query<{ awake: boolean }>("select public.keep_awake() as awake")
+    expect(result.rows).toEqual([{ awake: true }])
+  })
+})
