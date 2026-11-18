@@ -121,16 +121,20 @@ export interface EditorState {
   /**
    * Records the day a crop raised under cover was actually sown, or forgets it
    * when given null, so the crop's usual lead time applies again. Returns
-   * false when nothing changes, or for a day that is not before the crop goes
-   * in the ground: the schedule would ignore it.
+   * false when nothing changes, for a day still to come, or for a day that is
+   * not before the crop goes in the ground: the schedule would ignore it.
    */
   setPlantingSowDate(id: string, sowDate: IsoDate | null): boolean
   /**
    * Records one of a planting's jobs as done on a day, or as still to do when
-   * given null. Returns false for a day the planting's other dates rule out.
+   * given null. Returns false for a day still to come, or one the planting's
+   * other dates rule out.
    */
   recordTask(plantingId: string, kind: GardenTaskKind, date: IsoDate | null): boolean
-  /** Records a harvest. Returns false for one that does not fit the planting's time in the ground. */
+  /**
+   * Records a harvest. Returns false for one picked on a day still to come, or
+   * outside the planting's time in the ground.
+   */
   addHarvest(plantingId: string, harvest: Harvest): boolean
   /** Removes the harvest at a position in a planting's list. */
   removeHarvest(plantingId: string, index: number): boolean
@@ -372,6 +376,7 @@ export const editorStore = createStore<EditorState>()(
           const { plan } = get()
           const planting = plan.plantings.find((item) => item.id === id)
           if (!planting || (planting.sowDate ?? null) === sowDate) return false
+          if (sowDate !== null && !hasCome(sowDate)) return false
           const updated = withSowDate(planting, sowDate)
           // Asked to record a day and ended up without one: the day was refused.
           if (sowDate !== null && updated.sowDate === undefined) return false
@@ -382,13 +387,13 @@ export const editorStore = createStore<EditorState>()(
         },
 
         recordTask: (plantingId, kind, date) => {
-          if (date !== null && !isDate(date)) return false
+          if (date !== null && (!isDate(date) || !hasCome(date))) return false
           return editPlanting(plantingId, (planting) => recordTask(planting, kind, date))
         },
 
         addHarvest: (plantingId, harvest) => {
           const checked = HarvestSchema.safeParse(harvest)
-          if (!checked.success) return false
+          if (!checked.success || !hasCome(checked.data.date)) return false
           return editPlanting(plantingId, (planting) => addHarvest(planting, checked.data))
         },
 
@@ -514,6 +519,14 @@ export const editorStore = createStore<EditorState>()(
     }
   )
 )
+
+/**
+ * Whether a day has come where the device is. What happened in the garden
+ * happened by today: a harvest next month is a typo, or a plan.
+ */
+function hasCome(date: IsoDate): boolean {
+  return date <= toIsoDate(new Date())
+}
 
 /** Whether a value typed or passed in is a calendar day the plan can hold. */
 function isDate(value: unknown): value is IsoDate {

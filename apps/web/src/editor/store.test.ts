@@ -704,3 +704,33 @@ describe("the most a plan holds", () => {
     expect(GardenPlanSchema.safeParse(state().plan).success).toBe(true)
   })
 })
+
+describe("records of days still to come", () => {
+  beforeEach(() => {
+    // Today is 1 July 2026. Only the clock is faked.
+    vi.useFakeTimers({ now: new Date(2026, 6, 1, 10, 0), toFake: ["Date"] })
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it("refuses a harvest picked on a day still to come, and takes one picked today", () => {
+    expect(state().addHarvest("p1", { date: "2026-07-02" })).toBe(false)
+    expect(planting()).toEqual(TOMATO)
+    expect(state().addHarvest("p1", { date: "2026-07-01" })).toBe(true)
+  })
+
+  it("refuses a job done on a day still to come", () => {
+    expect(state().recordTask("p1", "transplant", "2026-07-02")).toBe(false)
+    expect(state().recordTask("p1", "clear", "2026-09-30")).toBe(false)
+    expect(planting()).toEqual(TOMATO)
+  })
+
+  it("refuses seeds sown on a day still to come", () => {
+    const later: Planting = { ...TOMATO, inGround: { from: "2026-08-01", to: "2026-10-30" } }
+    state().loadPlan({ ...emptyPlan(), plantings: [later] })
+    expect(state().setPlantingSowDate("p1", "2026-07-10")).toBe(false)
+    expect(state().setPlantingSowDate("p1", "2026-06-20")).toBe(true)
+  })
+})

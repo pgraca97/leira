@@ -83,12 +83,12 @@ export function PlantingRecord({ planting }: { planting: Planting }) {
   const language = currentLanguage()
   const { addHarvest, removeHarvest, setPlantingNotes } = editorStore.getState()
   const bounds = doneDateBounds(planting, "harvest")
-  const [date, setDate] = useState<IsoDate>(() => {
-    // Today, unless the crop was not in the ground today.
-    const today = toIsoDate(new Date())
-    if (bounds.min && today < bounds.min) return bounds.min
-    return bounds.max && today > bounds.max ? bounds.max : today
-  })
+  const today = toIsoDate(new Date())
+  // Nothing is picked from a crop still to go in, nor on a day still to come.
+  const notInGround = bounds.min !== undefined && today < bounds.min
+  const latest = bounds.max && bounds.max < today ? bounds.max : today
+  // Today, unless the crop was not in the ground today.
+  const [date, setDate] = useState<IsoDate>(() => (notInGround ? today : latest))
   const [amount, setAmount] = useState("")
   const [unit, setUnit] = useState<HarvestUnit>("kg")
   const [refused, setRefused] = useState(false)
@@ -159,7 +159,8 @@ export function PlantingRecord({ planting }: { planting: Planting }) {
             className={inputClass}
             value={date}
             min={bounds.min}
-            max={bounds.max}
+            max={latest}
+            disabled={notInGround}
             onChange={(event) => setDate(event.target.value)}
           />
         </label>
@@ -190,10 +191,13 @@ export function PlantingRecord({ planting }: { planting: Planting }) {
         <button
           type="submit"
           className={buttonClass}
-          disabled={harvests.length >= PLAN_LIMITS.maxHarvests}
+          disabled={notInGround || harvests.length >= PLAN_LIMITS.maxHarvests}
         >
           {t("record.add")}
         </button>
+        {notInGround && (
+          <span className="self-center text-xs text-stone-500">{t("calendar.tooSoon")}</span>
+        )}
       </form>
       {refused && (
         <p role="alert" className="text-sm text-red-800">

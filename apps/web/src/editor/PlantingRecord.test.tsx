@@ -197,6 +197,24 @@ describe("the harvests of a planting", () => {
     expect(stored()).not.toHaveProperty("harvests")
   })
 
+  it("refuses a harvest on a day still to come", async () => {
+    show(GROWING)
+    expect(screen.getByLabelText("Picked on")).toHaveAttribute("max", "2026-07-01")
+    fireEvent.change(screen.getByLabelText("Picked on"), { target: { value: "2026-07-05" } })
+    await record("2")
+
+    expect(screen.getByRole("alert")).toBeVisible()
+    expect(stored()).not.toHaveProperty("harvests")
+  })
+
+  it("offers no harvest for a crop not in the ground yet", () => {
+    show(planting("2026-08-01", "2026-10-30"))
+    expect(screen.getByRole("button", { name: "Record harvest" })).toBeDisabled()
+    expect(
+      within(screen.getByRole("region", { name: "Harvests" })).getByText("not in the ground yet")
+    ).toBeVisible()
+  })
+
   it("stops saying so once a harvest is recorded", async () => {
     show(GROWING)
     await record("abc")
