@@ -31,13 +31,16 @@ export function Editor({ aside }: { aside?: ReactNode }) {
 
   return (
     // Three columns on a wide screen, the tools' guide closing the first one.
-    // On a narrow one the parts stack and the editor scrolls as a whole, so
-    // the canvas keeps a height worth drawing on, and the guide comes after
+    // On a tablet two: the tools above the garden and the guide below it, and
+    // the inspector beside them, so its advice stays in sight while drawing.
+    // On a phone the parts stack and the editor scrolls as a whole, so the
+    // canvas keeps a height worth drawing on. On both the guide comes after
     // the canvas: its length changes with the tool, and above the garden it
-    // would move the garden every time.
-    <div className="grid h-full min-h-0 grid-cols-[minmax(0,1fr)] grid-rows-[auto_minmax(26rem,1fr)_auto_auto] overflow-y-auto lg:grid-cols-[14rem_minmax(0,1fr)_18rem] lg:grid-rows-[minmax(0,1fr)_auto] lg:overflow-hidden">
+    // would move the garden every time. A screen too short for the garden
+    // (a phone turned sideways) scrolls rather than squash it.
+    <div className="grid h-full min-h-0 grid-cols-[minmax(0,1fr)] grid-rows-[auto_minmax(26rem,1fr)_auto_auto] overflow-y-auto md:grid-cols-[minmax(0,1fr)_17rem] md:grid-rows-[auto_minmax(24rem,1fr)_auto] lg:grid-cols-[14rem_minmax(0,1fr)_18rem] lg:grid-rows-[minmax(0,1fr)_auto] lg:overflow-hidden">
       <Palette />
-      <main className="relative flex min-h-0 flex-col lg:col-start-2 lg:row-span-2 lg:row-start-1">
+      <main className="relative flex min-h-0 flex-col md:col-start-1 md:row-start-2 lg:col-start-2 lg:row-span-2 lg:row-start-1">
         {/*
           A row of its own on a narrow screen, where it would cover the garden.
           On a wide one it floats over the canvas and lets presses through to
@@ -76,7 +79,7 @@ export function Editor({ aside }: { aside?: ReactNode }) {
           </div>
         </div>
       </main>
-      <ToolGuide className="border-b border-stone-200 bg-stone-100 p-3 lg:col-start-1 lg:row-start-2 lg:border-r lg:border-b-0" />
+      <ToolGuide className="border-b border-stone-200 bg-stone-100 p-3 md:col-start-1 md:row-start-3 lg:col-start-1 lg:row-start-2 lg:border-r lg:border-b-0" />
       <Inspector>{aside}</Inspector>
     </div>
   )

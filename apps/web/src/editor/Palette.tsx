@@ -11,9 +11,10 @@ import { useEditor } from "./useEditor"
  * A tool's button. On a phone the three share a row and a long name takes two
  * lines, pressed (in bold) or not: every button is two lines tall there, so
  * picking a tool never changes the row's height and moves the garden below.
+ * From a tablet up every name fits on one line.
  */
 // Two lines of text-sm (2 × 20 px), its padding (12 px) and border (2 px).
-const toolClass = `${toggleButtonClass} max-lg:min-h-[54px]`
+const toolClass = `${toggleButtonClass} max-md:min-h-[54px]`
 
 /** The tools and the plants that can be placed on the garden. What they do is said by `ToolGuide`. */
 export function Palette() {
@@ -46,7 +47,7 @@ export function Palette() {
     .filter(({ ways }) => !startNow || ways.length > 0)
 
   return (
-    <aside className="flex flex-col gap-2 border-b border-stone-200 bg-stone-100 p-3 lg:col-start-1 lg:row-start-1 lg:gap-4 lg:overflow-y-auto lg:border-r lg:border-b-0">
+    <aside className="flex flex-col gap-2 border-b border-stone-200 bg-stone-100 p-3 md:col-start-1 md:row-start-1 lg:col-start-1 lg:row-start-1 lg:gap-4 lg:overflow-y-auto lg:border-r lg:border-b-0">
       <section aria-labelledby="palette-tools">
         <h2
           id="palette-tools"
@@ -54,8 +55,12 @@ export function Palette() {
         >
           {t("editor.tools")}
         </h2>
-        {/* One row on a phone, so the garden below keeps its height. */}
-        <div className="grid grid-cols-3 gap-1 lg:grid-cols-1">
+        {/*
+          One row on a phone, so the garden below keeps its height. On a
+          tablet each button keeps to its name's width, and on a wide screen
+          they stack in the side column.
+        */}
+        <div className="grid grid-cols-3 gap-1 md:grid-cols-[repeat(3,max-content)] lg:grid-cols-1">
           <button
             type="button"
             className={toolClass}

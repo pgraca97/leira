@@ -849,6 +849,40 @@ test.describe("on a phone", () => {
   })
 })
 
+test.describe("on a tablet held upright", () => {
+  const SCREEN = { width: 820, height: 1180 }
+  test.use({ viewport: SCREEN })
+
+  test("the advice sits beside the garden, and the header takes one line", async ({ page }) => {
+    await page.goto("/gardens")
+    await page.getByRole("button", { name: "See an example" }).click()
+    const canvas = page.getByTestId("garden-canvas")
+    await expect(canvas).toHaveAttribute("data-status", "ready")
+
+    const header = await page.getByRole("banner").boundingBox()
+    const garden = await canvas.boundingBox()
+    const inspector = await page.getByRole("heading", { name: "Your garden" }).boundingBox()
+    if (!header || !garden || !inspector) throw new Error("A part of the editor is missing")
+    expect(header.height).toBeLessThanOrEqual(60)
+    // Beside the garden and on the first screen, not a scroll away below it.
+    expect(inspector.x).toBeGreaterThanOrEqual(garden.x + garden.width)
+    expect(inspector.y).toBeLessThan(SCREEN.height / 2)
+    expect(garden.height).toBeGreaterThanOrEqual(500)
+    await expect(page.locator("html")).toHaveJSProperty("scrollWidth", SCREEN.width)
+  })
+
+  test("a phone turned sideways still has a garden worth drawing on", async ({ page }) => {
+    await page.setViewportSize({ width: 844, height: 390 })
+    await page.goto("/gardens")
+    await page.getByRole("button", { name: "See an example" }).click()
+    const canvas = page.getByTestId("garden-canvas")
+    await expect(canvas).toHaveAttribute("data-status", "ready")
+    const garden = await canvas.boundingBox()
+    if (!garden) throw new Error("The canvas is not on the page")
+    expect(garden.height).toBeGreaterThanOrEqual(300)
+  })
+})
+
 // Between a phone and a laptop: a tablet, or a narrow window. The header
 // must not take a third line from the garden at any of these widths.
 for (const width of [640, 700, 767, 900, 1023]) {
