@@ -1,4 +1,4 @@
-import { type Bed, emptyPlan, type Planting } from "@leira/core"
+import { type Bed, emptyPlan, GardenPlanSchema, PLAN_LIMITS, type Planting } from "@leira/core"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { editorStore, redo, selectedBed, selectedPlanting, shownPlan, undo } from "./store"
 
@@ -676,5 +676,31 @@ describe("inserting a template", () => {
     state().loadPlan({ ...emptyPlan(), widthCm: 300, heightCm: 200 })
     expect(state().insertTemplate(SAVED)).toBe(false)
     expect(state().plan.beds).toEqual([])
+  })
+})
+
+describe("the most a plan holds", () => {
+  // A plan past its limits saves, but the app refuses to open it again.
+  it("refuses one bed more than a plan may hold", () => {
+    const beds = Array.from({ length: PLAN_LIMITS.maxBeds }, (_, index) => ({
+      ...BED,
+      id: crypto.randomUUID(),
+      name: `Bed ${index}`,
+    }))
+    state().loadPlan({ ...emptyPlan(), beds })
+    expect(state().addBed({ x: 0, y: 0, w: 100, h: 100 })).toBe(false)
+    expect(state().plan.beds).toHaveLength(PLAN_LIMITS.maxBeds)
+    expect(GardenPlanSchema.safeParse(state().plan).success).toBe(true)
+  })
+
+  it("refuses one planting more than a plan may hold", () => {
+    const plantings = Array.from({ length: PLAN_LIMITS.maxPlantings }, () => ({
+      ...TOMATO,
+      id: crypto.randomUUID(),
+    }))
+    state().loadPlan({ ...emptyPlan(), plantings })
+    expect(state().addPlanting("lettuce", { x: 0, y: 0, w: 100, h: 100 }, "row")).toBe(false)
+    expect(state().plan.plantings).toHaveLength(PLAN_LIMITS.maxPlantings)
+    expect(GardenPlanSchema.safeParse(state().plan).success).toBe(true)
   })
 })

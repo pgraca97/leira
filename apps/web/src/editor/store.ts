@@ -85,9 +85,15 @@ export interface EditorState {
 
   /** Replaces the document, e.g. after loading it. Clears the undo history. */
   loadPlan(plan: GardenPlan): void
-  /** Adds a bed on the given ground. Returns false when the ground lies outside the garden. */
+  /**
+   * Adds a bed on the given ground. Returns false when the ground lies outside
+   * the garden, or the plan already holds as many beds as it may.
+   */
   addBed(rect: Rect): boolean
-  /** Adds a planting. Returns false for an unknown plant or ground outside the garden. */
+  /**
+   * Adds a planting. Returns false for an unknown plant, ground outside the
+   * garden, or a plan that already holds as many plantings as it may.
+   */
   addPlanting(plantId: string, rect: Rect, layout: PlantingLayout): boolean
   /**
    * Moves an item by a distance in centimetres, snapped to the grid and kept
@@ -248,6 +254,8 @@ export const editorStore = createStore<EditorState>()(
 
         addBed: (rect) => {
           const { plan } = get()
+          // One more than a plan may hold would save a garden the app then refuses to open.
+          if (plan.beds.length >= PLAN_LIMITS.maxBeds) return false
           const fitted = fitRectToPlan(plan, rect)
           if (!fitted) return false
           const bed: Bed = { id: crypto.randomUUID(), name: "", kind: "bed", rect: fitted }
@@ -262,6 +270,7 @@ export const editorStore = createStore<EditorState>()(
 
         addPlanting: (plantId, rect, layout) => {
           const { plan } = get()
+          if (plan.plantings.length >= PLAN_LIMITS.maxPlantings) return false
           const plant = getPlant(plantId)
           const fitted = fitRectToPlan(plan, rect)
           if (!plant || !fitted) return false
