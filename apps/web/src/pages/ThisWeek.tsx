@@ -11,6 +11,7 @@ import {
 import { useQueries } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import { useTranslation } from "react-i18next"
+import { taskWord } from "../calendar/taskWord"
 import { cropName } from "../editor/cropName"
 import { currentLanguage } from "../i18n"
 import { useBackend } from "../lib/backend"
@@ -58,7 +59,7 @@ export function ThisWeek({ gardens }: { gardens: readonly GardenSummary[] }) {
         const planting = garden.plan.plantings.find((item) => item.id === task.plantingId)
         const plant = getPlant(task.plantId)
         const name = planting && plant ? cropName(planting, plant, language) : task.plantId
-        return { garden, task, text: t(`calendar.task.${task.kind}`, { name }) }
+        return { garden, task, text: t(`calendar.task.${taskWord(task.kind, plant)}`, { name }) }
       })
     )
     // Stable, so jobs on one day keep the gardens' order.
@@ -108,7 +109,7 @@ export function ThisWeek({ gardens }: { gardens: readonly GardenSummary[] }) {
           <h3 className={headingClass}>{t("week.jobsHeading")}</h3>
           <ul aria-label={t("week.jobs")} className="flex flex-col">
             {jobs.map(({ garden, task, text }) => (
-              <li key={`${garden.id}:${task.plantingId}:${task.kind}`}>
+              <li key={`${garden.id}:${task.plantingId}:${task.kind}:${task.date}`}>
                 <Link
                   to="/gardens/$gardenId"
                   params={{ gardenId: garden.id }}

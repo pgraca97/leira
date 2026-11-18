@@ -238,6 +238,30 @@ describe("what the garden gave", () => {
   })
 })
 
+describe("a perennial", () => {
+  // Strawberries in for three years from October 2025, picked April to June.
+  const BED = planting("bed", "strawberry", "2025-10-01", "2028-09-30")
+
+  it("shows its years in the ground and this year's picking", () => {
+    show([BED])
+    expect(screen.getByRole("button", { name: /^Strawberry/ })).toHaveAccessibleName(
+      /: perennial, in the ground Oct 1, 2025 to Sep 30, 2028, picking Apr 1 to Jun 30$/
+    )
+  })
+
+  it("has a picking job each spring and is renewed at the end, not cleared", () => {
+    const ending = planting("ending", "strawberry", "2023-05-01", "2026-05-10")
+    show([ending])
+    const jobs = within(screen.getByRole("list", { name: "Jobs" }))
+      .getAllByRole("listitem")
+      .map((job) => job.textContent)
+    expect(jobs).toEqual([
+      expect.stringContaining("Start picking Strawberry"),
+      expect.stringContaining("Renew Strawberry"),
+    ])
+  })
+})
+
 describe("the jobs", () => {
   const jobs = () =>
     within(screen.getByRole("list", { name: "Jobs" }))

@@ -293,6 +293,8 @@ export const en = {
     rowIndoors: "sown indoors {{date}}",
     rowInGround: "in the ground {{from}} to {{to}}",
     rowHarvest: "picking from {{date}}",
+    rowPerennial: "perennial, in the ground {{from}} to {{to}}",
+    rowPicking: "picking {{from}} to {{to}}",
     legend: {
       indoors: "Indoors",
       inGround: "In the ground",
@@ -316,6 +318,7 @@ export const en = {
       sow: "Sow {{name}}",
       harvest: "Start picking {{name}}",
       clear: "Clear {{name}}",
+      renew: "Renew {{name}}",
     },
   },
   offSoil: {

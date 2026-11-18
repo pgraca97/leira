@@ -294,6 +294,8 @@ export const pt: Translation = {
     rowIndoors: "semeado em interior a {{date}}",
     rowInGround: "na terra de {{from}} a {{to}}",
     rowHarvest: "colheita a partir de {{date}}",
+    rowPerennial: "perene, na terra de {{from}} a {{to}}",
+    rowPicking: "colheita de {{from}} a {{to}}",
     legend: {
       indoors: "Em interior",
       inGround: "Na terra",
@@ -317,6 +319,7 @@ export const pt: Translation = {
       sow: "Semear {{name}}",
       harvest: "Começar a colher {{name}}",
       clear: "Retirar {{name}}",
+      renew: "Renovar {{name}}",
     },
   },
   offSoil: {

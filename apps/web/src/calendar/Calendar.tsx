@@ -22,6 +22,7 @@ import {
   type Plant,
   type Planting,
   type PlantingSchedule,
+  pickingIn,
   plantingFill,
   plantingSchedule,
   seedList,
@@ -40,6 +41,7 @@ import { downloadText } from "../export/downloadFile"
 import { fileNameFor } from "../export/fileName"
 import { currentLanguage } from "../i18n"
 import { type YearSpan, yearSpan } from "./layout"
+import { taskWord } from "./taskWord"
 import { YearHarvest } from "./YearHarvest"
 
 /** How many crops a free stretch of a bed names before it only counts the rest. */
@@ -57,6 +59,8 @@ interface Row {
   planting: Planting
   plant: Plant
   schedule: PlantingSchedule
+  /** The stretches it is picked in the year shown: one for an annual, a season for a perennial. */
+  picking: DateRange[]
   label: string
 }
 
@@ -137,6 +141,8 @@ export function PlanCalendar({
     timeZone: "UTC",
   })
   const day = (date: IsoDate) => dayFormat.format(new Date(`${date}T00:00:00Z`))
+  const fullDayFormat = new Intl.DateTimeFormat(language, { dateStyle: "medium", timeZone: "UTC" })
+  const fullDay = (date: IsoDate) => fullDayFormat.format(new Date(`${date}T00:00:00Z`))
   const monthFormat = new Intl.DateTimeFormat(language, { month: "short", timeZone: "UTC" })
   const months = Array.from({ length: 12 }, (_, month) =>
     monthFormat.format(new Date(Date.UTC(year, month, 1)))
@@ -160,15 +166,28 @@ export function PlanCalendar({
         name: cropName(planting, plant, language),
         count: plantingFill(planting, plant).count,
       })
-      const stages = [
-        schedule.indoors && t("calendar.rowIndoors", { date: day(schedule.indoors.from) }),
-        t("calendar.rowInGround", {
-          from: day(schedule.inGround.from),
-          to: day(schedule.inGround.to),
-        }),
-        schedule.harvest && t("calendar.rowHarvest", { date: day(schedule.harvest.from) }),
-      ].filter(Boolean)
-      return [{ planting, plant, schedule, label: `${name}: ${stages.join(", ")}` }]
+      const picking = pickingIn(planting, plant, { from: `${year}-01-01`, to: `${year}-12-31` })
+      const thisYear = picking[0]
+      // A perennial spans years, so its days in the ground carry them.
+      const stages = plant.perennial
+        ? [
+            t("calendar.rowPerennial", {
+              from: fullDay(schedule.inGround.from),
+              to: fullDay(schedule.inGround.to),
+            }),
+            thisYear &&
+              t("calendar.rowPicking", { from: day(thisYear.from), to: day(thisYear.to) }),
+          ]
+        : [
+            schedule.indoors && t("calendar.rowIndoors", { date: day(schedule.indoors.from) }),
+            t("calendar.rowInGround", {
+              from: day(schedule.inGround.from),
+              to: day(schedule.inGround.to),
+            }),
+            schedule.harvest && t("calendar.rowHarvest", { date: day(schedule.harvest.from) }),
+          ]
+      const label = `${name}: ${stages.filter(Boolean).join(", ")}`
+      return [{ planting, plant, schedule, picking, label }]
     })
     .sort((a, b) => a.schedule.inGround.from.localeCompare(b.schedule.inGround.from))
 
@@ -192,7 +211,7 @@ export function PlanCalendar({
   }
 
   const taskText = (task: { kind: GardenTaskKind; plantId: string; plantingId: string }) =>
-    t(`calendar.task.${task.kind}`, {
+    t(`calendar.task.${taskWord(task.kind, getPlant(task.plantId))}`, {
       name: cropName(
         plan.plantings.find((planting) => planting.id === task.plantingId) ?? task,
         getPlant(task.plantId),
@@ -209,7 +228,11 @@ export function PlanCalendar({
       icsCalendar(
         toExport.map((task) => ({
           // The same id every time, so importing the file again moves a job instead of doubling it.
-          uid: `${task.plantingId}-${task.kind}`,
+          // A perennial's picking comes back each year: the year keeps those apart.
+          uid:
+            task.kind === "harvest" && getPlant(task.plantId)?.perennial
+              ? `${task.plantingId}-${task.kind}-${task.date.slice(0, 4)}`
+              : `${task.plantingId}-${task.kind}`,
           date: task.date,
           summary: taskText(task),
           description: name,
@@ -442,7 +465,8 @@ export function PlanCalendar({
           <ul aria-labelledby="calendar-tasks" className="flex flex-col gap-1">
             {tasks.map(({ task, planting }) => (
               <TaskRow
-                key={`${task.plantingId}:${task.kind}`}
+                // A perennial has a picking job every year, so the day tells them apart.
+                key={`${task.plantingId}:${task.kind}:${task.date}`}
                 task={task}
                 planting={planting}
                 day={day(task.date)}
@@ -678,7 +702,15 @@ function PlantingLine({ row, year, todayMark, onOpen }: PlantingLineProps) {
           <MonthLines />
           <Bar range={row.schedule.indoors} year={year} color={row.plant.color} stage="indoors" />
           <Bar range={row.schedule.inGround} year={year} color={row.plant.color} stage="inGround" />
-          <Bar range={row.schedule.harvest} year={year} color={row.plant.color} stage="harvest" />
+          {row.picking.map((range) => (
+            <Bar
+              key={range.from}
+              range={range}
+              year={year}
+              color={row.plant.color}
+              stage="harvest"
+            />
+          ))}
           {todayMark && (
             <span
               className="absolute inset-y-0 w-px bg-stone-900"
