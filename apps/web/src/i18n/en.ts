@@ -149,6 +149,7 @@ export const en = {
     saved: "Saved",
     pending: "Unsaved",
     saving: "Saving…",
+    retrying: "Not saved yet. Trying again as soon as there is a connection.",
     error: "Your changes could not be saved.",
     conflict: "This garden was changed somewhere else, so your last changes here were not saved.",
     reload: "Reload",

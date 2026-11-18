@@ -13,14 +13,14 @@ interface SaveIndicatorProps {
 export function SaveIndicator({ status, onRetry, onReload }: SaveIndicatorProps) {
   const { t } = useTranslation()
 
-  if (status === "conflict" || status === "error") {
+  if (status === "conflict" || status === "error" || status === "retrying") {
     const conflict = status === "conflict"
     return (
       <div
         role="alert"
         className="flex flex-wrap items-center gap-2 rounded-md bg-red-50 px-2 py-1 text-sm text-red-800"
       >
-        <span>{t(conflict ? "save.conflict" : "save.error")}</span>
+        <span>{t(`save.${status}`)}</span>
         <button type="button" className={buttonClass} onClick={conflict ? onReload : onRetry}>
           {t(conflict ? "save.reload" : "common.retry")}
         </button>

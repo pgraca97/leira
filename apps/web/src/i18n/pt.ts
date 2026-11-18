@@ -150,6 +150,7 @@ export const pt: Translation = {
     saved: "Guardado",
     pending: "Por guardar",
     saving: "A guardar…",
+    retrying: "Ainda não guardado. Tentamos de novo assim que houver rede.",
     error: "Não foi possível guardar as alterações.",
     conflict:
       "Esta horta foi alterada noutro sítio, por isso as tuas últimas alterações aqui não foram guardadas.",

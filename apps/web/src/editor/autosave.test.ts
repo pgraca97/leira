@@ -82,7 +82,7 @@ describe("createAutosave", () => {
     autosave.changed("a")
     await vi.advanceTimersByTimeAsync(1000)
     await settle(new Error("offline"))
-    expect(autosave.status()).toBe("error")
+    expect(autosave.status()).toBe("retrying")
 
     autosave.retry()
     expect(calls).toEqual([
@@ -93,14 +93,17 @@ describe("createAutosave", () => {
     expect(autosave.status()).toBe("saved")
   })
 
-  it("tries again on the next change after a failed save", async () => {
+  it("sends the latest change when it tries again after a failed save", async () => {
     const { autosave, calls, settle } = setup(1)
     autosave.changed("a")
     await vi.advanceTimersByTimeAsync(1000)
     await settle(new Error("offline"))
 
     autosave.changed("b")
-    await vi.advanceTimersByTimeAsync(1000)
+    // A change does not restart the wait, or steady editing would never try again.
+    await vi.advanceTimersByTimeAsync(1999)
+    expect(calls).toHaveLength(1)
+    await vi.advanceTimersByTimeAsync(1)
     expect(calls.at(-1)).toEqual({ value: "b", version: 1 })
   })
 
@@ -149,5 +152,107 @@ describe("createAutosave", () => {
     await vi.advanceTimersByTimeAsync(1000)
     await settle(2)
     expect(statuses).toEqual(["pending", "saving", "saved"])
+  })
+
+  describe("after a failed save", () => {
+    /** Starts a save of "a" and lets it fail. */
+    async function failOnce() {
+      const harness = setup(1)
+      harness.autosave.changed("a")
+      await vi.advanceTimersByTimeAsync(1000)
+      await harness.settle(new Error("offline"))
+      return harness
+    }
+
+    it("tries again by itself, waiting longer each time, up to a minute", async () => {
+      const { calls, settle } = await failOnce()
+      const waits = [2000, 4000, 8000, 16000, 32000, 60000, 60000]
+      for (const wait of waits) {
+        const before = calls.length
+        await vi.advanceTimersByTimeAsync(wait - 1)
+        expect(calls).toHaveLength(before)
+        await vi.advanceTimersByTimeAsync(1)
+        expect(calls).toHaveLength(before + 1)
+        await settle(new Error("offline"))
+      }
+    })
+
+    it("keeps saying it is trying again while a try is on its way", async () => {
+      const { autosave, statuses, settle } = await failOnce()
+      await vi.advanceTimersByTimeAsync(2000)
+      // Flipping to "saving" and back on every try would make the header jump.
+      expect(autosave.status()).toBe("retrying")
+      await settle(2)
+      expect(statuses).toEqual(["pending", "saving", "retrying", "saved"])
+    })
+
+    it("is saved once a try goes through, and waits from the start after the next failure", async () => {
+      const { autosave, calls, settle } = await failOnce()
+      await vi.advanceTimersByTimeAsync(2000)
+      await settle(new Error("offline"))
+      await vi.advanceTimersByTimeAsync(4000)
+      await settle(2)
+      expect(autosave.status()).toBe("saved")
+
+      autosave.changed("b")
+      await vi.advanceTimersByTimeAsync(1000)
+      await settle(new Error("offline"))
+      await vi.advanceTimersByTimeAsync(2000)
+      expect(calls.at(-1)).toEqual({ value: "b", version: 2 })
+    })
+
+    it("gives up after ten tries in a row, until asked again", async () => {
+      const { autosave, calls, settle } = await failOnce()
+      for (let tries = 0; tries < 10; tries++) {
+        await vi.advanceTimersByTimeAsync(60000)
+        await settle(new Error("too large"))
+      }
+      expect(calls).toHaveLength(11)
+      expect(autosave.status()).toBe("error")
+      await vi.advanceTimersByTimeAsync(10 * 60000)
+      expect(calls).toHaveLength(11)
+
+      // Asked again (the button, the network back, the page shown), it saves at once.
+      autosave.retry()
+      expect(calls).toHaveLength(12)
+      await settle(new Error("offline"))
+      expect(autosave.status()).toBe("retrying")
+      await vi.advanceTimersByTimeAsync(2000)
+      expect(calls).toHaveLength(13)
+    })
+
+    it("saves at once when asked, without waiting for the next try", async () => {
+      const { autosave, calls, settle } = await failOnce()
+      autosave.retry()
+      expect(calls).toHaveLength(2)
+      await settle(2)
+      expect(autosave.status()).toBe("saved")
+      await vi.advanceTimersByTimeAsync(60000)
+      expect(calls).toHaveLength(2)
+    })
+
+    it("does not try again when stopped", async () => {
+      const { autosave, calls } = await failOnce()
+      autosave.stop()
+      await vi.advanceTimersByTimeAsync(60000)
+      expect(calls).toHaveLength(1)
+    })
+
+    it("does nothing on retry while everything is saved", async () => {
+      const { autosave, calls } = setup(1)
+      autosave.retry()
+      expect(calls).toEqual([])
+      expect(autosave.status()).toBe("saved")
+    })
+  })
+
+  it("never tries again by itself after a conflict", async () => {
+    const { autosave, calls, settle } = setup(1)
+    autosave.changed("a")
+    await vi.advanceTimersByTimeAsync(1000)
+    await settle(new Conflict())
+    await vi.advanceTimersByTimeAsync(10 * 60000)
+    expect(calls).toHaveLength(1)
+    expect(autosave.status()).toBe("conflict")
   })
 })
