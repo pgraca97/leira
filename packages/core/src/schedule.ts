@@ -51,6 +51,32 @@ export function plantingsInGround(plan: GardenPlan, date: IsoDate): GardenPlan {
 }
 
 /**
+ * The day to show instead when nothing is in the ground on `date`: the first
+ * day a crop goes in after it, or else the last day one was in before it. The
+ * day itself when something is in the ground then; null with no crops at all.
+ */
+export function nearestPlantedDay(plan: GardenPlan, date: IsoDate): IsoDate | null {
+  if (plan.plantings.some((planting) => isInGround(planting, date))) return date
+  let after: IsoDate | null = null
+  let before: IsoDate | null = null
+  for (const { inGround } of plan.plantings) {
+    if (inGround.from > date && (!after || inGround.from < after)) after = inGround.from
+    if (inGround.to < date && (!before || inGround.to > before)) before = inGround.to
+  }
+  return after ?? before
+}
+
+/**
+ * The plan for a quick look, as in a thumbnail: as it stands on the day, or
+ * whole when nothing is in the ground then, so a garden resting over winter
+ * does not look bare.
+ */
+export function glancePlan(plan: GardenPlan, date: IsoDate): GardenPlan {
+  const onDay = plantingsInGround(plan, date)
+  return onDay.plantings.length > 0 ? onDay : plan
+}
+
+/**
  * `sow-indoors`: start seedlings under cover. `transplant`: plant them out.
  * `sow`: sow straight into the ground. `harvest`: picking can begin.
  * `clear`: the crop's last day in the ground.

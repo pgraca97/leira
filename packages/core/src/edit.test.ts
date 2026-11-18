@@ -306,6 +306,15 @@ describe("moveItems", () => {
     expect(itemRect(moved, ON_BED)).toMatchObject({ x: 160 })
   })
 
+  it("takes the crops of every year on a moving bed with it", () => {
+    const lastYear = {
+      ...planting("last-year", 210, 110, 80, 60),
+      inGround: { from: "2025-03-01", to: "2025-05-15" },
+    }
+    const moved = moveItems({ ...plan, plantings: [...plan.plantings, lastYear] }, [BED], 50, 0)
+    expect(itemRect(moved, { kind: "planting", id: "last-year" })).toMatchObject({ x: 260 })
+  })
+
   it("skips items that are gone", () => {
     const moved = moveItems(plan, [{ kind: "bed", id: "nope" }, BESIDE], 100, 0)
     expect(itemRect(moved, BESIDE)).toMatchObject({ x: 500 })

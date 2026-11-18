@@ -65,6 +65,8 @@ export function chosenItems(plan: GardenPlan, refs: readonly PlanItemRef[]) {
  * items keep their places relative to each other and may travel less far than
  * asked. Crops that lie wholly on a moving bed travel with it, the way they
  * would if the bed were a real box, and only once when they are chosen too.
+ * That holds for crops of every year, not only those in view: a bed is moved
+ * to correct the drawing, and the rotation reads what grew in it.
  */
 export function moveItems(
   plan: GardenPlan,

@@ -3,7 +3,9 @@ import { getPlant } from "./plants"
 import {
   defaultDoneDate,
   gardenTasks,
+  glancePlan,
   isInGround,
+  nearestPlantedDay,
   plantingSchedule,
   plantingsInGround,
 } from "./schedule"
@@ -119,6 +121,38 @@ describe("plantingsInGround", () => {
       beds: [{ id: "bed", name: "", kind: "bed", rect: { x: 0, y: 0, w: 100, h: 100 } }],
     }
     expect(plantingsInGround(withBed, "2026-12-01")).toEqual({ ...withBed, plantings: [] })
+  })
+})
+
+describe("nearestPlantedDay", () => {
+  const plan: GardenPlan = { ...emptyPlan(), plantings: [tomatoes, carrots] }
+
+  it("is the next day a crop goes in, when the day shown is empty", () => {
+    expect(nearestPlantedDay(plan, "2026-01-10")).toBe("2026-03-15")
+  })
+
+  it("is the last day a crop was in, when nothing comes after", () => {
+    expect(nearestPlantedDay(plan, "2026-12-01")).toBe("2026-09-30")
+  })
+
+  it("is the day itself when something is in the ground then", () => {
+    expect(nearestPlantedDay(plan, "2026-06-01")).toBe("2026-06-01")
+  })
+
+  it("is null for a plan with no crops", () => {
+    expect(nearestPlantedDay(emptyPlan(), "2026-06-01")).toBeNull()
+  })
+})
+
+describe("glancePlan", () => {
+  const plan: GardenPlan = { ...emptyPlan(), plantings: [tomatoes, carrots] }
+
+  it("is the plan on the day when something is in the ground", () => {
+    expect(glancePlan(plan, "2026-04-01").plantings).toEqual([carrots])
+  })
+
+  it("is the whole plan when the day is empty, so the garden does not look bare", () => {
+    expect(glancePlan(plan, "2026-12-01")).toBe(plan)
   })
 })
 
