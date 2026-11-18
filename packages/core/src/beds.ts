@@ -1,6 +1,7 @@
 import { addDays, daysBetween, type IsoDate } from "./dates"
 import { intersection } from "./geometry"
 import { type GrowingSite, seasonMonths } from "./greenhouse"
+import { defaultInGround } from "./plan"
 import type { DateRange } from "./schedule"
 import type { Bed, BedKind, GardenPlan, Plant, PlantFamily, Planting } from "./schema"
 
@@ -121,6 +122,6 @@ export function cropsThatFit(
       const year = Number(day.slice(0, 4))
       day = month === 12 ? `${year + 1}-01-01` : `${year}-${String(month + 1).padStart(2, "0")}-01`
     }
-    return day <= window.to && addDays(day, plant.daysToHarvest[1]) <= window.to
+    return day <= window.to && defaultInGround(plant, day).to <= window.to
   })
 }

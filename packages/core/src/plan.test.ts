@@ -120,4 +120,12 @@ describe("defaultInGround", () => {
     const tomato = getPlant("tomato")!
     expect(defaultInGround(tomato, "2026-05-01")).toEqual({ from: "2026-05-01", to: "2026-07-25" })
   })
+
+  it("keeps a perennial for the years it usually lasts", () => {
+    const strawberry = getPlant("strawberry")!
+    expect(defaultInGround(strawberry, "2026-10-01")).toEqual({
+      from: "2026-10-01",
+      to: "2029-09-30",
+    })
+  })
 })

@@ -117,6 +117,14 @@ describe("cropsThatFit", () => {
   const fits = (from: string, to: string) =>
     cropsThatFit({ from, to }, [quick, slow, later, spring]).map((plant) => plant.id)
 
+  it("leaves out a perennial, which needs years of ground, from a season's gap", () => {
+    const strawberry = PLANTS.find((plant) => plant.id === "strawberry") as Plant
+    expect(cropsThatFit({ from: "2026-09-01", to: "2027-12-31" }, [strawberry])).toEqual([])
+    expect(cropsThatFit({ from: "2026-09-01", to: "2030-12-31" }, [strawberry])).toEqual([
+      strawberry,
+    ])
+  })
+
   it("keeps the crops that can go in and be done before the window closes", () => {
     // 11 July to 30 September. "slow" would run into October, and so would
     // "later", which cannot go in before September.

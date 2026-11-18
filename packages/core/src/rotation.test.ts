@@ -35,6 +35,21 @@ describe("findRotationConflicts", () => {
     ])
   })
 
+  it("counts a perennial's rest from the year it left the ground", () => {
+    const old = planting("old", "strawberry", 2023, {
+      inGround: { from: "2023-10-01", to: "2026-09-30" },
+    })
+    const renewed = planting("new", "strawberry", 2027, {
+      inGround: { from: "2027-10-01", to: "2030-09-30" },
+    })
+    expect(findRotationConflicts(planWith(old, renewed), getPlant)).toMatchObject([
+      { plantingId: "new", previousPlantingId: "old", yearsApart: 1 },
+    ])
+    expect(familiesToRest(planWith(old), bedA, "2027-10-01", getPlant)).toEqual(
+      new Set(["rosaceae"])
+    )
+  })
+
   it("allows the family back once the rotation has run", () => {
     const plan = planWith(planting("first", "tomato", 2024), planting("second", "tomato", 2027))
     expect(findRotationConflicts(plan, getPlant)).toEqual([])

@@ -33,6 +33,16 @@ export interface RotationOptions {
  * later one goes in, and fewer than `years` calendar years separate them.
  * Plants of the family `other`, and plants the lookup does not know, are skipped.
  */
+/**
+ * The day the ground starts resting from a crop. For an annual, the day it
+ * went in, which keeps a crop over winter (garlic in November) to the one
+ * season. A perennial holds the ground for years, so the rest starts when it
+ * leaves: strawberries in from 2023 to 2026 should not come back in 2027.
+ */
+function restFrom(planting: Planting, getPlant: (id: string) => Plant | undefined): IsoDate {
+  return getPlant(planting.plantId)?.perennial ? planting.inGround.to : planting.inGround.from
+}
+
 export function findRotationConflicts(
   plan: GardenPlan,
   getPlant: (id: string) => Plant | undefined,
@@ -56,7 +66,7 @@ export function findRotationConflicts(
         // Only pairs where the earlier crop has left the ground: crops that
         // share ground at the same time are interplanting, not rotation.
         if (earlier.inGround.to >= later.inGround.from) continue
-        const yearsApart = yearOf(later.inGround.from) - yearOf(earlier.inGround.from)
+        const yearsApart = yearOf(later.inGround.from) - yearOf(restFrom(earlier, getPlant))
         if (yearsApart >= years) continue
         const overlap = intersection(earlier.rect, later.rect)
         if (!overlap) continue
@@ -89,7 +99,7 @@ export function familiesToRest(
   const families = new Set<PlantFamily>()
   for (const planting of plan.plantings) {
     if (planting.inGround.to >= from) continue
-    if (yearOf(from) - yearOf(planting.inGround.from) >= years) continue
+    if (yearOf(from) - yearOf(restFrom(planting, getPlant)) >= years) continue
     if (!intersection(planting.rect, ground)) continue
     const family = getPlant(planting.plantId)?.family
     if (family && family !== "other") families.add(family)

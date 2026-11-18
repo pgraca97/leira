@@ -105,6 +105,19 @@ describe("the catalogue", () => {
     }
   })
 
+  it("knows the crops that stay for years, how long, and when they are picked", () => {
+    expect(PLANTS.filter((plant) => plant.perennial).map((plant) => plant.id)).toEqual([
+      "chives",
+      "mint",
+      "oregano",
+      "thyme",
+      "rosemary",
+      "strawberry",
+    ])
+    expect(getPlant("strawberry")?.perennial).toEqual({ years: 3, pickMonths: [4, 5, 6] })
+    expect(getPlant("rosemary")?.perennial?.years).toBe(7)
+  })
+
   it("keeps the facts the rest of the tests rely on", () => {
     expect(getPlant("tomato")).toMatchObject({
       family: "solanaceae",

@@ -7,6 +7,7 @@ import {
   harvestingOn,
   isInGround,
   nearestPlantedDay,
+  pickingIn,
   plantingSchedule,
   plantingsInGround,
   TASK_AHEAD_DAYS,
@@ -297,6 +298,72 @@ describe("harvestingOn", () => {
     expect(harvestingOn(plan, getPlant, "2026-10-01")).toEqual([])
     const cleared = { ...carrots, cleared: true as const }
     expect(harvestingOn({ ...plan, plantings: [cleared] }, getPlant, "2026-06-01")).toEqual([])
+  })
+})
+
+describe("pickingIn", () => {
+  it("is the part of an annual's picking inside the stretch", () => {
+    // Carrots are picked from 24 May until they leave the ground on 3 July.
+    expect(pickingIn(carrots, plant("carrot"), { from: "2026-06-01", to: "2026-12-31" })).toEqual([
+      { from: "2026-06-01", to: "2026-07-03" },
+    ])
+    expect(pickingIn(carrots, plant("carrot"), { from: "2026-01-01", to: "2026-04-30" })).toEqual(
+      []
+    )
+  })
+})
+
+describe("a perennial", () => {
+  // Planted in October 2026 for three years: picked April to June, from 2027.
+  const strawberries = planting("strawberries", "strawberry", "2026-10-01", "2029-09-30")
+  const strawberry = plant("strawberry")
+
+  it("is picked in its months of each year, not all the time it is in the ground", () => {
+    expect(pickingIn(strawberries, strawberry, { from: "2027-01-01", to: "2027-12-31" })).toEqual([
+      { from: "2027-04-01", to: "2027-06-30" },
+    ])
+    expect(pickingIn(strawberries, strawberry, { from: "2026-01-01", to: "2026-12-31" })).toEqual(
+      []
+    )
+    expect(pickingIn(strawberries, strawberry, { from: "2027-05-10", to: "2028-04-15" })).toEqual([
+      { from: "2027-05-10", to: "2027-06-30" },
+      { from: "2028-04-01", to: "2028-04-15" },
+    ])
+  })
+
+  it("is being picked only in those months", () => {
+    const plan: GardenPlan = { ...emptyPlan(), plantings: [strawberries] }
+    expect(harvestingOn(plan, getPlant, "2027-05-10")).toEqual([strawberries])
+    expect(harvestingOn(plan, getPlant, "2027-08-01")).toEqual([])
+  })
+
+  it("has a picking job each year and a renewal at the end, instead of clearing", () => {
+    const tasks = gardenTasks({ ...emptyPlan(), plantings: [strawberries] }, getPlant, {
+      from: "2026-01-01",
+      to: "2030-12-31",
+    })
+    expect(tasks.map((task) => `${task.date} ${task.kind}`)).toEqual([
+      "2026-10-01 sow",
+      "2027-04-01 harvest",
+      "2028-04-01 harvest",
+      "2029-04-01 harvest",
+      "2029-09-30 clear",
+    ])
+  })
+
+  it("marks a year's picking done once a harvest of that year is recorded", () => {
+    const picked = { ...strawberries, planted: true as const, harvests: [{ date: "2028-05-02" }] }
+    const tasks = gardenTasks({ ...emptyPlan(), plantings: [picked] }, getPlant, {
+      from: "2026-01-01",
+      to: "2030-12-31",
+    })
+    // 2027 went by unrecorded: a later year's picking leaves it behind.
+    expect(tasks.map((task) => `${task.date} ${task.kind} ${task.done}`)).toEqual([
+      "2026-10-01 sow true",
+      "2028-05-02 harvest true",
+      "2029-04-01 harvest false",
+      "2029-09-30 clear false",
+    ])
   })
 })
 

@@ -1,4 +1,4 @@
-import { addDays, type IsoDate } from "./dates"
+import { addDays, addMonths, type IsoDate, yearOf } from "./dates"
 import { doneDateBounds } from "./records"
 import type { GardenPlan, Plant, Planting } from "./schema"
 
@@ -125,7 +125,19 @@ export function gardenTasks(
       kind: schedule.indoors ? "transplant" : "sow",
       done: planting.planted === true,
     })
-    if (schedule.harvest) {
+    if (plant.perennial) {
+      // A picking job each season, done once a harvest of that year is on record. The
+      // last stage is then renewing the plants, which is what "clear" means for them.
+      for (const season of pickingIn(planting, plant, schedule.inGround)) {
+        const year = season.from.slice(0, 5)
+        const picked = planting.harvests?.find((harvest) => harvest.date.startsWith(year))
+        stages.push({
+          date: picked?.date ?? season.from,
+          kind: "harvest",
+          done: picked !== undefined,
+        })
+      }
+    } else if (schedule.harvest) {
       stages.push({
         date: schedule.harvest.from,
         kind: "harvest",
@@ -147,7 +159,8 @@ export function gardenTasks(
 
 /**
  * The crops being picked on a day: from their first harvest (recorded, or
- * else the usual day) until they leave the ground, unless already cleared.
+ * else the usual day) until they leave the ground, and for a perennial only
+ * in its picking months. Not one already cleared.
  */
 export function harvestingOn(
   plan: GardenPlan,
@@ -157,9 +170,64 @@ export function harvestingOn(
   return plan.plantings.filter((planting) => {
     const plant = getPlant(planting.plantId)
     if (!plant || planting.cleared) return false
-    const { harvest } = plantingSchedule(planting, plant)
-    return harvest !== null && harvest.from <= date && date <= harvest.to
+    return pickingIn(planting, plant, { from: date, to: date }).length > 0
   })
+}
+
+/** The part of a stretch inside another, or null when they do not meet. */
+function clip(range: DateRange, within: DateRange): DateRange | null {
+  const from = range.from > within.from ? range.from : within.from
+  const to = range.to < within.to ? range.to : within.to
+  return from <= to ? { from, to } : null
+}
+
+/** Months in order, as runs of consecutive ones: [4, 5, 6, 9] is 4 to 6, then 9. */
+function monthRuns(months: readonly number[]): [number, number][] {
+  const runs: [number, number][] = []
+  for (const month of months) {
+    const last = runs.at(-1)
+    if (last && month === last[1] + 1) last[1] = month
+    else runs.push([month, month])
+  }
+  return runs
+}
+
+function monthStart(year: number, month: number): IsoDate {
+  return `${year}-${String(month).padStart(2, "0")}-01`
+}
+
+/**
+ * The days within `range` a crop is picked on. For an annual, its harvest
+ * from the schedule. A perennial is picked in its picking months of each
+ * year, from when it is first ready (the usual days after going in, or an
+ * earlier harvest on record) until it leaves the ground: one stretch a
+ * season, in order.
+ */
+export function pickingIn(planting: Planting, plant: Plant, range: DateRange): DateRange[] {
+  if (!plant.perennial) {
+    const { harvest } = plantingSchedule(planting, plant)
+    const part = harvest && clip(harvest, range)
+    return part ? [part] : []
+  }
+  const usual = addDays(planting.inGround.from, plant.daysToHarvest[0])
+  const first = planting.harvests?.[0]?.date
+  const life = clip(
+    { from: first && first < usual ? first : usual, to: planting.inGround.to },
+    range
+  )
+  if (!life) return []
+  const seasons: DateRange[] = []
+  for (let year = yearOf(life.from); year <= yearOf(life.to); year++) {
+    for (const [firstMonth, lastMonth] of monthRuns(plant.perennial.pickMonths)) {
+      const season = {
+        from: monthStart(year, firstMonth),
+        to: addDays(addMonths(monthStart(year, lastMonth), 1), -1),
+      }
+      const part = clip(season, life)
+      if (part) seasons.push(part)
+    }
+  }
+  return seasons
 }
 
 /** How far ahead "this week" looks for jobs. */

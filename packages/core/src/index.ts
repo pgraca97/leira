@@ -106,6 +106,7 @@ export {
   isInGround,
   nearestPlantedDay,
   type PlantingSchedule,
+  pickingIn,
   plantingSchedule,
   plantingsInGround,
   TASK_AHEAD_DAYS,

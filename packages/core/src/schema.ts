@@ -194,6 +194,15 @@ export type PlantGroup = (typeof PLANT_GROUPS)[number]
 export const FROST_TOLERANCES = ["tender", "half-hardy", "hardy"] as const
 export type FrostTolerance = (typeof FROST_TOLERANCES)[number]
 
+/** Months of the year, 1 to 12, in order and without repeats. */
+const MonthsSchema = z
+  .array(z.int().min(1).max(12))
+  .min(1)
+  .refine(
+    (months) => months.every((month, index) => index === 0 || month > (months[index - 1] ?? 0)),
+    { error: "months must be in order, without repeats" }
+  )
+
 export const PlantSchema = z.object({
   id: z.string().regex(/^[a-z][a-z0-9-]*$/),
   name: z.object({ pt: z.string().min(1), en: z.string().min(1) }),
@@ -227,15 +236,12 @@ export const PlantSchema = z.object({
    * open air: sown where it grows, or planted out when it is raised indoors.
    * They are for the north and centre of mainland Portugal.
    */
-  groundMonths: z
-    .array(z.int().min(1).max(12))
-    .min(1)
-    .refine(
-      (months) => months.every((month, index) => index === 0 || month > (months[index - 1] ?? 0)),
-      {
-        error: "months must be in order, without repeats",
-      }
-    ),
+  groundMonths: MonthsSchema,
+  /**
+   * Set for a crop that stays in the ground for years: how many it usually
+   * lasts before it is renewed, and the months it is picked in each year.
+   */
+  perennial: z.object({ years: z.int().min(2).max(20), pickMonths: MonthsSchema }).optional(),
   /** Traditional companion planting pairs, by plant id. */
   companions: z.object({
     good: z.array(z.string()),

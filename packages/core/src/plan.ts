@@ -1,4 +1,4 @@
-import { addDays, type IsoDate } from "./dates"
+import { addDays, addMonths, type IsoDate } from "./dates"
 import {
   clampRect,
   containsPoint,
@@ -69,8 +69,10 @@ export function plantingFill(planting: Planting, plant: Plant): AreaFill {
 
 /**
  * A first guess at how long a crop stays in the ground: from `from` until the
- * end of its latest harvest window.
+ * end of its latest harvest window, or for the years a perennial lasts.
  */
 export function defaultInGround(plant: Plant, from: IsoDate): Planting["inGround"] {
+  // A perennial stays for the years it usually lasts, to the day before it went in.
+  if (plant.perennial) return { from, to: addDays(addMonths(from, 12 * plant.perennial.years), -1) }
   return { from, to: addDays(from, plant.daysToHarvest[1]) }
 }

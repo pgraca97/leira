@@ -19,6 +19,14 @@ import type { Plant } from "./schema"
  * endive, French marigold, rosemary and nasturtium had no good local source
  * and follow general practice.
  *
+ * Six crops are perennial: they stay in the ground for `perennial.years` and
+ * are picked in `perennial.pickMonths` each year. Those figures, and the
+ * planting months of chives, oregano and thyme, come from DECO Proteste's
+ * guide to aromatic herbs and the RHS grow-your-own pages, with university
+ * extension services for chives (Utah State, Maryland) and strawberries
+ * (UC IPM, renew every three years). No regional source was found; the
+ * strawberries are June-bearing, picked April to June.
+ *
  * Companions are not listed here but in `GOOD_NEIGHBOURS` and
  * `BAD_NEIGHBOURS` below: a pair is written once and applied to both crops,
  * so the two can never disagree.
@@ -363,7 +371,8 @@ const CROPS: readonly Crop[] = [
     temps: { germMinSoilC: 5 },
     daysToHarvest: [60, 90],
     indoorsWeeks: 6,
-    groundMonths: [4, 5, 6, 9],
+    groundMonths: [3, 4, 5, 6, 9, 10],
+    perennial: { years: 3, pickMonths: [3, 4, 5, 6, 7, 8, 9, 10, 11] },
     color: "#8e6bbf",
   },
 
@@ -563,6 +572,7 @@ const CROPS: readonly Crop[] = [
     temps: {},
     daysToHarvest: [60, 90],
     groundMonths: [3, 4, 5, 9, 10],
+    perennial: { years: 3, pickMonths: [4, 5, 6, 7, 8, 9, 10] },
     color: "#57b894",
   },
   {
@@ -576,7 +586,8 @@ const CROPS: readonly Crop[] = [
     temps: { germMinSoilC: 15 },
     daysToHarvest: [80, 90],
     indoorsWeeks: 8,
-    groundMonths: [5, 6, 9, 10],
+    groundMonths: [4, 5, 6, 9, 10],
+    perennial: { years: 4, pickMonths: [5, 6, 7, 8, 9, 10] },
     color: "#7a9a6a",
   },
   {
@@ -590,7 +601,8 @@ const CROPS: readonly Crop[] = [
     temps: { germMinSoilC: 15 },
     daysToHarvest: [90, 120],
     indoorsWeeks: 8,
-    groundMonths: [5, 6, 9, 10],
+    groundMonths: [3, 4, 5, 6, 9, 10],
+    perennial: { years: 4, pickMonths: [3, 4, 5, 6, 7, 8, 9] },
     color: "#8f9779",
   },
   {
@@ -605,6 +617,7 @@ const CROPS: readonly Crop[] = [
     daysToHarvest: [90, 180],
     indoorsWeeks: 10,
     groundMonths: [4, 5, 6, 9, 10],
+    perennial: { years: 7, pickMonths: [3, 4, 5, 6, 7, 8, 9, 10] },
     color: "#4a7c6f",
   },
 
@@ -635,6 +648,7 @@ const CROPS: readonly Crop[] = [
     temps: { maxDayC: 30 },
     daysToHarvest: [60, 90],
     groundMonths: [9, 10, 11, 12],
+    perennial: { years: 3, pickMonths: [4, 5, 6] },
     color: "#e0314b",
   },
 
