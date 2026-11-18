@@ -1,5 +1,13 @@
 import type { GardenLocation } from "@leira/core"
-import { createContext, useCallback, useContext, useLayoutEffect, useRef, useState } from "react"
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react"
 import { useBackend } from "../lib/backend"
 import { GARDEN_NAME_MAX, type Garden, GardenConflictError } from "../lib/gardens"
 import { type Autosave, createAutosave, type SaveStatus } from "./autosave"
@@ -67,6 +75,20 @@ export function useGardenDocument(garden: Garden): GardenDocumentHandle {
       autosaveRef.current = null
     }
   }, [garden, backend, delayMs])
+
+  // Leaving the page with a change still to be saved asks first: a save that
+  // starts while the page unloads is usually cut off. After a conflict there
+  // is nothing this page could still save, so it lets go.
+  useEffect(() => {
+    if (saveStatus === "saved" || saveStatus === "conflict") return
+    const askFirst = (event: BeforeUnloadEvent) => {
+      event.preventDefault()
+      // What older browsers ask for instead.
+      event.returnValue = true
+    }
+    window.addEventListener("beforeunload", askFirst)
+    return () => window.removeEventListener("beforeunload", askFirst)
+  }, [saveStatus])
 
   const detailsChanged = useCallback(() => {
     autosaveRef.current?.changed({ ...details.current, plan: editorStore.getState().plan })

@@ -329,6 +329,30 @@ describe("a garden's page", () => {
     await waitFor(() => expect(backend.rows.get(TOMATOES.id)?.plan.beds).toHaveLength(1))
   })
 
+  /** Whether leaving the page now would ask first, as the browser decides from the event. */
+  function leavingAsks(): boolean {
+    const leaving = new Event("beforeunload", { cancelable: true })
+    window.dispatchEvent(leaving)
+    return leaving.defaultPrevented
+  }
+
+  it("asks before the page is left with a change not saved yet", async () => {
+    open(`/gardens/${TOMATOES.id}`)
+    await screen.findByRole("textbox", { name: "Garden name" })
+    expect(leavingAsks()).toBe(false)
+
+    backend.failNextSave(new Error("offline"))
+    act(() => {
+      editorStore.getState().addBed({ x: 0, y: 0, w: 100, h: 200 })
+    })
+    await screen.findByRole("button", { name: "Try again" })
+    expect(leavingAsks()).toBe(true)
+
+    await userEvent.click(screen.getByRole("button", { name: "Try again" }))
+    expect(await screen.findByText("Saved")).toBeVisible()
+    expect(leavingAsks()).toBe(false)
+  })
+
   it("explains that a garden is missing and links back to the list", async () => {
     open("/gardens/99999999-9999-4999-8999-999999999999")
     expect(await screen.findByText(/does not exist/)).toBeVisible()
