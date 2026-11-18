@@ -1067,7 +1067,7 @@ describe("taking the plan out of the app", () => {
 
   it("saves a picture of the plan, named after the garden", async () => {
     open(`/gardens/${TOMATOES.id}`)
-    await userEvent.click(await screen.findByRole("button", { name: "Show everything" }))
+    await userEvent.click(await screen.findByRole("button", { name: "Show all" }))
     await userEvent.click(await screen.findByRole("button", { name: "Save image" }))
 
     expect(downloadPng).toHaveBeenCalledOnce()
@@ -1121,7 +1121,7 @@ describe("taking the plan out of the app", () => {
     const print = vi.fn()
     vi.stubGlobal("print", print)
     open(`/gardens/${TOMATOES.id}`)
-    await userEvent.click(await screen.findByRole("button", { name: "Show everything" }))
+    await userEvent.click(await screen.findByRole("button", { name: "Show all" }))
     await userEvent.click(await screen.findByRole("button", { name: "Print" }))
     expect(print).toHaveBeenCalledOnce()
 
@@ -1680,7 +1680,7 @@ describe("a shared garden", () => {
     const picture = await screen.findByRole("img", { name: "Tomato patch" })
     expect(picture.querySelectorAll("[data-planting]")).toHaveLength(1)
 
-    await userEvent.click(screen.getByRole("button", { name: "Show everything" }))
+    await userEvent.click(screen.getByRole("button", { name: "Show all" }))
     expect(
       screen.getByRole("img", { name: "Tomato patch" }).querySelectorAll("[data-planting]")
     ).toHaveLength(2)

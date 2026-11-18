@@ -26,7 +26,7 @@ describe("EditorDateFilter", () => {
 
   it("shows the garden on today when it opens", () => {
     expect(screen.getByLabelText("Show the garden on")).toHaveValue(toIsoDate(new Date()))
-    expect(screen.getByRole("button", { name: "Show everything" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Show all" })).toBeInTheDocument()
   })
 
   it("shows the garden on the day the user picks", () => {
@@ -38,7 +38,7 @@ describe("EditorDateFilter", () => {
 
   it("goes back to the whole plan", async () => {
     editorStore.getState().setViewDate("2027-04-10")
-    await userEvent.click(await screen.findByRole("button", { name: "Show everything" }))
+    await userEvent.click(await screen.findByRole("button", { name: "Show all" }))
     expect(editorStore.getState().viewDate).toBeNull()
     expect(screen.getByLabelText("Show the garden on")).toHaveValue("")
   })
@@ -71,7 +71,7 @@ describe("EditorDateFilter on an empty day", () => {
   })
 
   it("says nothing with the whole plan in view", async () => {
-    await userEvent.click(screen.getByRole("button", { name: "Show everything" }))
+    await userEvent.click(screen.getByRole("button", { name: "Show all" }))
     expect(screen.queryByText("Nothing is in the ground on this day.")).toBeNull()
   })
 })
