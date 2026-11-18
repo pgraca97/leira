@@ -151,6 +151,19 @@ export const en = {
     searchPlants: "Search plants",
     noPlantMatches: "No plant matches “{{search}}”.",
     plants: "Plants",
+    kinds: "Kinds of crop",
+    allPlants: "All",
+    kindCount: "{{name}} ({{count}})",
+    kind: {
+      here: "In this garden",
+      fruit: "Fruits",
+      leaf: "Greens and cabbages",
+      root: "Roots and tubers",
+      bulb: "Bulbs",
+      legume: "Beans and peas",
+      herb: "Herbs",
+      flower: "Flowers",
+    },
     hintSelect:
       "Drag to move around, and scroll or pinch to zoom. Click an item to select it, then drag it to move it or drag a handle to resize it. Shift-click adds to the selection, and Shift-drag selects an area. The + and - keys zoom too, and 0 fits the garden to the view.",
     hintSelectMany:

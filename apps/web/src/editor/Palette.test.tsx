@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import "../test/setup"
-import { emptyPlan, getPlant, PLANTS, startsOn } from "@leira/core"
-import { act, render, screen, within } from "@testing-library/react"
+import { emptyPlan, getPlant, PLANT_GROUPS, PLANTS, startsOn } from "@leira/core"
+import { act, cleanup, render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { i18n } from "../i18n"
@@ -31,10 +31,11 @@ afterEach(async () => {
 /** The names on the plant buttons, in the order they are shown. */
 function shownPlants(): string[] {
   // "Plants" in English, "Plantas" in Portuguese.
+  // Each crop is an item of a list; the kinds and their headers are not.
   const plants = screen.getByRole("region", { name: /^Plant(s|as)$/ })
   return within(plants)
-    .queryAllByRole("button")
-    .map((button) => button.textContent ?? "")
+    .queryAllByRole("listitem")
+    .map((item) => item.textContent ?? "")
 }
 
 const search = () => screen.getByRole("searchbox", { name: "Search plants" })
@@ -206,5 +207,129 @@ describe("selecting several items", () => {
       "aria-pressed",
       "false"
     )
+  })
+})
+
+/** Plants `ids` in the garden being edited, one small planting each. */
+function plant(...ids: string[]) {
+  act(() => {
+    ids.forEach((id, index) => {
+      editorStore.getState().addPlanting(id, { x: index * 100, y: 0, w: 100, h: 100 }, "single")
+    })
+  })
+}
+
+/** The English names of a kind's crops, in the order the list shows them. */
+const namesOf = (group: string) =>
+  PLANTS.filter((crop) => crop.group === group)
+    .map((crop) => crop.name.en)
+    .sort((a, b) => a.localeCompare(b, "en"))
+
+describe("the kinds of crop, on a narrow screen", () => {
+  const kinds = () => screen.getByRole("group", { name: "Kinds of crop" })
+  const kind = (name: string) => within(kinds()).getByRole("button", { name })
+
+  it("shows every crop at first, and only a kind's crops once it is picked", async () => {
+    expect(kind("All")).toHaveAttribute("aria-pressed", "true")
+    await userEvent.click(kind("Herbs"))
+    expect(kind("Herbs")).toHaveAttribute("aria-pressed", "true")
+    expect(shownPlants()).toEqual(namesOf("herb"))
+  })
+
+  it("offers the crops already in this garden, once there are some", async () => {
+    expect(within(kinds()).queryByRole("button", { name: "In this garden" })).toBeNull()
+    plant("tomato", "basil", "tomato")
+    await userEvent.click(kind("In this garden"))
+    expect(shownPlants()).toEqual(["Basil", "Tomato"])
+  })
+
+  it("searches every kind, whichever was picked", async () => {
+    await userEvent.click(kind("Herbs"))
+    await userEvent.type(search(), "bean")
+    expect(shownPlants()).toEqual(["Broad bean", "Green bean"])
+    expect(kind("All")).toHaveAttribute("aria-pressed", "true")
+  })
+
+  it("narrows a kind to what can be started now", async () => {
+    await userEvent.click(kind("Fruits"))
+    await userEvent.click(screen.getByRole("checkbox", { name: "To sow or plant now" }))
+    const fruits = namesOf("fruit")
+    expect(shownPlants().length).toBeGreaterThan(0)
+    for (const shown of shownPlants()) {
+      expect(
+        fruits.some((name) => shown.startsWith(name)),
+        shown
+      ).toBe(true)
+    }
+  })
+})
+
+describe("the kinds of crop, on a wide screen", () => {
+  beforeEach(() => {
+    cleanup()
+    localStorage.clear()
+    vi.stubGlobal("matchMedia", (query: string) => ({
+      matches: true,
+      media: query,
+      addEventListener() {},
+      removeEventListener() {},
+    }))
+    render(<Palette />)
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    localStorage.clear()
+  })
+
+  const header = (name: RegExp) => screen.getByRole("button", { name })
+
+  it("folds each kind away, saying how many crops it holds", async () => {
+    expect(shownPlants()).toEqual([])
+    expect(header(/^Herbs \(8\)$/)).toHaveAttribute("aria-expanded", "false")
+
+    await userEvent.click(header(/^Herbs/))
+    expect(header(/^Herbs/)).toHaveAttribute("aria-expanded", "true")
+    expect(shownPlants()).toEqual(namesOf("herb"))
+  })
+
+  it("puts the crops already in this garden first, and open", () => {
+    expect(screen.queryByRole("button", { name: /^In this garden/ })).toBeNull()
+    plant("tomato")
+    expect(header(/^In this garden \(1\)$/)).toHaveAttribute("aria-expanded", "true")
+    expect(shownPlants()).toEqual(["Tomato"])
+  })
+
+  it("remembers which kinds were open", async () => {
+    await userEvent.click(header(/^Herbs/))
+    cleanup()
+    render(<Palette />)
+    expect(header(/^Herbs/)).toHaveAttribute("aria-expanded", "true")
+    expect(header(/^Fruits/)).toHaveAttribute("aria-expanded", "false")
+  })
+
+  it("opens every kind with a match while searching, then folds back", async () => {
+    plant("tomato")
+    await userEvent.type(search(), "bean")
+    expect(shownPlants()).toEqual(["Broad bean", "Green bean"])
+    expect(header(/^Beans and peas \(2\)$/)).toHaveAttribute("aria-expanded", "true")
+    // The garden's own crops would only repeat what the kinds already show.
+    expect(screen.queryByRole("button", { name: /^In this garden/ })).toBeNull()
+    expect(screen.queryByRole("button", { name: /^Fruits/ })).toBeNull()
+
+    await userEvent.clear(search())
+    expect(shownPlants()).toEqual(["Tomato"])
+  })
+
+  it("opens the kinds holding something to start now, in the kinds' order", async () => {
+    await userEvent.click(screen.getByRole("checkbox", { name: "To sow or plant now" }))
+    const startable = (name: string) =>
+      PLANTS.some((crop) => crop.name.en === name && startsOn(crop, "2026-04-15").length > 0)
+    const expected = PLANT_GROUPS.flatMap((group) => namesOf(group).filter(startable))
+    // Each line is the crop's name, then how it is started.
+    expect(shownPlants()).toHaveLength(expected.length)
+    shownPlants().forEach((shown, index) => {
+      expect(shown.startsWith(expected[index] ?? "?"), shown).toBe(true)
+    })
   })
 })

@@ -153,6 +153,19 @@ export const pt: Translation = {
     searchPlants: "Procurar plantas",
     noPlantMatches: "Nenhuma planta corresponde a “{{search}}”.",
     plants: "Plantas",
+    kinds: "Tipos de cultura",
+    allPlants: "Todas",
+    kindCount: "{{name}} ({{count}})",
+    kind: {
+      here: "Nesta horta",
+      fruit: "Frutos",
+      leaf: "Folhas e couves",
+      root: "Raízes e tubérculos",
+      bulb: "Bolbos",
+      legume: "Leguminosas",
+      herb: "Aromáticas",
+      flower: "Flores",
+    },
     hintSelect:
       "Arrasta para te moveres e usa a roda ou dois dedos para o zoom. Clica num elemento para o selecionar; depois arrasta-o para o mover ou arrasta uma pega para o redimensionar. Shift+clique junta à seleção, e Shift+arrastar seleciona uma área. As teclas + e - também fazem zoom, e o 0 ajusta a horta à vista.",
     hintSelectMany:

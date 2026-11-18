@@ -271,7 +271,9 @@ describe("a garden's page", () => {
     }
     backend = fakeBackend([{ ...TOMATOES, plan: { ...emptyPlan(), beds: [BED] } }, HERBS])
     open(`/gardens/${TOMATOES.id}`)
-    await userEvent.click(await screen.findByRole("button", { name: /^Herbs/ }))
+    // The bed, in the list of beds: the crop list has a kind called "Herbs" too.
+    const beds = await screen.findByRole("region", { name: "Beds" })
+    await userEvent.click(within(beds).getByRole("button", { name: /^Herbs/ }))
     await userEvent.click(screen.getByRole("button", { name: "Copy" }))
 
     // Another garden, as in another tab: only the browser's storage remembers the copy.

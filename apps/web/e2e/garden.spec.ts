@@ -63,6 +63,16 @@ async function dragOnGarden(
   await page.mouse.up()
 }
 
+/**
+ * Picks a crop on a wide screen, where the crop list is folded away by kind:
+ * opens the kind if it is shut, then presses the crop.
+ */
+async function pickCrop(page: Page, kind: string, crop: string) {
+  const header = page.getByRole("button", { name: new RegExp(`^${kind} \\(`) })
+  if ((await header.getAttribute("aria-expanded")) === "false") await header.click()
+  await page.getByRole("button", { name: crop, exact: true }).click()
+}
+
 test("a garden survives a reload", async ({ page }) => {
   await page.goto("/gardens")
   await page.getByRole("button", { name: "New garden" }).click()
@@ -175,7 +185,7 @@ test("this year's tomatoes are pasted into next year, and rotation says to move 
 }) => {
   await page.goto("/gardens")
   await page.getByRole("button", { name: "New garden" }).click()
-  await page.getByRole("button", { name: "Tomato" }).click()
+  await pickCrop(page, "Fruits", "Tomato")
   await dragOnCanvas(page, [0.4, 0.4], [0.6, 0.6])
 
   await page.getByRole("region", { name: "Selected" }).getByRole("button", { name: "Copy" }).click()
@@ -222,7 +232,7 @@ test("a bed saved as a template goes into another garden", async ({ page }) => {
 test("a planting shows on the calendar and on the day it is in the ground", async ({ page }) => {
   await page.goto("/gardens")
   await page.getByRole("button", { name: "New garden" }).click()
-  await page.getByRole("button", { name: "Tomato" }).click()
+  await pickCrop(page, "Fruits", "Tomato")
   await dragOnCanvas(page, [0.4, 0.4], [0.6, 0.6])
   const planting = page.getByRole("region", { name: "Plantings" }).getByRole("button")
   await expect(planting).toHaveCount(1)
@@ -265,19 +275,22 @@ test("the crop list narrows to what the month allows, and a crop says its season
 }) => {
   await page.goto("/gardens")
   await page.getByRole("button", { name: "New garden" }).click()
-  const crops = page.getByRole("region", { name: "Plants" }).getByRole("button")
-  // Counted once the editor is up: before that the list is not there to count.
-  await expect(page.getByRole("button", { name: "Tomato" })).toBeVisible()
-  const all = await crops.count()
+  const crops = page.getByRole("region", { name: "Plants" }).getByRole("listitem")
+  // On a wide screen the crops start folded away under their kinds.
+  await expect(page.getByRole("button", { name: /^Fruits \(/ })).toHaveAttribute(
+    "aria-expanded",
+    "false"
+  )
+  await expect(crops).toHaveCount(0)
 
-  // Whatever the month, some crops can be started and some cannot.
+  // Whatever the month, some crops can be started and some cannot: their kinds open.
   await page.getByRole("checkbox", { name: "To sow or plant now" }).check()
   await expect(crops.first()).toContainText(/sow|plant out/)
-  expect(await crops.count()).toBeLessThan(all)
+  expect(await crops.count()).toBeLessThan(45)
   await page.getByRole("checkbox", { name: "To sow or plant now" }).uncheck()
-  await expect(crops).toHaveCount(all)
+  await expect(crops).toHaveCount(0)
 
-  await page.getByRole("button", { name: "Tomato" }).click()
+  await pickCrop(page, "Fruits", "Tomato")
   await expect(page.getByText(/^Goes in the ground: /)).toBeVisible()
 
   // A tomato planted out in January is flagged, and the flag leads to it.
@@ -292,7 +305,7 @@ test("the plan can be saved as an image and printed", async ({ page }) => {
   await page.goto("/gardens")
   await page.getByRole("button", { name: "New garden" }).click()
   await page.getByRole("textbox", { name: "Garden name" }).fill("Allotment 12")
-  await page.getByRole("button", { name: "Tomato" }).click()
+  await pickCrop(page, "Fruits", "Tomato")
   await dragOnCanvas(page, [0.4, 0.4], [0.6, 0.6])
 
   const download = page.waitForEvent("download")
@@ -316,7 +329,7 @@ test("a garden saved as a file comes back whole after it is deleted", async ({ p
   await page.goto("/gardens")
   await page.getByRole("button", { name: "New garden" }).click()
   await page.getByRole("textbox", { name: "Garden name" }).fill("Plot to restore")
-  await page.getByRole("button", { name: "Tomato" }).click()
+  await pickCrop(page, "Fruits", "Tomato")
   await dragOnCanvas(page, [0.4, 0.4], [0.6, 0.6])
   await expect(page.getByText("Saved", { exact: true })).toBeVisible()
 
@@ -449,7 +462,7 @@ test("what happened in a garden is kept, and its notes and amounts stay off a sh
 }) => {
   await page.goto("/gardens")
   await page.getByRole("button", { name: "New garden" }).click()
-  await page.getByRole("button", { name: "Tomato" }).click()
+  await pickCrop(page, "Fruits", "Tomato")
   await dragOnCanvas(page, [0.4, 0.4], [0.6, 0.6])
   const planting = page.getByRole("region", { name: "Plantings" }).getByRole("button")
   await expect(planting).toHaveCount(1)
@@ -891,6 +904,14 @@ test.describe("on a phone", () => {
     expect(await top()).toBe(start)
     // A crop's advice is the longest of all.
     await page.getByRole("button", { name: "Tomato", exact: true }).click()
+    expect(await top()).toBe(start)
+    // Picking a kind of crop changes the row of crops, not its height.
+    await page
+      .getByRole("group", { name: "Kinds of crop" })
+      .getByRole("button", { name: "Herbs" })
+      .click()
+    await expect(page.getByRole("button", { name: "Basil", exact: true })).toBeVisible()
+    await expect(page.getByRole("button", { name: "Tomato", exact: true })).toHaveCount(0)
     expect(await top()).toBe(start)
   })
 
