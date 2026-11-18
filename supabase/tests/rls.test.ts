@@ -1443,3 +1443,155 @@ describe("a deletion that waits 30 days", () => {
     })
   })
 })
+
+describe("a guest's gardens handed over to an account", () => {
+  /** A new guest, signed in, with a garden and a template of their own. */
+  async function guestWithThings(): Promise<{ guest: string; garden: string }> {
+    await db.exec("reset role")
+    const created = await db.query<{ id: string }>(
+      "insert into auth.users (is_anonymous) values (true) returning id"
+    )
+    const guest = created.rows[0]!.id
+    await signInAs(guest)
+    const garden = await db.query<{ id: string }>(
+      "insert into public.gardens (name, plan) values ('On the phone', $1) returning id",
+      [PLAN]
+    )
+    await db.query("insert into public.templates (name, items) values ('Salads', $1)", [
+      JSON.stringify({ format: 1, beds: [], plantings: [] }),
+    ])
+    return { guest, garden: garden.rows[0]!.id }
+  }
+
+  async function offer(): Promise<string> {
+    const result = await db.query<{ code: string }>("select public.offer_guest_handover() as code")
+    return result.rows[0]!.code
+  }
+
+  async function claim(code: string): Promise<{ gardens: number; templates: number }> {
+    const result = await db.query<{ taken: { gardens: number; templates: number } }>(
+      "select public.claim_guest_handover($1) as taken",
+      [code]
+    )
+    return result.rows[0]!.taken
+  }
+
+  async function ownerOf(table: "gardens" | "templates"): Promise<Record<string, string>> {
+    await db.exec("reset role")
+    const result = await db.query<{ name: string; owner_id: string }>(
+      `select name, owner_id from public.${table}`
+    )
+    return Object.fromEntries(result.rows.map((row) => [row.name, row.owner_id]))
+  }
+
+  async function users(): Promise<string[]> {
+    await db.exec("reset role")
+    const result = await db.query<{ id: string }>("select id from auth.users")
+    return result.rows.map((row) => row.id)
+  }
+
+  it("moves them, their links and templates to the account that takes them, and forgets the guest", async () => {
+    const { guest, garden } = await guestWithThings()
+    const shared = await db.query<{ token: string }>(
+      "insert into public.garden_shares (garden_id) values ($1) returning token",
+      [garden]
+    )
+    const code = await offer()
+
+    await signInAs(alice)
+    expect(await claim(code)).toEqual({ gardens: 1, templates: 1 })
+    expect(await ownerOf("gardens")).toEqual({ "Alice's garden": alice, "On the phone": alice })
+    expect(await ownerOf("templates")).toEqual({ Salads: alice })
+    expect(await users()).not.toContain(guest)
+
+    // The link goes on opening the same garden.
+    await signOut()
+    const opened = await db.query<{ name: string }>("select name from public.shared_garden($1)", [
+      shared.rows[0]!.token,
+    ])
+    expect(opened.rows).toEqual([{ name: "On the phone" }])
+  })
+
+  it("works once: the code is spent", async () => {
+    await guestWithThings()
+    const code = await offer()
+    await signInAs(alice)
+    await claim(code)
+    await signInAs(bob)
+    expect(await claim(code)).toEqual({ gardens: 0, templates: 0 })
+    expect(await ownerOf("gardens")).toEqual({ "Alice's garden": alice, "On the phone": alice })
+  })
+
+  it("keeps only the latest code of a guest", async () => {
+    const { guest } = await guestWithThings()
+    const first = await offer()
+    const second = await offer()
+    await signInAs(alice)
+    expect(await claim(first)).toEqual({ gardens: 0, templates: 0 })
+    expect(await claim(second)).toEqual({ gardens: 1, templates: 1 })
+    expect(await users()).not.toContain(guest)
+  })
+
+  it("moves nothing for a code older than a day, or one nobody made", async () => {
+    const { guest } = await guestWithThings()
+    const code = await offer()
+    await db.exec("reset role")
+    await db.query(
+      "update private.guest_handovers set created_at = now() - interval '25 hours' where code = $1",
+      [code]
+    )
+    await signInAs(alice)
+    expect(await claim(code)).toEqual({ gardens: 0, templates: 0 })
+    expect(await claim("00000000-0000-4000-8000-000000000000")).toEqual({
+      gardens: 0,
+      templates: 0,
+    })
+    expect((await ownerOf("gardens"))["On the phone"]).toBe(guest)
+  })
+
+  it("leaves a guest who has since become an account with what is theirs", async () => {
+    const { guest } = await guestWithThings()
+    const code = await offer()
+    await db.exec("reset role")
+    await db.query("update auth.users set is_anonymous = false where id = $1", [guest])
+    await signInAs(alice)
+    expect(await claim(code)).toEqual({ gardens: 0, templates: 0 })
+    expect((await ownerOf("gardens"))["On the phone"]).toBe(guest)
+  })
+
+  // A refused call ends the test's transaction, so each test makes only one.
+  it("is offered by guests only", async () => {
+    await expect(offer()).rejects.toThrow(/only a guest/)
+  })
+
+  it("cannot be offered by visitors who are not signed in", async () => {
+    await signOut()
+    await expect(offer()).rejects.toThrow(/permission denied/)
+  })
+
+  it("is never taken by another guest", async () => {
+    await guestWithThings()
+    const code = await offer()
+    await db.exec("reset role")
+    const other = await db.query<{ id: string }>(
+      "insert into auth.users (is_anonymous) values (true) returning id"
+    )
+    await signInAs(other.rows[0]!.id)
+    await expect(claim(code)).rejects.toThrow(/only an account/)
+  })
+
+  it("is never taken by visitors who are not signed in", async () => {
+    await guestWithThings()
+    const code = await offer()
+    await signOut()
+    await expect(claim(code)).rejects.toThrow(/permission denied/)
+  })
+
+  it("keeps the codes out of the users' reach", async () => {
+    await guestWithThings()
+    await offer()
+    await expect(db.query("select * from private.guest_handovers")).rejects.toThrow(
+      /permission denied/
+    )
+  })
+})
