@@ -14,6 +14,9 @@ export type AccountNotice =
 interface AccountNoticeState {
   notice: AccountNotice | null
   setNotice(notice: AccountNotice | null): void
+  /** Whether the account panel is open. A page can open it too, to offer keeping the gardens. */
+  panelOpen: boolean
+  setPanelOpen(open: boolean): void
 }
 
 const AccountNoticeContext = createContext<AccountNoticeState | null>(null)
@@ -21,7 +24,7 @@ const AccountNoticeContext = createContext<AccountNoticeState | null>(null)
 /**
  * Holds the notice for every page of the session. The account panel that
  * asks for a deletion is gone by the time the gardens list shows, so the
- * notice lives above both.
+ * notice lives above both, and so does whether the panel is open.
  */
 export function AccountNoticeProvider({ children }: { children: ReactNode }) {
   const backend = useBackend()
@@ -32,7 +35,8 @@ export function AccountNoticeProvider({ children }: { children: ReactNode }) {
       ? { kind: "handedOver", ...brought }
       : null
   })
-  const value = useMemo(() => ({ notice, setNotice }), [notice])
+  const [panelOpen, setPanelOpen] = useState(false)
+  const value = useMemo(() => ({ notice, setNotice, panelOpen, setPanelOpen }), [notice, panelOpen])
   return <AccountNoticeContext value={value}>{children}</AccountNoticeContext>
 }
 

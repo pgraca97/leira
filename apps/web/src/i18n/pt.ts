@@ -381,6 +381,12 @@ export const pt: Translation = {
     harvests: "Colheitas",
     total: "Total",
   },
+  guestReminder: {
+    label: "Guardar as tuas hortas",
+    text: "As tuas hortas só estão neste navegador, e vão-se ao fim de um ano sem visita ou se os dados dele forem limpos. Com uma conta ficam guardadas e abrem em qualquer lado.",
+    keep: "Guardar as minhas hortas",
+    notNow: "Agora não",
+  },
   newGarden: {
     name: "Nome",
     placeIntro:
@@ -562,7 +568,7 @@ export const pt: Translation = {
     browser: {
       heading: "O que fica no teu browser",
       storage:
-        "A Leira não põe cookies suas. No armazenamento do browser guarda a tua sessão, para que as hortas lá estejam da próxima vez (sem ela, um convidado perdia-as), o idioma e o que copiaste por último no editor. Apagar os dados deste site termina a sessão, e um convidado perde as hortas.",
+        "A Leira não põe cookies suas. No armazenamento do browser guarda a tua sessão, para que as hortas lá estejam da próxima vez (sem ela, um convidado perdia-as), o idioma, o que copiaste por último no editor, e o dia em que abriste as hortas pela primeira vez e se fechaste o aviso para as guardar. Apagar os dados deste site termina a sessão, e um convidado perde as hortas.",
       turnstile:
         "Antes de criar um convidado ou de enviar um link de entrada por email, a app confirma que és uma pessoa com o Cloudflare Turnstile. O Turnstile lê sinais como o teu endereço IP e o teu browser, e usa cookies e o armazenamento do browser, para distinguir pessoas de bots. A Cloudflare usa também esses sinais para melhorar o Turnstile, e nisso decide por si. Vê a <policy>adenda de privacidade do Turnstile</policy>, da Cloudflare.",
       analytics:

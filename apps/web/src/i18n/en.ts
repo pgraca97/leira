@@ -381,6 +381,12 @@ export const en = {
     harvests: "Harvests",
     total: "Total",
   },
+  guestReminder: {
+    label: "Keep your gardens",
+    text: "Your gardens are only in this browser, and go after a year without a visit or if its data is cleared. With an account they are kept, and open anywhere.",
+    keep: "Keep my gardens",
+    notNow: "Not now",
+  },
   newGarden: {
     name: "Name",
     placeIntro:
@@ -560,7 +566,7 @@ export const en = {
     browser: {
       heading: "What is kept in your browser",
       storage:
-        "Leira sets no cookies of its own. In your browser's storage it keeps your session, so your gardens are still there next time (without it, a guest would lose them), your language, and what you last copied in the editor. Clearing this site's data signs you out, and a guest loses their gardens.",
+        "Leira sets no cookies of its own. In your browser's storage it keeps your session, so your gardens are still there next time (without it, a guest would lose them), your language, what you last copied in the editor, and the day you first opened your gardens and whether you closed the reminder to keep them. Clearing this site's data signs you out, and a guest loses their gardens.",
       turnstile:
         "Before it makes a guest or emails a sign-in link, the app checks that you are a person with Cloudflare Turnstile. Turnstile reads signals such as your IP address and your browser, and uses cookies and browser storage, to tell people from bots. Cloudflare also uses those signals to improve Turnstile, and for that it decides on its own. See <policy>Cloudflare's Turnstile privacy addendum</policy>.",
       analytics:

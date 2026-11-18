@@ -17,23 +17,28 @@ const ACCOUNT_KEY = ["account"]
  * The header button that says who is using the app, and the panel under it:
  * a guest is offered a way to keep their gardens, a signed-in user a way out.
  */
-export function AccountMenu() {
-  const { t } = useTranslation()
+/** Who is using the app: a guest has no email. */
+export function useAccount() {
   const backend = useBackend()
-  const queryClient = useQueryClient()
-  const navigate = useNavigate()
-  const { setNotice } = useAccountNotice()
-  const [open, setOpen] = useState(false)
-  const container = useRef<HTMLDivElement>(null)
-  const toggle = useRef<HTMLButtonElement>(null)
-
-  const account = useQuery({
+  return useQuery({
     queryKey: ACCOUNT_KEY,
     queryFn: () => backend.account.get(),
     // An emailed link opens in another tab. Coming back to this one, the
     // header should already show the account.
     refetchOnWindowFocus: true,
   })
+}
+
+export function AccountMenu() {
+  const { t } = useTranslation()
+  const backend = useBackend()
+  const queryClient = useQueryClient()
+  const navigate = useNavigate()
+  const { setNotice, panelOpen: open, setPanelOpen: setOpen } = useAccountNotice()
+  const container = useRef<HTMLDivElement>(null)
+  const toggle = useRef<HTMLButtonElement>(null)
+
+  const account = useAccount()
 
   /** Leaves the account behind: whatever `leave` does, the visitor goes on as a new guest. */
   const startOver = async <T,>(leave: () => Promise<T>): Promise<T> => {

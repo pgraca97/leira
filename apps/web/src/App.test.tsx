@@ -831,6 +831,77 @@ describe("the garden's weather", () => {
   })
 })
 
+describe("reminding a guest to keep their gardens", () => {
+  const PLANTED: Garden = {
+    ...TOMATOES,
+    plan: {
+      ...emptyPlan(),
+      plantings: [
+        {
+          id: "55555555-5555-4555-8555-555555555555",
+          plantId: "tomato",
+          rect: { x: 0, y: 0, w: 100, h: 100 },
+          layout: "block",
+          inGround: { from: "2026-05-01", to: "2026-09-30" },
+        },
+      ],
+    },
+  }
+  const reminder = () => screen.queryByText(/Your gardens are only in this browser/)
+
+  beforeEach(() => {
+    localStorage.clear()
+    vi.useFakeTimers({ now: new Date(2026, 10, 18, 10, 0), toFake: ["Date"] })
+    backend = fakeBackend([PLANTED])
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+    localStorage.clear()
+  })
+
+  it("waits for the guest to come back on another day", async () => {
+    open("/gardens")
+    await screen.findByRole("link", { name: "Tomato patch" })
+    expect(reminder()).toBeNull()
+  })
+
+  it("asks a guest who came back to keep what they made, and opens the account panel", async () => {
+    localStorage.setItem("leira.firstVisit", "2026-11-17")
+    open("/gardens")
+    expect(await screen.findByText(/Your gardens are only in this browser/)).toBeVisible()
+    await userEvent.click(screen.getByRole("button", { name: "Keep my gardens" }))
+    expect(await screen.findByRole("dialog", { name: "Account" })).toBeVisible()
+  })
+
+  it("stays closed once the guest says not now", async () => {
+    localStorage.setItem("leira.firstVisit", "2026-11-17")
+    open("/gardens")
+    await userEvent.click(await screen.findByRole("button", { name: "Not now" }))
+    expect(reminder()).toBeNull()
+    cleanup()
+    open("/gardens")
+    await screen.findByRole("link", { name: "Tomato patch" })
+    expect(reminder()).toBeNull()
+  })
+
+  it("says nothing to a guest with no crops yet", async () => {
+    localStorage.setItem("leira.firstVisit", "2026-11-17")
+    backend = fakeBackend([TOMATOES])
+    open("/gardens")
+    await screen.findByRole("link", { name: "Tomato patch" })
+    expect(reminder()).toBeNull()
+  })
+
+  it("says nothing to someone signed in", async () => {
+    localStorage.setItem("leira.firstVisit", "2026-11-17")
+    backend.email = "ana@example.com"
+    open("/gardens")
+    await screen.findByRole("button", { name: "ana@example.com" })
+    expect(reminder()).toBeNull()
+  })
+})
+
 describe("the account", () => {
   const openPanel = async () =>
     userEvent.click(await screen.findByRole("button", { name: "Keep your gardens" }))

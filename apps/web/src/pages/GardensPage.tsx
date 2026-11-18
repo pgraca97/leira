@@ -11,6 +11,7 @@ import { Link, useNavigate } from "@tanstack/react-router"
 import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { AccountNoticeBanner } from "../account/AccountNotice"
+import { GuestReminder } from "../account/GuestReminder"
 import { AppHeader } from "../components/AppHeader"
 import { Notice } from "../components/Notice"
 import { buttonClass, dangerButtonClass, primaryButtonClass } from "../components/ui"
@@ -210,6 +211,7 @@ export function GardensPage() {
           />
         )}
 
+        {gardens.data && <GuestReminder gardens={gardens.data} />}
         {gardens.data && gardens.data.length > 0 && <ThisWeek gardens={gardens.data} />}
         {gardens.data && gardens.data.length > 0 && (
           <ul aria-labelledby="gardens-title" className="flex flex-col gap-2">
