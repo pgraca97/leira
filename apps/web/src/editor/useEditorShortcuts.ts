@@ -1,6 +1,6 @@
 import { itemsWithin, planBounds } from "@leira/core"
 import { useEffect } from "react"
-import { editorStore, redo, shownPlan, undo } from "./store"
+import { editorStore, redo, shownPlan, undo, type ViewAction } from "./store"
 
 /** Whether the event comes from a field where keys mean typing, not shortcuts. */
 function isTyping(target: EventTarget | null): boolean {
@@ -21,12 +21,25 @@ const ARROWS: Record<string, readonly [x: number, y: number]> = {
 const BIG_NUDGE_CELLS = 10
 
 /**
+ * What each key asks of the view, by the character it types: "+" needs Shift
+ * on some keyboards, so "=" zooms in as well, and the number pad works too.
+ */
+const ZOOM_KEYS: Record<string, ViewAction> = {
+  "+": "zoom-in",
+  "=": "zoom-in",
+  "-": "zoom-out",
+  "0": "fit",
+}
+
+/**
  * Keyboard shortcuts for the editor: Delete removes the selection, the arrow
  * keys nudge it (further with Shift), Ctrl/Cmd+D duplicates it, Ctrl/Cmd+A
  * selects everything shown, Ctrl/Cmd+C copies the selection, Ctrl/Cmd+V pastes
  * it in place and Ctrl/Cmd+Shift+V pastes it a year on, Escape steps back (out of selecting several, then
  * out of the selection or the drawing tool), Ctrl/Cmd+Z undoes, Ctrl/Cmd+Shift+Z
- * or Ctrl+Y redoes.
+ * or Ctrl+Y redoes. "+" and "-" zoom about the middle of the view and "0" fits
+ * the garden, with no Ctrl: Ctrl with them stays the browser's own zoom, which
+ * someone who needs larger text relies on.
  */
 export function useEditorShortcuts(): void {
   useEffect(() => {
@@ -35,6 +48,7 @@ export function useEditorShortcuts(): void {
       const state = editorStore.getState()
       const key = event.key.toLowerCase()
       const command = event.ctrlKey || event.metaKey
+      const zoom = command || event.altKey ? undefined : ZOOM_KEYS[event.key]
 
       if (command && key === "z") {
         event.preventDefault()
@@ -62,6 +76,9 @@ export function useEditorShortcuts(): void {
         // What is drawn: a crop away on the day shown cannot be seen, so it is not picked.
         const shown = shownPlan(state)
         state.selectItems(itemsWithin(shown, planBounds(shown)))
+      } else if (zoom) {
+        event.preventDefault()
+        state.requestView(zoom)
       } else if (ARROWS[key] && !command && !event.altKey) {
         if (state.selection.length === 0) return
         event.preventDefault()

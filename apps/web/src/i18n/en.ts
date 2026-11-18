@@ -141,7 +141,7 @@ export const en = {
     noPlantMatches: "No plant matches “{{search}}”.",
     plants: "Plants",
     hintSelect:
-      "Drag to move around, and scroll or pinch to zoom. Click an item to select it, then drag it to move it or drag a handle to resize it. Shift-click adds to the selection, and Shift-drag selects an area.",
+      "Drag to move around, and scroll or pinch to zoom. Click an item to select it, then drag it to move it or drag a handle to resize it. Shift-click adds to the selection, and Shift-drag selects an area. The + and - keys zoom too, and 0 fits the garden to the view.",
     hintSelectMany:
       "Tap items to add them to the selection or take them out, or drag on empty ground to select an area. Drag a selected item to move them all.",
     hintBed: "Drag on the garden to draw a bed.",
@@ -152,6 +152,9 @@ export const en = {
     zoomOut: "Zoom out",
     zoomFit: "Fit the garden to the view",
     zoomFitShort: "Fit",
+    zoomInKey: "Zoom in (+)",
+    zoomOutKey: "Zoom out (-)",
+    zoomFitKey: "Fit the garden to the view (0)",
     canvasLabel: "Garden plan",
     canvasLoading: "Loading the canvas…",
     canvasFailed: "The canvas could not be loaded. Reload the page to try again.",

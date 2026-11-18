@@ -40,4 +40,14 @@ describe("ZoomControls", () => {
     act(() => state().reportView({ canZoomIn: true, canZoomOut: true, fitted: true }))
     expect(screen.getByRole("button", { name: "Fit the garden to the view" })).toBeDisabled()
   })
+
+  it.each([
+    ["Zoom in", "Plus =", "Zoom in (+)"],
+    ["Zoom out", "-", "Zoom out (-)"],
+    ["Fit the garden to the view", "0", "Fit the garden to the view (0)"],
+  ])("tells which key does what %s does", (name, keys, title) => {
+    const button = screen.getByRole("button", { name })
+    expect(button).toHaveAttribute("aria-keyshortcuts", keys)
+    expect(button).toHaveAttribute("title", title)
+  })
 })

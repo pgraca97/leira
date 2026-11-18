@@ -143,7 +143,7 @@ export const pt: Translation = {
     noPlantMatches: "Nenhuma planta corresponde a “{{search}}”.",
     plants: "Plantas",
     hintSelect:
-      "Arrasta para te moveres e usa a roda ou dois dedos para o zoom. Clica num elemento para o selecionar; depois arrasta-o para o mover ou arrasta uma pega para o redimensionar. Shift+clique junta à seleção, e Shift+arrastar seleciona uma área.",
+      "Arrasta para te moveres e usa a roda ou dois dedos para o zoom. Clica num elemento para o selecionar; depois arrasta-o para o mover ou arrasta uma pega para o redimensionar. Shift+clique junta à seleção, e Shift+arrastar seleciona uma área. As teclas + e - também fazem zoom, e o 0 ajusta a horta à vista.",
     hintSelectMany:
       "Toca nos elementos para os juntares à seleção ou os tirares, ou arrasta num espaço vazio para selecionar uma área. Arrasta um elemento selecionado para os moveres todos.",
     hintBed: "Arrasta sobre a horta para desenhar um canteiro.",
@@ -154,6 +154,9 @@ export const pt: Translation = {
     zoomOut: "Afastar",
     zoomFit: "Ajustar a horta à vista",
     zoomFitShort: "Ajustar",
+    zoomInKey: "Aproximar (+)",
+    zoomOutKey: "Afastar (-)",
+    zoomFitKey: "Ajustar a horta à vista (0)",
     canvasLabel: "Plano da horta",
     canvasLoading: "A carregar o plano…",
     canvasFailed: "Não foi possível carregar o plano. Recarrega a página para tentar de novo.",

@@ -6,7 +6,9 @@ import { useEditor } from "./useEditor"
 /**
  * Buttons that zoom the canvas, for a touch screen, a trackpad or a keyboard,
  * where there is no mouse wheel. They only ask: the canvas does the zooming
- * and reports back what is still possible.
+ * and reports back what is still possible. Each names the key that does the
+ * same (see `useEditorShortcuts`), to a pointer as a tooltip and to a screen
+ * reader through `aria-keyshortcuts`.
  */
 export function ZoomControls() {
   const { t } = useTranslation()
@@ -20,6 +22,8 @@ export function ZoomControls() {
         type="button"
         className={squareClass}
         aria-label={t("editor.zoomOut")}
+        aria-keyshortcuts="-"
+        title={t("editor.zoomOutKey")}
         disabled={!view.canZoomOut}
         onClick={() => requestView("zoom-out")}
       >
@@ -29,6 +33,9 @@ export function ZoomControls() {
         type="button"
         className={squareClass}
         aria-label={t("editor.zoomIn")}
+        // "Plus" is how ARIA writes the "+" key, since "+" joins keys there.
+        aria-keyshortcuts="Plus ="
+        title={t("editor.zoomInKey")}
         disabled={!view.canZoomIn}
         onClick={() => requestView("zoom-in")}
       >
@@ -38,6 +45,8 @@ export function ZoomControls() {
         type="button"
         className={buttonClass}
         aria-label={t("editor.zoomFit")}
+        aria-keyshortcuts="0"
+        title={t("editor.zoomFitKey")}
         disabled={view.fitted}
         onClick={() => requestView("fit")}
       >

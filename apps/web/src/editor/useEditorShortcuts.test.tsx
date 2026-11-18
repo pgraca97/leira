@@ -120,3 +120,40 @@ describe("copy and paste", () => {
     expect(editorStore.getState().plan.beds).toHaveLength(1)
   })
 })
+
+describe("zooming", () => {
+  const asked = () => editorStore.getState().viewRequest?.action
+
+  beforeEach(() => {
+    editorStore.setState({ viewRequest: null })
+  })
+
+  it("zooms in with + or =", async () => {
+    await userEvent.keyboard("+")
+    expect(asked()).toBe("zoom-in")
+    editorStore.setState({ viewRequest: null })
+    await userEvent.keyboard("=")
+    expect(asked()).toBe("zoom-in")
+  })
+
+  it("zooms out with -", async () => {
+    await userEvent.keyboard("-")
+    expect(asked()).toBe("zoom-out")
+  })
+
+  it("fits the garden with 0", async () => {
+    await userEvent.keyboard("0")
+    expect(asked()).toBe("fit")
+  })
+
+  it("leaves Ctrl with + and - to the browser's own zoom", async () => {
+    await userEvent.keyboard("{Control>}-{/Control}{Control>}0{/Control}")
+    expect(asked()).toBeUndefined()
+  })
+
+  it("leaves the keys alone while the user types in a field", async () => {
+    await userEvent.click(document.querySelector("input") as HTMLInputElement)
+    await userEvent.keyboard("+-0")
+    expect(asked()).toBeUndefined()
+  })
+})
