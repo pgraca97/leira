@@ -2,7 +2,7 @@ import type { Forecast, Place, WeatherNow } from "@leira/core"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { type AppDeps, createApp, type VerifiedUser } from "./app"
 import type { Mailer } from "./mail"
-import type { SoilProvider, WeatherProvider } from "./weather/provider"
+import type { PlaceProvider, SoilProvider, WeatherProvider } from "./weather/provider"
 import { WeatherProviderError } from "./weather/provider"
 
 const VALID_TOKEN = "valid-token"
@@ -76,7 +76,7 @@ let apiLimit: ReturnType<typeof fakeLimiter>
 let lookupLimit: ReturnType<typeof fakeLimiter>
 let current: ReturnType<typeof vi.fn<WeatherProvider["current"]>>
 let forecast: ReturnType<typeof vi.fn<WeatherProvider["forecast"]>>
-let places: ReturnType<typeof vi.fn<WeatherProvider["places"]>>
+let places: ReturnType<typeof vi.fn<PlaceProvider["places"]>>
 let soilTemperature: ReturnType<typeof vi.fn<SoilProvider["soilTemperature"]>>
 let sharedGarden: ReturnType<typeof vi.fn<AppDeps["sharedGarden"]>>
 let requestDeletion: ReturnType<typeof vi.fn<AppDeps["requestDeletion"]>>
@@ -101,15 +101,16 @@ beforeEach(() => {
   lookupLimit = fakeLimiter()
   current = vi.fn<WeatherProvider["current"]>(async () => READING)
   forecast = vi.fn<WeatherProvider["forecast"]>(async () => FORECAST)
-  places = vi.fn<WeatherProvider["places"]>(async () => PLACES)
+  places = vi.fn<PlaceProvider["places"]>(async () => PLACES)
   soilTemperature = vi.fn<SoilProvider["soilTemperature"]>(async () => SOIL)
   sharedGarden = vi.fn<AppDeps["sharedGarden"]>(async () => null)
   requestDeletion = vi.fn<AppDeps["requestDeletion"]>(async () => DELETE_ON)
   sendMail = vi.fn<Mailer["send"]>(async () => {})
   deps = {
     verifyToken: async (_env, token) => USERS[token] ?? null,
-    weatherProvider: () => ({ current, forecast, places }),
+    weatherProvider: () => ({ current, forecast }),
     soilProvider: () => ({ soilTemperature }),
+    placeProvider: () => ({ places }),
     sharedGarden,
     requestDeletion,
     mailer: () => ({ send: sendMail }),
@@ -552,6 +553,7 @@ describe("GET /api/places", () => {
     ["a single letter", "/api/places?q=B"],
     ["only spaces", "/api/places?q=%20%20%20"],
     ["a name longer than any place", `/api/places?q=${"a".repeat(81)}`],
+    ["a language the app does not have", "/api/places?q=Braga&lang=fr"],
   ])("rejects %s", async (_case, path) => {
     const response = await request(path)
     expect(response.status).toBe(400)
@@ -565,14 +567,25 @@ describe("GET /api/places", () => {
     expect(await response.json()).toEqual(PLACES)
     expect(response.headers.get("X-Cache")).toBe("MISS")
     expect(response.headers.get("Cache-Control")).toBe("private, max-age=86400")
-    expect(places).toHaveBeenCalledExactlyOnceWith("Braga")
+    expect(places).toHaveBeenCalledExactlyOnceWith("Braga", "en")
+  })
+
+  it("names the places in the language asked for, and caches each language apart", async () => {
+    await request("/api/places?q=Braga&lang=pt")
+    expect(places).toHaveBeenLastCalledWith("Braga", "pt")
+    expect(cache.kv.put).toHaveBeenCalledWith("places:v2:pt:braga", JSON.stringify(PLACES), {
+      expirationTtl: 2_592_000,
+    })
+    const english = await request("/api/places?q=Braga&lang=en")
+    expect(english.headers.get("X-Cache")).toBe("MISS")
+    expect(places).toHaveBeenLastCalledWith("Braga", "en")
   })
 
   it("caches a search for thirty days, whatever its case and spacing", async () => {
     await request("/api/places?q=%20Vila%20%20Nova%20DE%20Gaia%20")
-    expect(places).toHaveBeenCalledExactlyOnceWith("Vila Nova DE Gaia")
+    expect(places).toHaveBeenCalledExactlyOnceWith("Vila Nova DE Gaia", "en")
     expect(cache.kv.put).toHaveBeenCalledWith(
-      "places:v1:vila nova de gaia",
+      "places:v2:en:vila nova de gaia",
       JSON.stringify(PLACES),
       { expirationTtl: 2_592_000 }
     )
@@ -594,20 +607,21 @@ describe("GET /api/places", () => {
   })
 
   it("ignores a cache entry that no longer matches the schema", async () => {
-    cache.store.set("places:v1:braga", JSON.stringify([{ town: "Braga" }]))
+    cache.store.set("places:v2:en:braga", JSON.stringify([{ town: "Braga" }]))
     const response = await request("/api/places?q=Braga")
     expect(response.headers.get("X-Cache")).toBe("MISS")
   })
 
-  it("answers 503 when no provider is configured", async () => {
+  // Places come from Open-Meteo, which needs no key: the weather's is not needed.
+  it("finds places when no weather provider is configured", async () => {
     deps.weatherProvider = () => null
     const response = await request("/api/places?q=Braga")
-    expect(response.status).toBe(503)
-    expect(await response.json()).toEqual({ error: "weather_not_configured" })
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual(PLACES)
   })
 
   it("answers 502 when the provider fails, without caching the failure", async () => {
-    places.mockRejectedValue(new WeatherProviderError("OpenWeather responded with status 500"))
+    places.mockRejectedValue(new WeatherProviderError("Open-Meteo responded with status 500"))
     const response = await request("/api/places?q=Braga")
     expect(response.status).toBe(502)
     expect(await response.json()).toEqual({ error: "weather_unavailable" })

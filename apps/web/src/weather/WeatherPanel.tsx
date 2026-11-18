@@ -9,8 +9,8 @@ import {
   type WeatherNow,
 } from "@leira/core"
 import { useMutation, useQuery } from "@tanstack/react-query"
-import { type FormEvent, useState } from "react"
-import { useTranslation } from "react-i18next"
+import { type FormEvent, type ReactNode, useState } from "react"
+import { Trans, useTranslation } from "react-i18next"
 import { buttonClass, inputClass, toggleButtonClass } from "../components/ui"
 import { editorStore, isSelected } from "../editor/store"
 import { useEditor } from "../editor/useEditor"
@@ -197,6 +197,33 @@ function SoilCredit() {
 }
 
 /**
+ * The places found come from GeoNames, through Open-Meteo's geocoder, under
+ * CC BY 4.0, which asks for a link next to them.
+ */
+function PlaceCredit() {
+  return (
+    <p className="text-xs text-stone-500">
+      <Trans
+        i18nKey="weather.placeCredit"
+        components={{
+          geonames: <CreditLink href="https://www.geonames.org/" />,
+          openmeteo: <CreditLink href="https://open-meteo.com/" />,
+          licence: <CreditLink href="https://creativecommons.org/licenses/by/4.0/" />,
+        }}
+      />
+    </p>
+  )
+}
+
+function CreditLink({ href, children }: { href: string; children?: ReactNode }) {
+  return (
+    <a className="underline hover:text-stone-700" href={href} target="_blank" rel="noreferrer">
+      {children}
+    </a>
+  )
+}
+
+/**
  * `placeName` is the name the garden's location was found under, or else the
  * weather station's, which is often a neighbouring place.
  */
@@ -232,17 +259,24 @@ function parseCoordinate(text: string, limit: number): number | null {
 /** The shortest name the server searches for. */
 const PLACE_QUERY_MIN = 2
 
-/** A place as a search result: the region only when it adds something to the name. */
+/**
+ * A place as a search result: its municipality and its region, each only
+ * when it adds something to the name. The municipality is what tells apart
+ * the villages that share a name.
+ */
 function placeLabel(place: Place): string {
+  const area = place.area === place.name ? undefined : place.area
   const region = place.region === place.name ? undefined : place.region
-  return [place.name, region, place.country].filter(Boolean).join(", ")
+  return [place.name, area, region, place.country].filter(Boolean).join(", ")
 }
 
 function LocationForm({ onLocationChange }: Pick<WeatherPanelProps, "onLocationChange">) {
   const { t } = useTranslation()
   const backend = useBackend()
   const [placeName, setPlaceName] = useState("")
-  const search = useMutation({ mutationFn: (name: string) => backend.places(name) })
+  const search = useMutation({
+    mutationFn: (name: string) => backend.places(name, currentLanguage()),
+  })
   const [latitude, setLatitude] = useState("")
   const [longitude, setLongitude] = useState("")
   const [locating, setLocating] = useState(false)
@@ -333,6 +367,7 @@ function LocationForm({ onLocationChange }: Pick<WeatherPanelProps, "onLocationC
           ))}
         </ul>
       )}
+      {search.data && search.data.length > 0 && <PlaceCredit />}
       <button type="button" className={buttonClass} disabled={locating} onClick={locate}>
         {t(locating ? "weather.locating" : "weather.useMyLocation")}
       </button>

@@ -1,4 +1,5 @@
 import { type Forecast, type Place, publicPlan, type WeatherNow } from "@leira/core"
+import type { Language } from "../i18n/languages"
 import { deletionDue } from "../lib/account"
 import type { Backend, PublicBackend } from "../lib/backend"
 import {
@@ -29,8 +30,8 @@ export interface FakeBackend extends Backend {
   forecastResult: Forecast | Error
   /** What `places` answers: the matches, or an error to throw. */
   placesResult: Place[] | Error
-  /** The names searched for, in order. */
-  placeQueries: string[]
+  /** The names searched for, in order, each with the language asked for. */
+  placeQueries: [query: string, language: Language][]
   /** The signed-in address, or null for a guest. */
   email: string | null
   /** The addresses a link was asked for, in order. */
@@ -310,8 +311,8 @@ export function fakeBackend(seed: Garden[] = []): FakeBackend {
     },
     placesResult: new Error("no places set"),
     placeQueries: [],
-    async places(query) {
-      backend.placeQueries.push(query)
+    async places(query, language) {
+      backend.placeQueries.push([query, language])
       if (backend.placesResult instanceof Error) throw backend.placesResult
       return backend.placesResult
     },

@@ -1,5 +1,6 @@
 import type { Forecast, Place, WeatherNow } from "@leira/core"
 import { createContext, useContext } from "react"
+import type { Language } from "../i18n/languages"
 import type { AccountApi } from "./account"
 import type { GardensApi, SharedGarden } from "./gardens"
 import type { StatsApi } from "./stats"
@@ -13,8 +14,11 @@ export interface Backend {
   weather(lat: number, lon: number): Promise<WeatherNow>
   /** The coming days at a position, today first. Rejects when it is unavailable. */
   forecast(lat: number, lon: number): Promise<Forecast>
-  /** The places a name may refer to, best match first. Empty when nothing matches. */
-  places(query: string): Promise<Place[]>
+  /**
+   * The places a name may refer to, best match first, named in `language`.
+   * Empty when nothing matches.
+   */
+  places(query: string, language: Language): Promise<Place[]>
   /** How the app is used, for its admins only. */
   stats: StatsApi
   /** The user's saved groups of beds and crops. */

@@ -3,7 +3,7 @@ import { createApp } from "./app"
 import { verifySupabaseToken } from "./auth"
 import { smtpMailer } from "./mail"
 import { fetchSharedGarden } from "./shared"
-import { openMeteo } from "./weather/openmeteo"
+import { openMeteo, openMeteoPlaces } from "./weather/openmeteo"
 import { openWeather } from "./weather/openweather"
 
 export default createApp({
@@ -14,4 +14,5 @@ export default createApp({
   weatherProvider: (env) => (env.OPENWEATHER_API_KEY ? openWeather(env.OPENWEATHER_API_KEY) : null),
   // Open-Meteo needs no key, so it is always there.
   soilProvider: () => openMeteo(),
+  placeProvider: () => openMeteoPlaces(),
 })

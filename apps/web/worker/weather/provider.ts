@@ -1,9 +1,9 @@
 import type { Forecast, IsoDate, Place, WeatherNow } from "@leira/core"
+import type { Language } from "../../src/i18n/languages"
 
 /**
- * A source of weather data, and of the places to ask it about. The routes
- * depend on this interface, not on a vendor, so the provider can be swapped
- * (or faked in tests) in one place.
+ * A source of weather data. The routes depend on this interface, not on a
+ * vendor, so the provider can be swapped (or faked in tests) in one place.
  */
 export interface WeatherProvider {
   /** Current conditions at a position. Throws `WeatherProviderError` on failure. */
@@ -13,11 +13,19 @@ export interface WeatherProvider {
    * Throws `WeatherProviderError` on failure.
    */
   forecast(lat: number, lon: number): Promise<Forecast>
+}
+
+/**
+ * A source of places to locate a garden by. It stands apart from
+ * `WeatherProvider`, whose geocoder names no municipality in Portugal.
+ */
+export interface PlaceProvider {
   /**
-   * The places a name may refer to, best match first, at most five. Empty
-   * when nothing matches. Throws `WeatherProviderError` on failure.
+   * The places a name may refer to, best match first, at most ten, named in
+   * `language`. Empty when nothing matches. Throws `WeatherProviderError` on
+   * failure.
    */
-  places(query: string): Promise<Place[]>
+  places(query: string, language: Language): Promise<Place[]>
 }
 
 /** The soil's mean temperature on one local day, 6 cm down. */

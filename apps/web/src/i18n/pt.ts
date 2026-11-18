@@ -196,6 +196,8 @@ export const pt: Translation = {
     },
     soil: "solo {{value}}°",
     soilCredit: "Solo a 6 cm, em média diária, com dados de",
+    placeCredit:
+      "Sítios do <geonames>GeoNames</geonames>, através do <openmeteo>Open-Meteo.com</openmeteo> (<licence>CC BY 4.0</licence>).",
     degrees: "{{value}} °C",
     details: "Sensação de {{feelsLike}} · humidade {{humidity}}% · vento {{wind}} km/h",
     condition: {
@@ -482,7 +484,7 @@ export const pt: Translation = {
       google:
         "O <policy>Google</policy> faz a entrada quando escolhes o Google, e leva os emails da app, que saem de uma conta Gmail: os links de entrada, e a confirmação quando pedes para apagar a conta.",
       weather:
-        "O <openweather>OpenWeather</openweather> e o <openmeteo>Open-Meteo</openmeteo> dão a meteorologia e a temperatura do solo. Recebem a zona da horta arredondada a cerca de 11 km, e o OpenWeather também os nomes de terras que pesquisas. Quem lhes pede é o servidor da Leira, nunca o teu browser, por isso não veem o teu endereço IP.",
+        "O <openweather>OpenWeather</openweather> e o <openmeteo>Open-Meteo</openmeteo> dão a meteorologia e a temperatura do solo. Recebem a zona da horta arredondada a cerca de 11 km, e o Open-Meteo também os nomes de terras que pesquisas. Quem lhes pede é o servidor da Leira, nunca o teu browser, por isso não veem o teu endereço IP.",
       transfers:
         "A Cloudflare e o Google podem tratar dados fora da União Europeia, ao abrigo das cláusulas contratuais-tipo da UE ou do Quadro de Proteção de Dados UE-EUA. O Supabase é uma empresa de Singapura que guarda os dados na Irlanda, ao abrigo das cláusulas contratuais-tipo. O OpenWeather está no Reino Unido e o Open-Meteo na Suíça, que a UE reconhece como protegendo os dados de forma adequada.",
     },

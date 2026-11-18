@@ -194,6 +194,8 @@ export const en = {
     },
     soil: "soil {{value}}°",
     soilCredit: "Soil 6 cm down, as a daily mean, from data by",
+    placeCredit:
+      "Places from <geonames>GeoNames</geonames>, via <openmeteo>Open-Meteo.com</openmeteo> (<licence>CC BY 4.0</licence>).",
     degrees: "{{value}} °C",
     details: "Feels like {{feelsLike}} · humidity {{humidity}}% · wind {{wind}} km/h",
     condition: {
@@ -477,7 +479,7 @@ export const en = {
       google:
         "<policy>Google</policy> signs you in when you choose Google, and carries the app's emails, which are sent from a Gmail account: the sign-in links, and the confirmation when you ask to delete your account.",
       weather:
-        "<openweather>OpenWeather</openweather> and <openmeteo>Open-Meteo</openmeteo> give the weather and the soil temperature. They get the garden's area rounded to about 11 km, and OpenWeather also the town names you search for. Leira's server asks them, never your browser, so they do not see your IP address.",
+        "<openweather>OpenWeather</openweather> and <openmeteo>Open-Meteo</openmeteo> give the weather and the soil temperature. They get the garden's area rounded to about 11 km, and Open-Meteo also the town names you search for. Leira's server asks them, never your browser, so they do not see your IP address.",
       transfers:
         "Cloudflare and Google may handle data outside the European Union, under the EU's standard contractual clauses or the EU-US Data Privacy Framework. Supabase is a company in Singapore that keeps the data in Ireland, under the standard contractual clauses. OpenWeather is in the United Kingdom and Open-Meteo in Switzerland, which the EU recognises as protecting data adequately.",
     },

@@ -410,8 +410,33 @@ describe("the garden's weather", () => {
 
   describe("found by the name of its town", () => {
     const BRAGA = [
-      { name: "Braga", region: "Braga", country: "PT", lat: 41.5510583, lon: -8.4280045 },
+      {
+        name: "Braga",
+        area: "Braga",
+        region: "Distrito de Braga",
+        country: "PT",
+        lat: 41.5510583,
+        lon: -8.4280045,
+      },
       { name: "Braga", region: "Rio Grande do Sul", country: "BR", lat: -29.3, lon: -53.7 },
+    ]
+    const ARCOZELO = [
+      {
+        name: "Arcozelo",
+        area: "Vila Nova de Gaia",
+        region: "Distrito do Porto",
+        country: "PT",
+        lat: 41.06187,
+        lon: -8.63192,
+      },
+      {
+        name: "Arcozelo",
+        area: "Ponte de Lima",
+        region: "Distrito de Viana do Castelo",
+        country: "PT",
+        lat: 41.79384,
+        lon: -8.59416,
+      },
     ]
 
     async function search(name: string) {
@@ -420,22 +445,64 @@ describe("the garden's weather", () => {
       await userEvent.click(screen.getByRole("button", { name: "Search" }))
     }
 
+    const foundNames = async () =>
+      within(await screen.findByRole("list", { name: "Places found" }))
+        .getAllByRole("button")
+        .map((place) => place.textContent)
+
     it("lists the places with that name, telling them apart", async () => {
       backend.placesResult = BRAGA
       await search("Braga")
-      const found = await screen.findByRole("list", { name: "Places found" })
-      expect(
-        within(found)
-          .getAllByRole("button")
-          .map((place) => place.textContent)
-      ).toEqual(["Braga, PT", "Braga, Rio Grande do Sul, BR"])
-      expect(backend.placeQueries).toEqual(["Braga"])
+      // The municipality only when it is not the place itself.
+      expect(await foundNames()).toEqual([
+        "Braga, Distrito de Braga, PT",
+        "Braga, Rio Grande do Sul, BR",
+      ])
+      expect(backend.placeQueries).toEqual([["Braga", "en"]])
+    })
+
+    it("tells apart villages of one name by their municipality", async () => {
+      backend.placesResult = ARCOZELO
+      await search("Arcozelo")
+      expect(await foundNames()).toEqual([
+        "Arcozelo, Vila Nova de Gaia, Distrito do Porto, PT",
+        "Arcozelo, Ponte de Lima, Distrito de Viana do Castelo, PT",
+      ])
+    })
+
+    it("credits where the places come from, next to them", async () => {
+      backend.placesResult = BRAGA
+      await search("Braga")
+      await screen.findByRole("list", { name: "Places found" })
+      expect(screen.getByRole("link", { name: "GeoNames" })).toHaveAttribute(
+        "href",
+        "https://www.geonames.org/"
+      )
+    })
+
+    it("asks for the places in the app's language", async () => {
+      backend.placesResult = BRAGA
+      await i18n.changeLanguage("pt")
+      try {
+        open(`/gardens/${TOMATOES.id}`)
+        await userEvent.type(
+          await screen.findByRole("searchbox", { name: "Vila ou cidade" }),
+          "Braga"
+        )
+        await userEvent.click(screen.getByRole("button", { name: "Procurar" }))
+        await screen.findByRole("list", { name: "Sítios encontrados" })
+        expect(backend.placeQueries).toEqual([["Braga", "pt"]])
+      } finally {
+        await i18n.changeLanguage("en")
+      }
     })
 
     it("saves the chosen place, rounded to about a kilometre, under its name", async () => {
       backend.placesResult = BRAGA
       await search("Braga")
-      await userEvent.click(await screen.findByRole("button", { name: "Braga, PT" }))
+      await userEvent.click(
+        await screen.findByRole("button", { name: "Braga, Distrito de Braga, PT" })
+      )
 
       await waitFor(() =>
         expect(backend.rows.get(TOMATOES.id)?.location).toEqual({

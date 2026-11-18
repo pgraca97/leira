@@ -12,7 +12,7 @@ import { z } from "zod"
 import { LANGUAGES, type Language } from "../src/i18n/languages"
 import { deletionEmail } from "./deletionEmail"
 import type { Mailer } from "./mail"
-import type { SoilDay, SoilProvider, WeatherProvider } from "./weather/provider"
+import type { PlaceProvider, SoilDay, SoilProvider, WeatherProvider } from "./weather/provider"
 
 /** Who an access token belongs to, as its claims say. */
 export interface VerifiedUser {
@@ -30,6 +30,8 @@ export interface AppDeps {
   weatherProvider(env: Env): WeatherProvider | null
   /** Where soil temperatures come from, or null when nowhere. */
   soilProvider(env: Env): SoilProvider | null
+  /** Where a garden's location is looked up by name. */
+  placeProvider(env: Env): PlaceProvider
   /**
    * The garden a share link opens, as the database hands it over, or null
    * when no link has that token. Throws when the database cannot be asked.
@@ -82,12 +84,17 @@ const WeatherQuerySchema = z.object({
   lon: decimal.pipe(z.number().min(-180).max(180)),
 })
 
-/** A place name as typed: trimmed, with runs of spaces collapsed, 2 to 80 characters. */
+/**
+ * A place name as typed: trimmed, with runs of spaces collapsed, 2 to 80
+ * characters. With it, the language to name the places in: English, the
+ * app's own fallback, when it says none.
+ */
 const PlaceQuerySchema = z.object({
   q: z
     .string()
     .transform((text) => text.trim().replace(/\s+/g, " "))
     .pipe(z.string().min(2).max(80)),
+  lang: z.enum(LANGUAGES).default("en"),
 })
 
 /**
@@ -167,7 +174,7 @@ export function createApp(deps: AppDeps) {
    * keeping what the provider said for `ttlSeconds`. The provider's quota is
    * then spent once per key however many people ask.
    */
-  async function cached<T>(
+  async function cached<T, P>(
     c: Context<AppEnv>,
     options: {
       /** Bump the version in the key when the stored shape changes. */
@@ -177,7 +184,9 @@ export function createApp(deps: AppDeps) {
       ttlSeconds: number
       /** How long the browser may reuse a response without asking again. */
       browserMaxAgeSeconds: number
-      load(provider: WeatherProvider): Promise<T>
+      /** Who answers when the cache cannot, or null when no one is configured. */
+      provider: P | null
+      load(provider: P): Promise<T>
     }
   ) {
     const respond = (data: T, cache: "HIT" | "MISS") =>
@@ -189,7 +198,7 @@ export function createApp(deps: AppDeps) {
     const stored = options.schema.safeParse(await readCache(c.env.CACHE, options.cacheKey))
     if (stored.success) return respond(stored.data, "HIT")
 
-    const provider = deps.weatherProvider(c.env)
+    const { provider } = options
     if (!provider) return c.json({ error: "weather_not_configured" }, 503)
 
     // Only now, with the cache unable to answer, does the request cost a call
@@ -201,7 +210,7 @@ export function createApp(deps: AppDeps) {
       data = await options.load(provider)
     } catch (error) {
       // Log the error's own message only: never the request, which carries the API key.
-      console.error("Weather lookup failed:", error instanceof Error ? error.message : "unknown")
+      console.error("Lookup failed:", error instanceof Error ? error.message : "unknown")
       return c.json({ error: "weather_unavailable" }, 502)
     }
 
@@ -234,6 +243,7 @@ export function createApp(deps: AppDeps) {
         schema: options.schema,
         ttlSeconds: options.ttlSeconds,
         browserMaxAgeSeconds: options.browserMaxAgeSeconds,
+        provider: deps.weatherProvider(c.env),
         load: (provider) => options.load(provider, lat, lon, c.env),
       })
     })
@@ -265,21 +275,22 @@ export function createApp(deps: AppDeps) {
 
   /**
    * The places a typed name may refer to, so a garden can be located without
-   * coordinates. It goes through the weather provider, so it fails the way
-   * the weather routes do. The cache key ignores case: "BRAGA" and "braga"
-   * are one search.
+   * coordinates. It fails the way the weather routes do. The cache key
+   * ignores case, "BRAGA" and "braga" being one search, but not the
+   * language, which the places are named in.
    */
   app.get("/api/places", limitVisitor, requireUser, async (c) => {
     const query = PlaceQuerySchema.safeParse(c.req.query())
     if (!query.success) return c.json({ error: "invalid_query" }, 400)
 
-    const name = query.data.q
+    const { q: name, lang } = query.data
     return cached(c, {
-      cacheKey: `places:v1:${name.toLowerCase()}`,
+      cacheKey: `places:v2:${lang}:${name.toLowerCase()}`,
       schema: PlacesSchema,
       ttlSeconds: PLACES_TTL_SECONDS,
       browserMaxAgeSeconds: PLACES_BROWSER_MAX_AGE_SECONDS,
-      load: (provider) => provider.places(name),
+      provider: deps.placeProvider(c.env),
+      load: (provider) => provider.places(name, lang),
     })
   })
 

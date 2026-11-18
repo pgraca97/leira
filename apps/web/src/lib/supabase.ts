@@ -122,7 +122,8 @@ export async function connectBackend(): Promise<Backend> {
     cancelledDeletion,
     weather: (lat, lon) => workerRoute("/api/weather", at(lat, lon), WeatherNowSchema),
     forecast: (lat, lon) => workerRoute("/api/forecast", at(lat, lon), ForecastSchema),
-    places: (query) => workerRoute("/api/places", { q: query }, PlacesSchema),
+    places: (query, language) =>
+      workerRoute("/api/places", { q: query, lang: language }, PlacesSchema),
     stats: statsApi(client),
     templates: templatesApi(client),
   }
