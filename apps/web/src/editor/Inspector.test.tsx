@@ -170,6 +170,20 @@ describe("the selected bed", () => {
     await userEvent.selectOptions(screen.getByRole("combobox", { name: "Kind" }), "Greenhouse")
     expect(editorStore.getState().plan.beds[0]?.kind).toBe("greenhouse")
   })
+
+  it("never names another bed with what was typed for this one", async () => {
+    const other: Bed = { ...BED, id: "b2", name: "", rect: { ...BED.rect, x: 500 } }
+    editorStore.getState().loadPlan({ ...emptyPlan(), beds: [{ ...BED, name: "" }, other] })
+    editorStore.getState().select(BED_REF)
+    render(<Inspector />)
+    await userEvent.type(screen.getByRole("textbox", { name: "Name" }), "Salad bar")
+
+    // What a tap on the garden can do on a touch screen: pick another bed
+    // while the field still has the focus.
+    act(() => editorStore.getState().select({ kind: "bed", id: "b2" }))
+    await userEvent.tab()
+    expect(editorStore.getState().plan.beds[1]?.name).toBe("")
+  })
 })
 
 describe("the selected planting's layout", () => {
@@ -328,6 +342,21 @@ describe("the variety of the selected planting", () => {
     expect(editorStore.getState().plan.plantings[0]?.variety).toBe("Coração de Boi")
     const listed = within(screen.getByRole("region", { name: "Plantings" })).getByRole("button")
     expect(listed).toHaveTextContent("Tomato 'Coração de Boi' × 4")
+  })
+
+  it("never goes to another planting picked while the field still has the focus", async () => {
+    show(
+      [
+        planting("tomatoes", "tomato", "2026-05-01", "2026-09-30"),
+        planting("more", "tomato", "2026-05-01", "2026-09-30", 300),
+      ],
+      "tomatoes"
+    )
+    await userEvent.type(screen.getByLabelText("Variety"), "Coração de Boi")
+
+    act(() => editorStore.getState().select({ kind: "planting", id: "more" }))
+    await userEvent.tab()
+    expect(editorStore.getState().plan.plantings[1]?.variety).toBeUndefined()
   })
 })
 

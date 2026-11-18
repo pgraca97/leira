@@ -2,6 +2,18 @@ import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 
 /**
+ * Ends typing in a field, which stores what it holds (see `CommitField`),
+ * before the press reaches the garden and maybe picks another item. A mouse
+ * press does that by itself; a touch does not, since Phaser keeps the touch
+ * for the canvas, so the field would keep its draft for whatever comes next.
+ * It also puts a phone's keyboard away.
+ */
+function leaveField(): void {
+  const field = document.activeElement
+  if (field instanceof HTMLElement && field !== document.body) field.blur()
+}
+
+/**
  * The garden canvas. Phaser is most of the app's code, so it is loaded on
  * demand: the page renders first and the canvas appears when it arrives.
  */
@@ -43,6 +55,7 @@ export function GardenCanvas() {
         data-testid="garden-canvas"
         data-status={status}
         className="h-full w-full touch-none [&>canvas]:block"
+        onPointerDownCapture={leaveField}
       />
       {status !== "ready" && (
         <p

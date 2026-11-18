@@ -265,6 +265,8 @@ export function Inspector({ children }: { children?: ReactNode }) {
           {bed && (
             <div className="mt-2 flex flex-wrap gap-2">
               <CommitField
+                // A draft belongs to its bed: picking another one starts the field afresh.
+                key={bed.id}
                 label={t("inspector.name")}
                 className="w-36"
                 maxLength={60}
@@ -298,6 +300,7 @@ export function Inspector({ children }: { children?: ReactNode }) {
           {planted && (
             <div className="mt-2">
               <CommitField
+                key={planted.planting.id}
                 label={t("inspector.variety")}
                 className="w-48"
                 maxLength={PLAN_LIMITS.maxVariety}

@@ -713,6 +713,37 @@ test.describe("on a touch screen", () => {
     await expect(fit).toBeEnabled()
     await expect(page.getByRole("button", { name: /^Bed 1/ })).toHaveCount(0)
   })
+
+  test("a name typed for a bed stays with it when a finger picks another one", async ({ page }) => {
+    await page.goto("/gardens")
+    await page.getByRole("button", { name: "New garden" }).click()
+    for (const [from, to] of [
+      [
+        [50, 100],
+        [200, 250],
+      ],
+      [
+        [350, 100],
+        [500, 250],
+      ],
+    ] as const) {
+      await page.getByRole("button", { name: "Bed", exact: true }).click()
+      await dragOnGarden(page, from, to)
+      await expect(page.getByText("Saved", { exact: true })).toBeVisible()
+    }
+
+    const name = page.getByRole("region", { name: "Selected" }).getByRole("textbox", {
+      name: "Name",
+    })
+    await page.touchscreen.tap(...(await onGarden(page, [120, 170])))
+    await name.fill("Herbs")
+    // No Enter, and no tap on another field: the finger goes straight to the other bed.
+    await page.touchscreen.tap(...(await onGarden(page, [420, 170])))
+    await expect(name).toHaveValue("")
+
+    await page.touchscreen.tap(...(await onGarden(page, [120, 170])))
+    await expect(name).toHaveValue("Herbs")
+  })
 })
 
 test.describe("on a phone", () => {
