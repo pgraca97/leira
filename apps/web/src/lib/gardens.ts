@@ -18,6 +18,8 @@ export interface GardenSummary {
    * it says what is wrong.
    */
   plan: GardenPlan | null
+  /** Where the garden is, for the week's weather. Null when unset or unreadable. */
+  location: GardenLocation | null
 }
 
 export interface Garden extends GardenSummary {
@@ -67,6 +69,7 @@ const SummaryRowSchema = z.object({
   updated_at: z.string(),
   // Checked on its own, so one unreadable plan does not hide the whole list.
   plan: z.unknown().optional(),
+  location: z.unknown().optional(),
 })
 
 const GardenRowSchema = SummaryRowSchema.extend({
@@ -91,7 +94,15 @@ export function parseGardenSummary(row: unknown): GardenSummary {
   if (!parsed.success) throw new GardenFormatError("Unreadable garden row")
   const { id, name, updated_at } = parsed.data
   const plan = StoredPlanSchema.safeParse(parsed.data.plan)
-  return { id, name, updatedAt: updated_at, plan: plan.success ? plan.data : null }
+  // A place is only for the weather: one that cannot be read is left out, not the garden.
+  const location = GardenLocationSchema.safeParse(parsed.data.location)
+  return {
+    id,
+    name,
+    updatedAt: updated_at,
+    location: location.success ? location.data : null,
+    plan: plan.success ? plan.data : null,
+  }
 }
 
 /**
@@ -121,7 +132,7 @@ function parseShare(row: unknown): GardenShare {
   return { token, showLocation: show_location }
 }
 
-const SUMMARY_COLUMNS = "id, name, plan, updated_at"
+const SUMMARY_COLUMNS = "id, name, location, plan, updated_at"
 const GARDEN_COLUMNS = "id, name, location, plan, version, updated_at"
 const SHARE_COLUMNS = "token, show_location"
 

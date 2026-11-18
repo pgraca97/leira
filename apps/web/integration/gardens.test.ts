@@ -39,6 +39,7 @@ describe("gardens", () => {
       id: created.id,
       name: "Back garden",
       updatedAt: created.updatedAt,
+      location: null,
       plan: emptyPlan(),
     })
   })
@@ -47,6 +48,9 @@ describe("gardens", () => {
     const location = { lat: 41.15, lon: -8.61, name: "Porto" }
     const created = await aliceGardens.create("Back garden (copy)", emptyPlan(), location)
     expect(created.location).toEqual(location)
+    // The list has it too, for the week's weather.
+    const listed = (await aliceGardens.list()).find((garden) => garden.id === created.id)
+    expect(listed?.location).toEqual(location)
     expect((await aliceGardens.get(created.id)).location).toEqual(location)
   })
 

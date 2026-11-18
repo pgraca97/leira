@@ -57,8 +57,19 @@ describe("parseGardenSummary", () => {
       id,
       name,
       updatedAt: updated_at,
+      location: null,
       plan,
     })
+  })
+
+  it("reads where the garden is, for its weather this week", () => {
+    const location = { lat: 41.15, lon: -8.61, name: "Porto" }
+    expect(parseGardenSummary({ id, name, updated_at, location, plan }).location).toEqual(location)
+  })
+
+  it("still lists a garden whose place it cannot read, without the place", () => {
+    const location = { lat: "north" }
+    expect(parseGardenSummary({ id, name, updated_at, location, plan }).location).toBeNull()
   })
 
   it("still lists a garden whose plan it cannot read, without the plan", () => {

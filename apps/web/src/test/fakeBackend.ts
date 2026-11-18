@@ -96,10 +96,11 @@ export function fakeBackend(seed: Garden[] = []): FakeBackend {
     async list() {
       return [...rows.values()]
         .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-        .map(({ id, name, updatedAt, plan }) => ({
+        .map(({ id, name, updatedAt, location, plan }) => ({
           id,
           name,
           updatedAt,
+          location: structuredClone(location),
           plan: structuredClone(plan),
         }))
     },
