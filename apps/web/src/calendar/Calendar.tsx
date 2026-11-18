@@ -40,6 +40,7 @@ import { downloadText } from "../export/downloadFile"
 import { fileNameFor } from "../export/fileName"
 import { currentLanguage } from "../i18n"
 import { type YearSpan, yearSpan } from "./layout"
+import { YearHarvest } from "./YearHarvest"
 
 /** How many crops a free stretch of a bed names before it only counts the rest. */
 const FITS_SHOWN = 4
@@ -453,6 +454,8 @@ export function PlanCalendar({
           </ul>
         )}
       </section>
+
+      <YearHarvest plan={plan} year={year} />
 
       {needs.length > 0 && (
         <section aria-labelledby="calendar-seeds" className="flex flex-col gap-2">

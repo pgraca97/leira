@@ -189,6 +189,55 @@ describe("the crops being picked", () => {
   })
 })
 
+describe("what the garden gave", () => {
+  const ROMA: Planting = {
+    ...TOMATOES,
+    variety: "Roma",
+    harvests: [{ date: "2026-07-01", quantity: 1.5, unit: "kg" }, { date: "2026-07-10" }],
+  }
+  const PULLED: Planting = {
+    ...CARROTS,
+    harvests: [{ date: "2026-06-01", quantity: 20, unit: "units" }],
+  }
+  const rows = () =>
+    within(screen.getByRole("table", { name: "Harvested in 2026" }))
+      .getAllByRole("row")
+      .map((row) => row.textContent)
+
+  it("adds up the year's harvests by crop and variety, and in all", () => {
+    show([PULLED, ROMA])
+    expect(rows()).toEqual([
+      "CropPickedHarvests",
+      "Tomato 'Roma'1.5 kg2",
+      "Carrot20 units1",
+      "Total1.5 kg and 20 units3",
+    ])
+  })
+
+  it("follows the year shown", async () => {
+    show([PULLED, ROMA])
+    await userEvent.click(screen.getByRole("button", { name: "Next year" }))
+    expect(screen.queryByRole("table", { name: /^Harvested in/ })).toBeNull()
+  })
+
+  it("counts the harvests where the amounts are not shared", () => {
+    const counted = { ...ROMA, harvests: [{ date: "2026-07-01" }, { date: "2026-07-10" }] }
+    render(
+      <PlanCalendar
+        plan={{ ...emptyPlan(), plantings: [counted] }}
+        day={null}
+        onDayChange={() => {}}
+      />
+    )
+    expect(rows()).toEqual(["CropPickedHarvests", "Tomato 'Roma'2", "Total2"])
+  })
+
+  it("is left out of a year with no harvests", () => {
+    show([TOMATOES])
+    expect(screen.queryByRole("table", { name: /^Harvested in/ })).toBeNull()
+  })
+})
+
 describe("the jobs", () => {
   const jobs = () =>
     within(screen.getByRole("list", { name: "Jobs" }))

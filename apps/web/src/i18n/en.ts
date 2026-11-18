@@ -371,6 +371,13 @@ export const en = {
     plant: "Plant",
     plants: "Plants",
   },
+  harvested: {
+    title: "Harvested in {{year}}",
+    crop: "Crop",
+    picked: "Picked",
+    harvests: "Harvests",
+    total: "Total",
+  },
   week: {
     title: "This week",
     warnings: "Weather this week",

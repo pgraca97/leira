@@ -371,6 +371,13 @@ export const pt: Translation = {
     plant: "Planta",
     plants: "Plantas",
   },
+  harvested: {
+    title: "Colhido em {{year}}",
+    crop: "Cultura",
+    picked: "Colhido",
+    harvests: "Colheitas",
+    total: "Total",
+  },
   week: {
     title: "Esta semana",
     warnings: "Avisos do tempo desta semana",

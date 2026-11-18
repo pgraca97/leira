@@ -1,5 +1,6 @@
-import { getPlant, type IsoDate, plantingFill } from "@leira/core"
+import { getPlant, type IsoDate, plantingFill, toIsoDate, yearOf } from "@leira/core"
 import { useTranslation } from "react-i18next"
+import { YearHarvest } from "../calendar/YearHarvest"
 import { shownPlan } from "../editor/store"
 import { useEditor } from "../editor/useEditor"
 import { currentLanguage } from "../i18n"
@@ -59,6 +60,12 @@ export function PrintSheet({ gardenName }: { gardenName: string }) {
           </tbody>
         </table>
       )}
+      {/* The year of the day shown, from every crop of the plan: a harvest outlives its crop. */}
+      <YearHarvest
+        plan={fullPlan}
+        year={yearOf(viewDate ?? toIsoDate(new Date()))}
+        className="mt-4"
+      />
     </div>
   )
 }

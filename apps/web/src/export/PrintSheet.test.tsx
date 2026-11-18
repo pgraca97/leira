@@ -51,4 +51,20 @@ describe("PrintSheet", () => {
     expect(picture).toHaveTextContent("Potato")
     expect(picture).not.toHaveTextContent("Tomato")
   })
+
+  it("adds what the garden gave in the year of the day shown", () => {
+    const [tomato, potato] = twoYears.plantings
+    act(() => {
+      editorStore.getState().loadPlan({
+        ...twoYears,
+        plantings: [
+          { ...tomato!, harvests: [{ date: "2026-07-01", quantity: 2, unit: "kg" }] },
+          potato!,
+        ],
+      })
+      editorStore.getState().setViewDate("2026-07-15")
+    })
+    const table = screen.getByRole("table", { name: "Harvested in 2026" })
+    expect(table).toHaveTextContent("Tomato2 kg1")
+  })
 })
