@@ -154,7 +154,13 @@ The last two need `pnpm db:start` and a filled-in `.dev.vars`.
   each day they opened the app, so "came back" includes someone who only read their calendar. The
   page `/stats` shows those numbers and the free plan limits to the admins listed in
   `private.admins`, whose own use is left out. It is there to say when paying for a domain or a
-  bigger plan would be worth it.
+  bigger plan would be worth it. Besides visits, it counts gardens with crops, with
+  records (in the ground, out, sown, harvested), with records in the last 7 days and with crops in
+  more than one year: the numbers each change to the app is measured by.
+- **A quiet week does not pause the database.** Supabase pauses a free project after a week with
+  little database activity, and the static landing page does not count. A Worker cron calls the
+  `keep_awake()` function four times a day with the publishable key, which keeps it awake for
+  free; a failed call shows in the Worker's logs.
 - **The front door is a static page.** The landing page and the 404 pages are rendered from the
   app's own components and strings when it is built (`src/site`), and send no React to the
   browser. Search engines and link previews read them whole, serving them costs the Worker
