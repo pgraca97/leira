@@ -1466,6 +1466,114 @@ describe("the garden's forecast", () => {
   })
 })
 
+describe("the week across gardens", () => {
+  const PORTO = { lat: 41.15, lon: -8.61 }
+  const FORECAST: Forecast = [
+    { date: "2026-04-09", minC: 6, maxC: 15, condition: "clear" },
+    { date: "2026-04-10", minC: 1, maxC: 12, condition: "rain" },
+  ]
+  const crop = (id: string, plantId: string, from: string, to: string) => ({
+    id,
+    plantId,
+    rect: { x: 0, y: 0, w: 100, h: 100 },
+    layout: "block" as const,
+    inGround: { from, to },
+  })
+  // Tomatoes due out on 1 April and still not planted; carrots to sow on 12 April.
+  const PATCH: Garden = {
+    ...TOMATOES,
+    location: PORTO,
+    plan: {
+      ...emptyPlan(),
+      plantings: [
+        crop("44444444-4444-4444-8444-444444444444", "tomato", "2026-04-01", "2026-09-30"),
+      ],
+    },
+  }
+  const BEDS: Garden = {
+    ...HERBS,
+    plan: {
+      ...emptyPlan(),
+      plantings: [
+        crop("55555555-5555-4555-8555-555555555555", "carrot", "2026-04-12", "2026-07-31"),
+      ],
+    },
+  }
+
+  beforeEach(() => {
+    vi.useFakeTimers({ now: new Date(2026, 3, 9, 10, 0), toFake: ["Date"] })
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  const week = async () => screen.findByRole("region", { name: "This week" })
+
+  it("lists the jobs of every garden, the late ones first, each naming its garden", async () => {
+    backend = fakeBackend([PATCH, BEDS])
+    open("/gardens")
+    const jobs = within(await week()).getByRole("list", { name: "Jobs this week" })
+    expect(
+      within(jobs)
+        .getAllByRole("link")
+        .map((job) => job.textContent)
+    ).toEqual(["Apr 1 Plant out Tomato · Tomato patch Late", "Apr 12 Sow Carrot · Herb spiral"])
+  })
+
+  it("opens the garden's calendar from a job, to tick it there", async () => {
+    backend = fakeBackend([PATCH, BEDS])
+    const history = open("/gardens")
+    const jobs = within(await week()).getByRole("list", { name: "Jobs this week" })
+    await userEvent.click(within(jobs).getByRole("link", { name: /Sow Carrot/ }))
+    expect(await screen.findByRole("list", { name: "Plantings in 2026" })).toBeVisible()
+    expect(history.location.pathname).toBe(`/gardens/${HERBS.id}`)
+  })
+
+  it("leaves the garden's name out when there is only one", async () => {
+    backend = fakeBackend([PATCH])
+    open("/gardens")
+    const jobs = within(await week()).getByRole("list", { name: "Jobs this week" })
+    expect(within(jobs).getByRole("link")).toHaveTextContent(/^Apr 1 Plant out Tomato Late$/)
+  })
+
+  it("warns of the weather where a garden is", async () => {
+    backend = fakeBackend([PATCH, BEDS])
+    backend.forecastResult = FORECAST
+    open("/gardens")
+    const warnings = await within(await week()).findByRole("list", { name: "Weather this week" })
+    const warning = within(warnings).getByRole("link")
+    expect(warning).toHaveTextContent("Frost on Apr 10 (1 °C): protect Tomato. · Tomato patch")
+    await userEvent.click(warning)
+    expect(await screen.findByRole("textbox", { name: "Garden name" })).toHaveValue("Tomato patch")
+  })
+
+  it("lists the jobs even when the forecast cannot be had", async () => {
+    backend = fakeBackend([PATCH])
+    open("/gardens")
+    const region = await week()
+    expect(within(region).getByRole("list", { name: "Jobs this week" })).toBeVisible()
+    expect(within(region).queryByRole("list", { name: "Weather this week" })).toBeNull()
+  })
+
+  it("says so when there is nothing to do this week", async () => {
+    backend = fakeBackend([
+      {
+        ...BEDS,
+        plan: { ...emptyPlan(), plantings: [crop("p", "carrot", "2026-06-01", "2026-09-01")] },
+      },
+    ])
+    open("/gardens")
+    expect(within(await week()).getByText("Nothing to do this week.")).toBeVisible()
+  })
+
+  it("is not there while no garden has crops", async () => {
+    open("/gardens")
+    await screen.findByRole("link", { name: "Tomato patch" })
+    expect(screen.queryByRole("region", { name: "This week" })).toBeNull()
+  })
+})
+
 describe("the garden's calendar", () => {
   const plan = {
     ...emptyPlan(),

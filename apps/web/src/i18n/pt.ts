@@ -368,6 +368,14 @@ export const pt: Translation = {
     plant: "Planta",
     plants: "Plantas",
   },
+  week: {
+    title: "Esta semana",
+    warnings: "Avisos do tempo desta semana",
+    jobs: "Tarefas desta semana",
+    jobsHeading: "Por fazer",
+    late: "Atrasada",
+    nothing: "Nada para fazer esta semana.",
+  },
   dateFilter: {
     label: "Mostrar a horta em",
     labelShort: "Ver em",

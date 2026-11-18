@@ -14,6 +14,7 @@ import { useBackend } from "../lib/backend"
 import { type GardenSummary, gardenCopyName } from "../lib/gardens"
 import { TEMPLATES_KEY } from "../templates/TemplatesPanel"
 import { DeleteGarden } from "./DeleteGarden"
+import { ThisWeek } from "./ThisWeek"
 
 const GARDENS_KEY = ["gardens"]
 
@@ -110,7 +111,9 @@ export function GardensPage() {
       <AppHeader />
       <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-4 overflow-y-auto p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h1 className="text-xl font-semibold text-stone-900">{t("gardens.title")}</h1>
+          <h1 id="gardens-title" className="text-xl font-semibold text-stone-900">
+            {t("gardens.title")}
+          </h1>
           <div className="flex gap-2">
             {/* The button opens the file picker: a file input cannot be styled. */}
             <input
@@ -188,8 +191,9 @@ export function GardensPage() {
           />
         )}
 
+        {gardens.data && gardens.data.length > 0 && <ThisWeek gardens={gardens.data} />}
         {gardens.data && gardens.data.length > 0 && (
-          <ul className="flex flex-col gap-2">
+          <ul aria-labelledby="gardens-title" className="flex flex-col gap-2">
             {gardens.data.map((garden) => (
               <li
                 key={garden.id}

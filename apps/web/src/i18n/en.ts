@@ -368,6 +368,14 @@ export const en = {
     plant: "Plant",
     plants: "Plants",
   },
+  week: {
+    title: "This week",
+    warnings: "Weather this week",
+    jobs: "Jobs this week",
+    jobsHeading: "To do",
+    late: "Late",
+    nothing: "Nothing to do this week.",
+  },
   dateFilter: {
     label: "Show the garden on",
     labelShort: "Show on",

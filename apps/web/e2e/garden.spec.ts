@@ -797,7 +797,9 @@ test("the list pictures each garden and makes a copy that stands on its own", as
   await expect(page.getByText("Saved", { exact: true })).toBeVisible()
   await page.getByRole("link", { name: "All gardens" }).click()
 
-  const example = page.getByRole("listitem").filter({ hasText: "Example garden" })
+  // The list of gardens, not the week's jobs above it, which name the gardens too.
+  const gardens = page.getByRole("list", { name: "Your gardens" })
+  const example = gardens.getByRole("listitem").filter({ hasText: "Example garden" })
   // The picture draws the plan as it is today: some of its eight plantings, or all of them
   // when nothing is in the ground, depending on the day the test runs.
   const shown = await example.locator("svg [data-planting]").count()
@@ -805,9 +807,9 @@ test("the list pictures each garden and makes a copy that stands on its own", as
   expect(shown).toBeLessThanOrEqual(8)
 
   await page.getByRole("button", { name: "Duplicate Example garden" }).click()
-  const copy = page.getByRole("link", { name: "Example garden (copy)" })
+  const copy = gardens.getByRole("link", { name: "Example garden (copy)" })
   await expect(copy).toBeVisible()
-  await expect(page.getByRole("listitem")).toHaveCount(2)
+  await expect(gardens.getByRole("listitem")).toHaveCount(2)
 
   // The copy has the plan, and changing it leaves the original alone.
   await copy.click()
@@ -822,10 +824,10 @@ test("the list pictures each garden and makes a copy that stands on its own", as
   await expect(page.getByText("Saved", { exact: true })).toBeVisible()
   await page.getByRole("link", { name: "All gardens" }).click()
   await expect(
-    page.getByRole("listitem").filter({ hasText: "(copy)" }).locator("svg [data-planting]")
+    gardens.getByRole("listitem").filter({ hasText: "(copy)" }).locator("svg [data-planting]")
   ).toHaveCount(0)
   await expect(
-    page.getByRole("listitem").filter({ hasNotText: "(copy)" }).locator("svg [data-planting]")
+    gardens.getByRole("listitem").filter({ hasNotText: "(copy)" }).locator("svg [data-planting]")
   ).toHaveCount(shown)
 })
 
