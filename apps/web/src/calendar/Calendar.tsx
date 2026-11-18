@@ -1,5 +1,6 @@
 import {
   addDays,
+  addMonths,
   bedOfPlanting,
   bedSeasons,
   cropsThatFit,
@@ -14,6 +15,7 @@ import {
   getPlant,
   type IsoDate,
   icsCalendar,
+  nearestPlantedDay,
   PLANTS,
   type Plant,
   type Planting,
@@ -28,6 +30,7 @@ import { type ReactNode, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { buttonClass, inputClass, viewLinkClass } from "../components/ui"
 import { cropName } from "../editor/cropName"
+import { editorStore } from "../editor/store"
 import { useEditor } from "../editor/useEditor"
 import { downloadText } from "../export/downloadFile"
 import { fileNameFor } from "../export/fileName"
@@ -71,9 +74,12 @@ export function Calendar({
 }) {
   const plan = useEditor((state) => state.plan)
   const recordTask = useEditor((state) => state.recordTask)
+  const viewDate = useEditor((state) => state.viewDate)
   return (
     <PlanCalendar
       plan={plan}
+      day={viewDate}
+      onDayChange={editorStore.getState().setViewDate}
       gardenName={gardenName}
       onOpenPlanting={onOpenPlanting}
       onRecordTask={recordTask}
@@ -83,6 +89,12 @@ export function Calendar({
 
 interface PlanCalendarProps {
   plan: GardenPlan
+  /**
+   * The day the plan is shown on, null for every season. The calendar shows
+   * its year, and moving the year moves that day, so plan and calendar agree.
+   */
+  day: IsoDate | null
+  onDayChange(day: IsoDate): void
   /** Names the calendar file the jobs can be saved to. Without it that is not offered. */
   gardenName?: string
   /** Opens a planting from its line. Without it the lines are only to read. */
@@ -101,6 +113,8 @@ interface PlanCalendarProps {
  */
 export function PlanCalendar({
   plan,
+  day: shownDay,
+  onDayChange,
   gardenName,
   onOpenPlanting,
   onRecordTask,
@@ -108,7 +122,8 @@ export function PlanCalendar({
   const { t } = useTranslation()
   const language = currentLanguage()
   const today = toIsoDate(new Date())
-  const [year, setYear] = useState(() => yearOf(today))
+  const year = yearOf(shownDay ?? today)
+  const moveYear = (years: number) => onDayChange(addMonths(shownDay ?? today, 12 * years))
   const [grouping, setGrouping] = useState<"planting" | "bed">("planting")
 
   // Dates carry no zone, so they are formatted in UTC to stay on the same day everywhere.
@@ -122,6 +137,9 @@ export function PlanCalendar({
   const months = Array.from({ length: 12 }, (_, month) =>
     monthFormat.format(new Date(Date.UTC(year, month, 1)))
   )
+
+  // With nothing in this year, the nearest day that has crops, to offer going there.
+  const elsewhere = nearestPlantedDay(plan, `${year}-01-01`)
 
   const rows: Row[] = plan.plantings
     .flatMap((planting) => {
@@ -248,7 +266,7 @@ export function PlanCalendar({
             type="button"
             className={buttonClass}
             aria-label={t("calendar.previousYear")}
-            onClick={() => setYear(year - 1)}
+            onClick={() => moveYear(-1)}
           >
             <span aria-hidden="true">‹</span>
           </button>
@@ -259,7 +277,7 @@ export function PlanCalendar({
             type="button"
             className={buttonClass}
             aria-label={t("calendar.nextYear")}
-            onClick={() => setYear(year + 1)}
+            onClick={() => moveYear(1)}
           >
             <span aria-hidden="true">›</span>
           </button>
@@ -283,7 +301,14 @@ export function PlanCalendar({
           <p className="text-sm text-stone-600">{t("calendar.noBeds")}</p>
         )}
         {grouping === "planting" && rows.length === 0 ? (
-          <p className="text-sm text-stone-600">{t("calendar.empty", { year })}</p>
+          <p className="flex flex-wrap items-center gap-2 text-sm text-stone-600">
+            {t("calendar.empty", { year })}
+            {elsewhere && yearOf(elsewhere) !== year && (
+              <button type="button" className={buttonClass} onClick={() => onDayChange(elsewhere)}>
+                {t("calendar.goToYear", { year: yearOf(elsewhere) })}
+              </button>
+            )}
+          </p>
         ) : grouping === "bed" && groups.length === 0 ? null : (
           <div className="overflow-x-auto rounded-md border border-stone-200 bg-white">
             <div className="min-w-[40rem]">

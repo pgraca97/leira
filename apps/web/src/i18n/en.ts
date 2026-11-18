@@ -282,6 +282,7 @@ export const en = {
     nextYear: "Next year",
     rowsLabel: "Plantings in {{year}}",
     empty: "Nothing is planted in {{year}}.",
+    goToYear: "Go to {{year}}",
     by: { planting: "By planting", bed: "By bed" },
     noBed: "Outside the beds",
     noBeds: "No beds drawn yet.",

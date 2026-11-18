@@ -283,6 +283,7 @@ export const pt: Translation = {
     nextYear: "Ano seguinte",
     rowsLabel: "Plantações em {{year}}",
     empty: "Não há nada plantado em {{year}}.",
+    goToYear: "Ir para {{year}}",
     by: { planting: "Por plantação", bed: "Por canteiro" },
     noBed: "Fora dos canteiros",
     noBeds: "Ainda não há canteiros desenhados.",

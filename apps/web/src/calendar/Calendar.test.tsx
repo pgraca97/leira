@@ -84,6 +84,27 @@ describe("the year's plantings", () => {
     expect(screen.getByRole("button", { name: /^Tomato/ })).toBeVisible()
   })
 
+  it("shows the year of the day the plan is shown on", () => {
+    editorStore.getState().loadPlan({ ...emptyPlan(), plantings: [TOMATOES, NEXT_YEAR] })
+    editorStore.getState().setViewDate("2027-05-01")
+    render(<Calendar gardenName="Back garden" onOpenPlanting={() => {}} />)
+    expect(screen.getByRole("heading", { name: "2027" })).toBeVisible()
+  })
+
+  it("moves the plan's day a year with it, so both show the same season", async () => {
+    show([TOMATOES])
+    await userEvent.click(screen.getByRole("button", { name: "Next year" }))
+    expect(editorStore.getState().viewDate).toBe("2027-04-20")
+  })
+
+  it("starts from today when the plan shows every season", async () => {
+    show([TOMATOES])
+    editorStore.getState().setViewDate(null)
+    await userEvent.click(screen.getByRole("button", { name: "Previous year" }))
+    expect(screen.getByRole("heading", { name: "2025" })).toBeVisible()
+    expect(editorStore.getState().viewDate).toBe("2025-04-20")
+  })
+
   it("shows a crop raised indoors late in the year before it is planted out", async () => {
     // Onion: 8 weeks indoors. Planted out in January, so the seedlings start in November.
     show([planting("onions", "onion", "2027-01-10", "2027-06-01")])
@@ -93,6 +114,13 @@ describe("the year's plantings", () => {
   it("says so when nothing is planted that year", () => {
     show([NEXT_YEAR])
     expect(screen.getByText("Nothing is planted in 2026.")).toBeVisible()
+  })
+
+  it("points to the year that has crops when the one shown has none", async () => {
+    show([NEXT_YEAR])
+    await userEvent.click(screen.getByRole("button", { name: "Go to 2027" }))
+    expect(screen.getByRole("heading", { name: "2027" })).toBeVisible()
+    expect(editorStore.getState().viewDate).toBe("2027-04-01")
   })
 
   it("opens a planting on the plan when its row is clicked", async () => {
@@ -217,7 +245,7 @@ describe("the jobs", () => {
         planting("late", "carrot", "2026-04-18", "2026-08-06"),
       ],
     }
-    render(<PlanCalendar plan={plan} />)
+    render(<PlanCalendar plan={plan} day={null} onDayChange={() => {}} />)
     expect(jobs()).toEqual(["Apr 15Sow Carrotdone", "Apr 18Sow Carrotoverdue"])
     expect(screen.queryByRole("checkbox")).toBeNull()
     expect(screen.queryByLabelText(/done on/)).toBeNull()
@@ -391,7 +419,13 @@ describe("taking the jobs to another calendar", () => {
   })
 
   it("is not offered where there is no garden name to save under", () => {
-    render(<PlanCalendar plan={{ ...emptyPlan(), plantings: [TOMATOES] }} />)
+    render(
+      <PlanCalendar
+        plan={{ ...emptyPlan(), plantings: [TOMATOES] }}
+        day={null}
+        onDayChange={() => {}}
+      />
+    )
     expect(screen.queryByRole("button", { name: /\.ics/ })).toBeNull()
   })
 
