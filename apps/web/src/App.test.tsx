@@ -1600,13 +1600,17 @@ describe("the usage stats", () => {
     localStorage.removeItem("leira.analytics")
     backend.statsResult = {
       generatedAt: "2026-11-17T11:08:49.026624+00:00",
-      people: { guests: 196, accounts: 16, withGarden: 156 },
+      people: { guests: 196, accounts: 16, withGarden: 156, accountsWithGarden: 14 },
       gardens: {
         total: 202,
         editedLast7Days: 40,
         editedLast30Days: 90,
         shared: 29,
         withLocation: 12,
+        withPlantings: 120,
+        withRecords: 33,
+        recordedLast7Days: 9,
+        severalYears: 5,
       },
       weeks: WEEKS,
       limits: { databaseBytes: 12_300_000, monthlyUsers: 157 },
@@ -1633,6 +1637,21 @@ describe("the usage stats", () => {
     expect(figure("Gardens", "Edited in the last 30 days")).toBe("90")
     expect(figure("Gardens", "Shared")).toBe("29")
     expect(figure("Gardens", "With a location")).toBe("12")
+  })
+
+  it("show whether people plant, record and reach a second year", async () => {
+    backend.admin = true
+    open("/stats")
+    await screen.findByText(/Your own use is left out/)
+    expect(figure("People", "With a garden and an account")).toBe("14")
+    const use = screen.getByRole("region", { name: "What is done in them" })
+    expect(
+      within(use).getByText(/marked in the ground, out of it, sown or harvested/)
+    ).toBeInTheDocument()
+    expect(figure("What is done in them", "With crops")).toBe("120")
+    expect(figure("What is done in them", "With something recorded")).toBe("33")
+    expect(figure("What is done in them", "Recorded in the last 7 days")).toBe("9")
+    expect(figure("What is done in them", "Crops in more than one year")).toBe("5")
   })
 
   it("show who came back each week, as a chart and as a table", async () => {

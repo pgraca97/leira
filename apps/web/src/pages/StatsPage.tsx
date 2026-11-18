@@ -99,6 +99,7 @@ export function StatsPage() {
                 items={[
                   [t("stats.withGarden"), stats.data.people.withGarden],
                   [t("stats.accounts"), stats.data.people.accounts],
+                  [t("stats.accountsWithGarden"), stats.data.people.accountsWithGarden],
                   [t("stats.guests"), stats.data.people.guests],
                 ]}
                 format={numbers.format}
@@ -113,6 +114,18 @@ export function StatsPage() {
                   [t("stats.editedLast30Days"), stats.data.gardens.editedLast30Days],
                   [t("stats.shared"), stats.data.gardens.shared],
                   [t("stats.withLocation"), stats.data.gardens.withLocation],
+                ]}
+                format={numbers.format}
+              />
+            </Section>
+
+            <Section title={t("stats.use")} hint={t("stats.useHint")}>
+              <Figures
+                items={[
+                  [t("stats.withPlantings"), stats.data.gardens.withPlantings],
+                  [t("stats.withRecords"), stats.data.gardens.withRecords],
+                  [t("stats.recordedLast7Days"), stats.data.gardens.recordedLast7Days],
+                  [t("stats.severalYears"), stats.data.gardens.severalYears],
                 ]}
                 format={numbers.format}
               />

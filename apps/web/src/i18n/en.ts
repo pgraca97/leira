@@ -417,6 +417,7 @@ export const en = {
     people: "People",
     withGarden: "With a garden",
     accounts: "With an account",
+    accountsWithGarden: "With a garden and an account",
     guests: "Guests",
     guestsHint: "Everyone who opened the app gets a guest session, search engine robots too.",
     gardens: "Gardens",
@@ -425,6 +426,13 @@ export const en = {
     editedLast30Days: "Edited in the last 30 days",
     shared: "Shared",
     withLocation: "With a location",
+    use: "What is done in them",
+    useHint:
+      "A record is a crop marked in the ground, out of it, sown or harvested. The last 7 days go by the day the record names, not the day it was typed in.",
+    withPlantings: "With crops",
+    withRecords: "With something recorded",
+    recordedLast7Days: "Recorded in the last 7 days",
+    severalYears: "Crops in more than one year",
     weeks: "The last 12 weeks",
     weeksHint: "People who opened the app each week, split by whether they had been here before.",
     cameBack: "Came back",
@@ -472,7 +480,7 @@ export const en = {
       heading: "What is kept, and why",
       intro: "Only what the app needs to work:",
       gardens:
-        "Your gardens: their names, beds and crops, the jobs you tick off, your harvests and notes, and the templates you save. That is the app itself.",
+        "Your gardens: their names, beds and crops, the jobs you tick off, your harvests and notes, and the templates you save. That is the app itself. They are also counted all together, such as how many gardens have crops, to tell whether the app is used.",
       location:
         "A garden's location, only if you give one, rounded to about 1 km. It gives the weather and the sowing advice.",
       account:
@@ -522,7 +530,7 @@ export const en = {
     },
     basis: {
       heading: "Why this is allowed",
-      body: "Keeping your gardens, your account and your sessions is needed to give you the service you asked for (GDPR, article 6(1)(b)). The captcha, the limits on requests and the logs protect the app from abuse, and the days of visits tell whether it is used: both are legitimate interests (article 6(1)(f)). No decision about you is made automatically, and no profile of you is built.",
+      body: "Keeping your gardens, your account and your sessions is needed to give you the service you asked for (GDPR, article 6(1)(b)). The captcha, the limits on requests and the logs protect the app from abuse, and the days of visits and the counts of gardens tell whether it is used: both are legitimate interests (article 6(1)(f)). No decision about you is made automatically, and no profile of you is built.",
     },
     rights: {
       heading: "Your rights",

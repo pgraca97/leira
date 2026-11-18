@@ -419,6 +419,7 @@ export const pt: Translation = {
     people: "Pessoas",
     withGarden: "Com horta",
     accounts: "Com conta",
+    accountsWithGarden: "Com horta e conta",
     guests: "Convidados",
     guestsHint:
       "Quem abre a app recebe uma sessão de convidado, incluindo os robôs dos motores de pesquisa.",
@@ -428,6 +429,13 @@ export const pt: Translation = {
     editedLast30Days: "Editadas nos últimos 30 dias",
     shared: "Partilhadas",
     withLocation: "Com localização",
+    use: "O que se faz nelas",
+    useHint:
+      "Um registo é uma cultura marcada como na terra, retirada, semeada ou colhida. Os últimos 7 dias contam pelo dia que o registo indica, não pelo dia em que foi escrito.",
+    withPlantings: "Com culturas",
+    withRecords: "Com algo registado",
+    recordedLast7Days: "Com registos nos últimos 7 dias",
+    severalYears: "Com culturas em mais de um ano",
     weeks: "As últimas 12 semanas",
     weeksHint: "Quem abriu a app em cada semana, separado por já cá ter estado antes ou não.",
     cameBack: "Voltaram",
@@ -477,7 +485,7 @@ export const pt: Translation = {
       heading: "O que se guarda, e para quê",
       intro: "Só o que a app precisa para funcionar:",
       gardens:
-        "As tuas hortas: os nomes, canteiros e culturas, as tarefas que dás como feitas, as colheitas e notas, e os modelos que guardas. É isso a própria app.",
+        "As tuas hortas: os nomes, canteiros e culturas, as tarefas que dás como feitas, as colheitas e notas, e os modelos que guardas. É isso a própria app. Também são contadas todas juntas, por exemplo quantas hortas têm culturas, para saber se a app é usada.",
       location:
         "A localização de uma horta, só se a deres, arredondada a cerca de 1 km. Serve para a meteorologia e para os conselhos de sementeira.",
       account:
@@ -527,7 +535,7 @@ export const pt: Translation = {
     },
     basis: {
       heading: "Porque é que isto é permitido",
-      body: "Guardar as tuas hortas, a tua conta e as tuas sessões é necessário para te dar o serviço que pediste (RGPD, artigo 6.º, n.º 1, alínea b)). O captcha, os limites de pedidos e os registos protegem a app de abusos, e os dias de visita dizem se ela é usada: ambos são interesses legítimos (alínea f) do mesmo número). Nenhuma decisão sobre ti é tomada automaticamente, e não se constrói nenhum perfil teu.",
+      body: "Guardar as tuas hortas, a tua conta e as tuas sessões é necessário para te dar o serviço que pediste (RGPD, artigo 6.º, n.º 1, alínea b)). O captcha, os limites de pedidos e os registos protegem a app de abusos, e os dias de visita e as contagens de hortas dizem se ela é usada: ambos são interesses legítimos (alínea f) do mesmo número). Nenhuma decisão sobre ti é tomada automaticamente, e não se constrói nenhum perfil teu.",
     },
     rights: {
       heading: "Os teus direitos",

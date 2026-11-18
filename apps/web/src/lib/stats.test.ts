@@ -3,8 +3,18 @@ import { StatsForbiddenError, statsApi, type UsageStats } from "./stats"
 
 const STATS: UsageStats = {
   generatedAt: "2026-11-17T11:08:49.026624+00:00",
-  people: { guests: 196, accounts: 16, withGarden: 156 },
-  gardens: { total: 202, editedLast7Days: 40, editedLast30Days: 90, shared: 29, withLocation: 12 },
+  people: { guests: 196, accounts: 16, withGarden: 156, accountsWithGarden: 14 },
+  gardens: {
+    total: 202,
+    editedLast7Days: 40,
+    editedLast30Days: 90,
+    shared: 29,
+    withLocation: 12,
+    withPlantings: 120,
+    withRecords: 33,
+    recordedLast7Days: 9,
+    severalYears: 5,
+  },
   weeks: [{ weekStart: "2026-11-16", newPeople: 12, active: 30, returning: 18 }],
   limits: { databaseBytes: 12252851, monthlyUsers: 157 },
 }

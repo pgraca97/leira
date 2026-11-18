@@ -6,13 +6,24 @@ const count = z.number().int().nonnegative()
 /** What `public.usage_stats()` answers. Weeks are oldest first and start on Monday, in UTC. */
 export const UsageStatsSchema = z.object({
   generatedAt: z.string(),
-  people: z.object({ guests: count, accounts: count, withGarden: count }),
+  people: z.object({
+    guests: count,
+    accounts: count,
+    withGarden: count,
+    accountsWithGarden: count,
+  }),
   gardens: z.object({
     total: count,
     editedLast7Days: count,
     editedLast30Days: count,
     shared: count,
     withLocation: count,
+    /** Records are marks (in the ground, out, sown) and harvests; their days are the ones they name. */
+    withPlantings: count,
+    withRecords: count,
+    recordedLast7Days: count,
+    /** Gardens whose crops go into the ground in more than one year. */
+    severalYears: count,
   }),
   weeks: z.array(
     z.object({ weekStart: z.iso.date(), newPeople: count, active: count, returning: count })
