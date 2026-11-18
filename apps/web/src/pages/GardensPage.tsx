@@ -1,4 +1,4 @@
-import { emptyPlan, samplePlan, toIsoDate, withoutRecords } from "@leira/core"
+import { emptyPlan, glancePlan, samplePlan, toIsoDate, withoutRecords } from "@leira/core"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link, useNavigate } from "@tanstack/react-router"
 import { useEffect, useRef, useState } from "react"
@@ -208,7 +208,7 @@ export function GardensPage() {
                 >
                   {garden.plan && (
                     <PlanSvg
-                      plan={garden.plan}
+                      plan={glancePlan(garden.plan, toIsoDate(new Date()))}
                       locale={currentLanguage()}
                       title={garden.name}
                       labels={false}

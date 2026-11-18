@@ -3,7 +3,7 @@ import "./test/setup"
 import "./i18n"
 import { emptyPlan, type Forecast, gardenFile, type WeatherNow } from "@leira/core"
 import { createMemoryHistory } from "@tanstack/react-router"
-import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react"
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 // The instance "./i18n" sets up, to put the language back after a test changes it.
 import i18n from "i18next"
@@ -103,6 +103,24 @@ describe("the gardens list", () => {
         [0, 1]
       )
       expect(pictures.flatMap((picture) => [...picture.querySelectorAll("text")])).toEqual([])
+    })
+
+    it("draws only what is in the ground today, so seasons do not pile up", async () => {
+      const year = new Date().getFullYear()
+      const [tomato] = PLANTED.plan.plantings
+      const thisYear = { ...tomato!, inGround: { from: `${year}-01-01`, to: `${year}-12-31` } }
+      const nextYear = {
+        ...tomato!,
+        id: "66666666-6666-4666-8666-666666666666",
+        inGround: { from: `${year + 1}-05-01`, to: `${year + 1}-09-30` },
+      }
+      backend = fakeBackend([
+        { ...PLANTED, plan: { ...PLANTED.plan, plantings: [thisYear, nextYear] } },
+      ])
+      open("/gardens")
+      await screen.findByRole("link", { name: "Tomato patch" })
+      const [picture] = screen.getAllByRole("img", { hidden: true })
+      expect(picture!.querySelectorAll("[data-planting]")).toHaveLength(1)
     })
 
     it("keeps the pictures out of the way of a screen reader, which has the names", async () => {
@@ -1606,7 +1624,7 @@ describe("sharing a garden", () => {
 
 describe("a shared garden", () => {
   const TOKEN = "bbbbbbbb-bbbb-4bbb-8bbb-000000000001"
-  // The calendar opens on the current year, so the planting is in it.
+  // The page opens on today, so the planting is in the ground all this year.
   const year = new Date().getFullYear()
   const PATCH: Garden = {
     ...TOMATOES,
@@ -1619,7 +1637,7 @@ describe("a shared garden", () => {
           plantId: "tomato",
           rect: { x: 0, y: 0, w: 100, h: 100 },
           layout: "block",
-          inGround: { from: `${year}-05-01`, to: `${year}-09-30` },
+          inGround: { from: `${year}-01-01`, to: `${year}-12-31` },
         },
       ],
     },
@@ -1647,6 +1665,34 @@ describe("a shared garden", () => {
     expect(screen.queryByRole("textbox", { name: "Garden name" })).not.toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "Share" })).not.toBeInTheDocument()
     expect(document.title).toBe("Tomato patch")
+  })
+
+  it("shows the garden on today, and on any day the visitor picks", async () => {
+    const [planting] = PATCH.plan.plantings
+    const later = {
+      ...planting!,
+      id: "66666666-6666-4666-8666-666666666666",
+      inGround: { from: `${year + 1}-05-01`, to: `${year + 1}-09-30` },
+    }
+    backend = fakeBackend([{ ...PATCH, plan: { ...PATCH.plan, plantings: [planting!, later] } }])
+    backend.shares.set(PATCH.id, { token: TOKEN, showLocation: false })
+    open(`/shared/${TOKEN}`, noSession)
+    const picture = await screen.findByRole("img", { name: "Tomato patch" })
+    expect(picture.querySelectorAll("[data-planting]")).toHaveLength(1)
+
+    await userEvent.click(screen.getByRole("button", { name: "Show everything" }))
+    expect(
+      screen.getByRole("img", { name: "Tomato patch" }).querySelectorAll("[data-planting]")
+    ).toHaveLength(2)
+  })
+
+  it("keeps the calendar on the year of the day picked on the plan", async () => {
+    open(`/shared/${TOKEN}`, noSession)
+    fireEvent.change(await screen.findByLabelText("Show the garden on"), {
+      target: { value: `${year + 1}-06-01` },
+    })
+    await userEvent.click(screen.getByRole("link", { name: "Calendar" }))
+    expect(await screen.findByRole("heading", { name: String(year + 1) })).toBeVisible()
   })
 
   it("shows the calendar too, with nothing to press on its rows", async () => {

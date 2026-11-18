@@ -1,11 +1,13 @@
+import { type IsoDate, plantingsInGround, toIsoDate } from "@leira/core"
 import { useQuery } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { PlanCalendar } from "../calendar/Calendar"
 import { AppHeader } from "../components/AppHeader"
 import { Notice } from "../components/Notice"
 import { viewLinkClass } from "../components/ui"
+import { DateFilter } from "../editor/DateFilter"
 import { PlanSvg } from "../export/PlanSvg"
 import { currentLanguage } from "../i18n"
 import { usePublicBackend } from "../lib/backend"
@@ -76,6 +78,8 @@ interface LoadedSharedGardenProps {
 function LoadedSharedGarden({ garden, token, view }: LoadedSharedGardenProps) {
   const { t } = useTranslation()
   const { name, plan, location } = garden
+  // Like the editor, the page opens on today, and both views keep to the day picked.
+  const [day, setDay] = useState<IsoDate | null>(() => toIsoDate(new Date()))
 
   useEffect(() => {
     document.title = name
@@ -118,11 +122,12 @@ function LoadedSharedGarden({ garden, token, view }: LoadedSharedGardenProps) {
       </div>
       <div className="min-h-0 flex-1">
         {view === "calendar" ? (
-          <PlanCalendar plan={plan} gardenName={name} />
+          <PlanCalendar plan={plan} gardenName={name} day={day} onDayChange={setDay} />
         ) : (
-          <main className="h-full overflow-auto p-4">
+          <main className="flex h-full flex-col items-center gap-3 overflow-auto p-4">
+            <DateFilter value={day} onChange={setDay} plan={plan} />
             <PlanSvg
-              plan={plan}
+              plan={day ? plantingsInGround(plan, day) : plan}
               locale={currentLanguage()}
               title={name}
               className="mx-auto max-h-full w-full max-w-5xl"
