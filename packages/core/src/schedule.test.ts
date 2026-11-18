@@ -8,6 +8,9 @@ import {
   nearestPlantedDay,
   plantingSchedule,
   plantingsInGround,
+  TASK_AHEAD_DAYS,
+  TASK_LOOKBACK_DAYS,
+  tasksThisWeek,
 } from "./schedule"
 import { emptyPlan, type GardenPlan, type Plant, type Planting } from "./schema"
 
@@ -268,6 +271,35 @@ describe("gardenTasks", () => {
       plantings: [planting("mystery", "dragonfruit", "2026-03-15", "2026-04-15")],
     }
     expect(gardenTasks(unknown, getPlant, all)).toEqual([])
+  })
+})
+
+describe("tasksThisWeek", () => {
+  const plan: GardenPlan = { ...emptyPlan(), plantings: [tomatoes, carrots] }
+
+  it("looks a week ahead and a month back", () => {
+    expect(TASK_AHEAD_DAYS).toBe(7)
+    expect(TASK_LOOKBACK_DAYS).toBe(30)
+  })
+
+  it("lists the jobs of the coming week", () => {
+    expect(tasksThisWeek(plan, getPlant, "2026-04-25").map((task) => task.kind)).toEqual([
+      "transplant",
+    ])
+  })
+
+  it("keeps a job that slipped, until it is a month late", () => {
+    expect(tasksThisWeek(plan, getPlant, "2026-04-15").map((task) => task.date)).toEqual([
+      "2026-03-20",
+    ])
+    expect(tasksThisWeek(plan, getPlant, "2026-04-20")).toEqual([])
+  })
+
+  it("leaves out what is done", () => {
+    const sown: GardenPlan = { ...plan, plantings: [tomatoes, { ...carrots, planted: true }] }
+    expect(tasksThisWeek(sown, getPlant, "2026-03-20").map((task) => task.plantingId)).toEqual([
+      "tomatoes",
+    ])
   })
 })
 

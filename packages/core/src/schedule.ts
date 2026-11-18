@@ -145,6 +145,28 @@ export function gardenTasks(
   return tasks.sort((a, b) => a.date.localeCompare(b.date))
 }
 
+/** How far ahead "this week" looks for jobs. */
+export const TASK_AHEAD_DAYS = 7
+
+/**
+ * How long a job not done stays on a list after its day. Long enough to catch
+ * up on a job that slipped, short enough that crops planted before anyone kept
+ * records do not fill the list with jobs nobody is going to tick.
+ */
+export const TASK_LOOKBACK_DAYS = 30
+
+/** The jobs still to do: those that slipped in the last month, then the coming week's. */
+export function tasksThisWeek(
+  plan: GardenPlan,
+  getPlant: (id: string) => Plant | undefined,
+  today: IsoDate
+): GardenTask[] {
+  return gardenTasks(plan, getPlant, {
+    from: addDays(today, -TASK_LOOKBACK_DAYS),
+    to: addDays(today, TASK_AHEAD_DAYS),
+  }).filter((task) => !task.done)
+}
+
 /**
  * The day to record a job on when it is only ticked off: today where the
  * planting's other dates allow it, otherwise the day it was planned for. A

@@ -105,6 +105,9 @@ export {
   type PlantingSchedule,
   plantingSchedule,
   plantingsInGround,
+  TASK_AHEAD_DAYS,
+  TASK_LOOKBACK_DAYS,
+  tasksThisWeek,
 } from "./schedule"
 export {
   BED_KINDS,

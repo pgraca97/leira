@@ -23,6 +23,7 @@ import {
   plantingFill,
   plantingSchedule,
   seedList,
+  TASK_LOOKBACK_DAYS,
   toIsoDate,
   yearOf,
 } from "@leira/core"
@@ -45,12 +46,6 @@ const EXPORT_HORIZON_DAYS = 365
 
 /** How far ahead the list of jobs looks. */
 const TASK_HORIZON_DAYS = 30
-/**
- * How long a job stays on the list after its day. Long enough to catch up on
- * a job that slipped, short enough that crops planted before anyone kept
- * records do not fill the list with jobs nobody is going to tick.
- */
-const TASK_LOOKBACK_DAYS = 30
 
 const headingClass = "text-xs font-semibold tracking-wide text-stone-500 uppercase"
 
