@@ -262,10 +262,12 @@ const PLACE_QUERY_MIN = 2
 /**
  * A place as a search result: its municipality and its region, each only
  * when it adds something to the name. The municipality is what tells apart
- * the villages that share a name.
+ * the villages that share a name. In English the geocoder names a
+ * municipality "Sintra Municipality", which adds nothing to "Sintra" either.
  */
 function placeLabel(place: Place): string {
-  const area = place.area === place.name ? undefined : place.area
+  const sameAsName = (part?: string) => part === place.name || part === `${place.name} Municipality`
+  const area = sameAsName(place.area) ? undefined : place.area
   const region = place.region === place.name ? undefined : place.region
   return [place.name, area, region, place.country].filter(Boolean).join(", ")
 }

@@ -470,6 +470,33 @@ describe("the garden's weather", () => {
       ])
     })
 
+    // In English the geocoder writes "Sintra Municipality" for the concelho of Sintra.
+    it("leaves out a municipality named after the place itself, in English too", async () => {
+      backend.placesResult = [
+        {
+          name: "Sintra",
+          area: "Sintra Municipality",
+          region: "Lisbon District",
+          country: "PT",
+          lat: 38.8,
+          lon: -9.38,
+        },
+        {
+          name: "Funchal",
+          area: "Sintra Municipality",
+          region: "Lisbon District",
+          country: "PT",
+          lat: 38.79,
+          lon: -9.4,
+        },
+      ]
+      await search("Sintra")
+      expect(await foundNames()).toEqual([
+        "Sintra, Lisbon District, PT",
+        "Funchal, Sintra Municipality, Lisbon District, PT",
+      ])
+    })
+
     it("credits where the places come from, next to them", async () => {
       backend.placesResult = BRAGA
       await search("Braga")
