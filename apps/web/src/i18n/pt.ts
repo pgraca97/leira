@@ -303,7 +303,8 @@ export const pt: Translation = {
     allYear: "todo o ano",
     title: "Fora de época",
     outOfSeason: "{{name}} vai para a terra em {{month}}. Época: {{season}}.",
-    goesIn: "Vai para a terra: {{season}}.",
+    goesIn: "Vai para a terra (norte e centro): {{season}}.",
+    where: "Meses do norte e centro de Portugal continental.",
     startNow: "Para semear ou plantar agora",
     nothingNow: "Nada para semear ou plantar em {{month}}.",
     way: {
@@ -570,7 +571,7 @@ export const pt: Translation = {
       },
       crops: {
         title: "{{number}} culturas comuns em Portugal",
-        body: "Compasso, tolerância à geada, dias até à colheita e os meses em que cada uma vai para a terra. Um visto mostra o que se pode semear ou plantar este mês.",
+        body: "Compasso, tolerância à geada, dias até à colheita e os meses em que cada uma vai para a terra. Um visto mostra o que se pode semear ou plantar este mês. Os meses são os do norte e centro de Portugal continental.",
       },
       advice: {
         title: "Conselhos no próprio plano",

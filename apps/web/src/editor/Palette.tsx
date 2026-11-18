@@ -189,15 +189,20 @@ export function Palette() {
           value={search}
           onChange={(event) => setSearch(event.target.value)}
         />
-        <label className="mb-1 flex items-center gap-1.5 text-sm text-stone-800">
+        <label className="flex items-center gap-1.5 text-sm text-stone-800">
           <input
             type="checkbox"
             className="size-4 accent-emerald-700"
+            aria-describedby="palette-season-where"
             checked={startNow}
             onChange={(event) => setStartNow(event.target.checked)}
           />
           {t("season.startNow")}
         </label>
+        {/* The months come from northern and central calendars; further south they mislead. */}
+        <p id="palette-season-where" className="mb-1 text-xs text-stone-500">
+          {t("season.where")}
+        </p>
         {shown.length === 0 && (
           <p className="text-sm text-stone-600">
             {wanted

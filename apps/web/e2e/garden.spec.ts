@@ -291,7 +291,7 @@ test("the crop list narrows to what the month allows, and a crop says its season
   await expect(crops).toHaveCount(0)
 
   await pickCrop(page, "Fruits", "Tomato")
-  await expect(page.getByText(/^Goes in the ground: /)).toBeVisible()
+  await expect(page.getByText(/^Goes in the ground \(north and centre\): /)).toBeVisible()
 
   // A tomato planted out in January is flagged, and the flag leads to it.
   const year = new Date().getFullYear()

@@ -138,6 +138,12 @@ describe("what can be started now", () => {
       )
   const startNow = () => screen.getByRole("checkbox", { name: "To sow or plant now" })
 
+  it("says the months are those of the north and centre", () => {
+    expect(startNow()).toHaveAccessibleDescription(
+      "Months for the north and centre of mainland Portugal."
+    )
+  })
+
   it("narrows the list to the crops of the month, saying how each is started", async () => {
     await userEvent.click(startNow())
     expect(shownPlants()).toEqual(startable("2026-04-15"))
@@ -178,7 +184,7 @@ describe("the season of the chosen plant", () => {
     const tomato = getPlant("tomato")
     await userEvent.click(screen.getByRole("button", { name: "Tomato" }))
     const season = seasonText(tomato?.groundMonths ?? [], "en", i18n.getFixedT("en"))
-    expect(screen.getByText(`Goes in the ground: ${season}.`)).toBeVisible()
+    expect(screen.getByText(`Goes in the ground (north and centre): ${season}.`)).toBeVisible()
   })
 
   it("says nothing until a plant is chosen", () => {

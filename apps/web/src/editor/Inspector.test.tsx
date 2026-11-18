@@ -317,6 +317,13 @@ describe("out of season warnings", () => {
     )
   })
 
+  it("says the months are those of the north and centre", () => {
+    show([planting("early", "tomato", day(bad), "2026-12-31")])
+    expect(screen.getByRole("region", { name: "Out of season" })).toHaveTextContent(
+      "Months for the north and centre of mainland Portugal."
+    )
+  })
+
   it("selects the planting to move when its warning is clicked", async () => {
     show([planting("early", "tomato", day(bad), "2026-12-31")])
     await userEvent.click(

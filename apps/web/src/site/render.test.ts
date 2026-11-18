@@ -36,10 +36,28 @@ describe("the site", () => {
 })
 
 describe.each([
-  { path: "index.html", url: `${SITE_URL}/`, lang: "pt-PT", locale: "pt_PT", strings: pt },
-  { path: "en/index.html", url: `${SITE_URL}/en/`, lang: "en", locale: "en_GB", strings: en },
-])("the landing page at $path", ({ path, url, lang, locale, strings }) => {
+  {
+    path: "index.html",
+    url: `${SITE_URL}/`,
+    lang: "pt-PT",
+    locale: "pt_PT",
+    strings: pt,
+    where: "Os meses são os do norte e centro de Portugal continental.",
+  },
+  {
+    path: "en/index.html",
+    url: `${SITE_URL}/en/`,
+    lang: "en",
+    locale: "en_GB",
+    strings: en,
+    where: "The months are those of the north and centre of mainland Portugal.",
+  },
+])("the landing page at $path", ({ path, url, lang, locale, strings, where }) => {
   const doc = page(path)
+
+  it("says where the sowing months hold", () => {
+    expect(doc.body.textContent).toContain(where)
+  })
 
   it("says which language it is in", () => {
     expect(doc.documentElement.lang).toBe(lang)

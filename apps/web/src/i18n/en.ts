@@ -301,7 +301,9 @@ export const en = {
     allYear: "all year",
     title: "Out of season",
     outOfSeason: "{{name}} goes in the ground in {{month}}. Season: {{season}}.",
-    goesIn: "Goes in the ground: {{season}}.",
+    goesIn: "Goes in the ground (north and centre): {{season}}.",
+    /** The sowing months come from calendars for this part of the country only. */
+    where: "Months for the north and centre of mainland Portugal.",
     startNow: "To sow or plant now",
     nothingNow: "Nothing to sow or plant in {{month}}.",
     way: {
@@ -565,7 +567,7 @@ export const en = {
       },
       crops: {
         title: "{{number}} crops grown in Portugal",
-        body: "Spacing, frost tolerance, days to harvest and the months each one goes in the ground. One tick shows what can be sown or planted out this month.",
+        body: "Spacing, frost tolerance, days to harvest and the months each one goes in the ground. One tick shows what can be sown or planted out this month. The months are those of the north and centre of mainland Portugal.",
       },
       advice: {
         title: "Advice on the plan itself",

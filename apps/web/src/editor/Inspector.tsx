@@ -458,6 +458,7 @@ export function Inspector({ children }: { children?: ReactNode }) {
           >
             {t("season.title")}
           </h3>
+          <p className="mb-1 text-xs text-stone-500">{t("season.where")}</p>
           <ul className="flex flex-col gap-1">
             {outOfSeason.map((late) => (
               <li key={late.plantingId}>
