@@ -119,3 +119,42 @@ describe("the catalogue's seasons", () => {
     }
   })
 })
+
+describe("findOutOfSeason in a greenhouse", () => {
+  const glass: GardenPlan["beds"][number] = {
+    id: "glass",
+    name: "",
+    kind: "greenhouse",
+    rect: { x: 0, y: 0, w: 200, h: 200 },
+  }
+  const tomatoOn = (id: string, from: string): Planting => ({
+    id,
+    plantId: "tomato",
+    rect: { x: 0, y: 0, w: 100, h: 100 },
+    layout: "row",
+    inGround: { from, to: "2026-12-31" },
+  })
+
+  it("gives a month more at each end under cover", () => {
+    const march = tomatoOn("march", "2026-03-10")
+    expect(findOutOfSeason({ ...emptyPlan(), plantings: [march] }, getPlant)).toHaveLength(1)
+    expect(
+      findOutOfSeason({ ...emptyPlan(), beds: [glass], plantings: [march] }, getPlant)
+    ).toEqual([])
+  })
+
+  it("still flags a crop far outside its season under cover", () => {
+    const december = tomatoOn("december", "2026-12-10")
+    expect(
+      findOutOfSeason({ ...emptyPlan(), beds: [glass], plantings: [december] }, getPlant)
+    ).toEqual([{ plantingId: "december", plantId: "tomato", month: 12 }])
+  })
+
+  it("leaves a crop on a path to its own warning", () => {
+    const december = tomatoOn("december", "2026-12-10")
+    const path = { ...glass, kind: "path" as const }
+    expect(
+      findOutOfSeason({ ...emptyPlan(), beds: [path], plantings: [december] }, getPlant)
+    ).toEqual([])
+  })
+})

@@ -1,4 +1,6 @@
+import { siteOf } from "./beds"
 import { addDays, type IsoDate } from "./dates"
+import { seasonMonths } from "./greenhouse"
 import type { GardenTaskKind } from "./schedule"
 import type { GardenPlan, Plant } from "./schema"
 
@@ -62,7 +64,8 @@ export interface OutOfSeason {
 /**
  * The plantings due in the ground outside their crop's season. A planting
  * recorded as already in the ground is left out: there is nothing left to
- * plan about a day that has happened.
+ * plan about a day that has happened. In a greenhouse the season is longer;
+ * a planting on a path or structure has a warning of its own.
  */
 export function findOutOfSeason(
   plan: GardenPlan,
@@ -71,7 +74,9 @@ export function findOutOfSeason(
   return plan.plantings.flatMap((planting) => {
     const plant = getPlant(planting.plantId)
     const month = monthOf(planting.inGround.from)
-    if (!plant || planting.planted || plant.groundMonths.includes(month)) return []
+    if (!plant || planting.planted) return []
+    const site = siteOf(plan, planting)
+    if (site === "off-soil" || seasonMonths(plant, site).includes(month)) return []
     return [{ plantingId: planting.id, plantId: plant.id, month }]
   })
 }

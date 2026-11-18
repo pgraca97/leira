@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { bedOfPlanting, bedSeasons, cropsThatFit } from "./beds"
+import { bedOfPlanting, bedSeasons, cropsThatFit, findOffSoil, siteOf } from "./beds"
 import { PLANTS } from "./plants"
 import { type Bed, emptyPlan, type GardenPlan, type Plant, type Planting } from "./schema"
 
@@ -135,5 +135,54 @@ describe("cropsThatFit", () => {
 
   it("follows a window over the year's end", () => {
     expect(fits("2026-12-01", "2027-05-15")).toEqual(["spring"])
+  })
+})
+
+describe("siteOf", () => {
+  const plan: GardenPlan = {
+    ...emptyPlan(),
+    beds: [
+      bed("open", 0),
+      bed("glass", 200, "greenhouse"),
+      bed("pot", 400, "container"),
+      bed("path", 600, "path"),
+      bed("shed", 800, "structure"),
+    ],
+  }
+  const at = (x: number) => siteOf(plan, planting("a", x, "2026-03-01", "2026-05-01"))
+
+  it("is the greenhouse for a crop in one", () => {
+    expect(at(210)).toBe("greenhouse")
+  })
+
+  it("is open air in a bed, a container or on open ground", () => {
+    expect(at(10)).toBe("open")
+    expect(at(410)).toBe("open")
+    expect(at(1000)).toBe("open")
+  })
+
+  it("is off the soil on a path or a structure", () => {
+    expect(at(610)).toBe("off-soil")
+    expect(at(810)).toBe("off-soil")
+  })
+
+  it("is the bed's for a crop partly on a path, since a bed holds part of it", () => {
+    // From 460 to 640: 40 cm in the container (400 to 500), 40 on the path (600 to 700).
+    expect(siteOf(plan, planting("a", 460, "2026-03-01", "2026-05-01", 180))).toBe("open")
+  })
+})
+
+describe("findOffSoil", () => {
+  it("lists the plantings drawn on a path or a structure, in the plan's order", () => {
+    const plan: GardenPlan = {
+      ...emptyPlan(),
+      beds: [bed("open", 0), bed("path", 200, "path"), bed("shed", 400, "structure")],
+      plantings: [
+        planting("on shed", 410, "2026-03-01", "2026-05-01"),
+        planting("in bed", 10, "2026-03-01", "2026-05-01"),
+        planting("on path", 210, "2026-03-01", "2026-05-01"),
+      ],
+    }
+    expect(findOffSoil(plan)).toEqual(["on shed", "on path"])
   })
 })

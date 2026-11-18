@@ -1,4 +1,11 @@
-export { type BedSeason, bedOfPlanting, bedSeasons, cropsThatFit } from "./beds"
+export {
+  type BedSeason,
+  bedOfPlanting,
+  bedSeasons,
+  cropsThatFit,
+  findOffSoil,
+  siteOf,
+} from "./beds"
 export { type Clipboard, ClipboardSchema, copyItems, pasteItems, yearsUntil } from "./clipboard"
 export {
   type CompanionOptions,
@@ -45,6 +52,13 @@ export {
   snap,
   snapRect,
 } from "./geometry"
+export {
+  GREENHOUSE_EXTRA_MONTHS,
+  GREENHOUSE_HEAT_OFFSET_C,
+  GREENHOUSE_SOIL_OFFSET_C,
+  type GrowingSite,
+  seasonMonths,
+} from "./greenhouse"
 export { type CalendarEvent, icsCalendar } from "./ics"
 export { migratePlan, StoredPlanSchema } from "./migrate"
 export {

@@ -1,4 +1,6 @@
+import { siteOf } from "./beds"
 import { addDays, type IsoDate } from "./dates"
+import { GREENHOUSE_HEAT_OFFSET_C, GREENHOUSE_SOIL_OFFSET_C } from "./greenhouse"
 import { isInGround, plantingSchedule } from "./schedule"
 import type { ForecastDay, FrostTolerance, GardenPlan, Plant } from "./schema"
 
@@ -36,6 +38,8 @@ export interface WeatherRisk {
   date: IsoDate
   /** That day's low for frost and cold, high for heat, or soil temperature for cold soil. */
   tempC: number
+  /** Where the crop grows: the forecast is for the open air, and a greenhouse changes what it means. */
+  site: "open" | "greenhouse"
 }
 
 /**
@@ -44,7 +48,11 @@ export interface WeatherRisk {
  * Frost outranks a merely cold night: a crop facing both only gets the frost
  * warning. A crop sown in place also gets a warning when the soil is too cold
  * on its sowing day. Warnings come in date order. Crops the lookup does not know are
- * skipped.
+ * skipped, and so are crops drawn on a path or structure, which have a warning of their own.
+ *
+ * In a greenhouse the day is hotter and the soil warmer than the forecast
+ * says, so heat comes sooner and cold soil later. The nights are not
+ * counted warmer: on a clear night an unheated one can be as cold as outside.
  */
 export function findWeatherRisks(
   plan: GardenPlan,
@@ -57,8 +65,11 @@ export function findWeatherRisks(
   for (const planting of plan.plantings) {
     const plant = getPlant(planting.plantId)
     if (!plant) continue
+    const site = siteOf(plan, planting)
+    if (site === "off-soil") continue
+    const inside = site === "greenhouse"
     const exposed = days.filter((day) => isInGround(planting, day.date))
-    const ids = { plantingId: planting.id, plantId: plant.id }
+    const ids = { plantingId: planting.id, plantId: plant.id, site }
 
     const frost = exposed.find((day) => day.minC <= FROST_LIMIT_C[plant.frost])
     if (frost) risks.push({ ...ids, kind: "frost", date: frost.date, tempC: frost.minC })
@@ -82,13 +93,16 @@ export function findWeatherRisks(
       !plantingSchedule(planting, plant).indoors
     ) {
       const sowing = days.find((day) => day.date === planting.inGround.from)
-      if (sowing?.soilC !== undefined && sowing.soilC < germMinSoilC) {
+      const soilGain = inside ? GREENHOUSE_SOIL_OFFSET_C : 0
+      if (sowing?.soilC !== undefined && sowing.soilC + soilGain < germMinSoilC) {
         risks.push({ ...ids, kind: "coldSoil", date: sowing.date, tempC: sowing.soilC })
       }
     }
 
     const maxDayC = plant.temps.maxDayC
-    const heat = maxDayC === undefined ? undefined : exposed.find((day) => day.maxC >= maxDayC)
+    const heatGain = inside ? GREENHOUSE_HEAT_OFFSET_C : 0
+    const heat =
+      maxDayC === undefined ? undefined : exposed.find((day) => day.maxC + heatGain >= maxDayC)
     if (heat) risks.push({ ...ids, kind: "heat", date: heat.date, tempC: heat.maxC })
   }
   // The sort is stable, so warnings for the same day stay in the plan's order.

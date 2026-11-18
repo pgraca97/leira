@@ -1,5 +1,6 @@
 import { addDays, daysBetween, type IsoDate } from "./dates"
 import { intersection } from "./geometry"
+import type { GrowingSite } from "./greenhouse"
 import type { DateRange } from "./schedule"
 import type { Bed, BedKind, GardenPlan, Plant, Planting } from "./schema"
 
@@ -25,6 +26,27 @@ export function bedOfPlanting(plan: GardenPlan, planting: Planting): Bed | null 
     }
   }
   return best
+}
+
+/**
+ * Where a planting grows: in a greenhouse, in the open (a bed, a container or
+ * open ground), or off the soil, when it is drawn on a path or structure and
+ * on no growing area at all.
+ */
+export function siteOf(plan: GardenPlan, planting: Planting): GrowingSite {
+  const bed = bedOfPlanting(plan, planting)
+  if (bed) return bed.kind === "greenhouse" ? "greenhouse" : "open"
+  const onHardGround = plan.beds.some(
+    (other) => !GROWING.includes(other.kind) && intersection(other.rect, planting.rect)
+  )
+  return onHardGround ? "off-soil" : "open"
+}
+
+/** The plantings drawn on a path or structure, in the plan's order. */
+export function findOffSoil(plan: GardenPlan): string[] {
+  return plan.plantings
+    .filter((planting) => siteOf(plan, planting) === "off-soil")
+    .map((planting) => planting.id)
 }
 
 /** A bed over a stretch of time: what grows in it, and when it stands empty. */

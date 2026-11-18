@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { getPlant } from "./plants"
 import {
+  type Bed,
   emptyPlan,
   type ForecastDay,
   ForecastDaySchema,
@@ -50,7 +51,14 @@ describe("findWeatherRisks", () => {
   it("warns of frost on a tender crop when the night gets close to freezing", () => {
     const forecast = [day("2026-04-10", 6, 15), day("2026-04-11", 1.5, 12)]
     expect(findWeatherRisks(planWith(tomatoes), getPlant, forecast)).toEqual([
-      { plantingId: "tomatoes", plantId: "tomato", kind: "frost", date: "2026-04-11", tempC: 1.5 },
+      {
+        plantingId: "tomatoes",
+        plantId: "tomato",
+        kind: "frost",
+        date: "2026-04-11",
+        tempC: 1.5,
+        site: "open",
+      },
     ])
   })
 
@@ -76,14 +84,28 @@ describe("findWeatherRisks", () => {
   it("reports each crop once, on the first day at risk", () => {
     const forecast = [day("2026-04-10", 5, 12), day("2026-04-11", 1, 12), day("2026-04-12", -2, 8)]
     expect(findWeatherRisks(planWith(tomatoes), getPlant, forecast)).toEqual([
-      { plantingId: "tomatoes", plantId: "tomato", kind: "frost", date: "2026-04-11", tempC: 1 },
+      {
+        plantingId: "tomatoes",
+        plantId: "tomato",
+        kind: "frost",
+        date: "2026-04-11",
+        tempC: 1,
+        site: "open",
+      },
     ])
   })
 
   it("warns of heat when the day reaches what the crop tolerates", () => {
     const forecast = [day("2026-07-10", 20, 33), day("2026-07-11", 22, 35)]
     expect(findWeatherRisks(planWith(tomatoes), getPlant, forecast)).toEqual([
-      { plantingId: "tomatoes", plantId: "tomato", kind: "heat", date: "2026-07-11", tempC: 35 },
+      {
+        plantingId: "tomatoes",
+        plantId: "tomato",
+        kind: "heat",
+        date: "2026-07-11",
+        tempC: 35,
+        site: "open",
+      },
     ])
   })
 
@@ -121,7 +143,14 @@ describe("cold nights for transplants", () => {
       day("2026-05-05", 5, 18),
     ]
     expect(findWeatherRisks(planWith(goingOut), getPlant, forecast)).toEqual([
-      { plantingId: "going-out", plantId: "tomato", kind: "cold", date: "2026-05-04", tempC: 7 },
+      {
+        plantingId: "going-out",
+        plantId: "tomato",
+        kind: "cold",
+        date: "2026-05-04",
+        tempC: 7,
+        site: "open",
+      },
     ])
   })
 
@@ -149,7 +178,14 @@ describe("cold nights for transplants", () => {
   it("leaves the warning to frost when the same crop faces both", () => {
     const forecast = [day("2026-05-03", 6, 15), day("2026-05-04", 1, 12)]
     expect(findWeatherRisks(planWith(goingOut), getPlant, forecast)).toEqual([
-      { plantingId: "going-out", plantId: "tomato", kind: "frost", date: "2026-05-04", tempC: 1 },
+      {
+        plantingId: "going-out",
+        plantId: "tomato",
+        kind: "frost",
+        date: "2026-05-04",
+        tempC: 1,
+        site: "open",
+      },
     ])
   })
 })
@@ -167,6 +203,7 @@ describe("cold soil for sowing", () => {
         kind: "coldSoil",
         date: "2026-05-04",
         tempC: 13.4,
+        site: "open",
       },
     ])
   })
@@ -198,5 +235,73 @@ describe("cold soil for sowing", () => {
   it("says nothing for a crop with no known soil minimum", () => {
     const garlic = planting("garlic", "garlic", "2026-05-04", "2026-07-30")
     expect(findWeatherRisks(planWith(garlic), getPlant, [day("2026-05-04", 10, 21, 3)])).toEqual([])
+  })
+})
+
+describe("in a greenhouse", () => {
+  const GLASS: Bed = {
+    id: "glass",
+    name: "",
+    kind: "greenhouse",
+    rect: { x: 0, y: 0, w: 200, h: 200 },
+  }
+  const under = (...plantings: Planting[]): GardenPlan => ({
+    ...emptyPlan(),
+    beds: [GLASS],
+    plantings,
+  })
+  // Carrot seed needs 5 °C of soil and is sown in place; tomato suffers from 35 °C.
+  const carrots = planting("carrots", "carrot", "2026-03-04", "2026-07-30")
+
+  it("warns of heat from a forecast eight degrees cooler than outside", () => {
+    const forecast = [day("2026-07-10", 15, 26), day("2026-07-11", 16, 27)]
+    expect(findWeatherRisks(planWith(tomatoes), getPlant, forecast)).toEqual([])
+    expect(findWeatherRisks(under(tomatoes), getPlant, forecast)).toEqual([
+      {
+        plantingId: "tomatoes",
+        plantId: "tomato",
+        kind: "heat",
+        date: "2026-07-11",
+        tempC: 27,
+        site: "greenhouse",
+      },
+    ])
+  })
+
+  it("warns of frost as outside, since a clear night can be as cold inside", () => {
+    const forecast = [day("2026-04-11", FROST_LIMIT_C.tender, 14)]
+    expect(findWeatherRisks(under(tomatoes), getPlant, forecast)).toEqual([
+      {
+        plantingId: "tomatoes",
+        plantId: "tomato",
+        kind: "frost",
+        date: "2026-04-11",
+        tempC: 2,
+        site: "greenhouse",
+      },
+    ])
+  })
+
+  it("counts the soil two degrees warmer", () => {
+    const cold = [day("2026-03-04", 6, 14, 2.9)]
+    const justEnough = [day("2026-03-04", 6, 14, 3)]
+    expect(findWeatherRisks(planWith(carrots), getPlant, justEnough)).toHaveLength(1)
+    expect(findWeatherRisks(under(carrots), getPlant, justEnough)).toEqual([])
+    expect(findWeatherRisks(under(carrots), getPlant, cold)).toEqual([
+      {
+        plantingId: "carrots",
+        plantId: "carrot",
+        kind: "coldSoil",
+        date: "2026-03-04",
+        tempC: 2.9,
+        site: "greenhouse",
+      },
+    ])
+  })
+
+  it("says nothing about a crop drawn on a path", () => {
+    const path: Bed = { ...GLASS, kind: "path" }
+    const plan = { ...planWith(tomatoes), beds: [path] }
+    expect(findWeatherRisks(plan, getPlant, [day("2026-04-11", -5, 40)])).toEqual([])
   })
 })
