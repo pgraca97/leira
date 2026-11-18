@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { getPlant, PLANTS } from "./plants"
-import { PLANT_FAMILIES, PlantSchema } from "./schema"
+import { PLANT_FAMILIES, PLANT_GROUPS, PlantSchema } from "./schema"
 
 describe("plant dataset", () => {
   it.each(PLANTS.map((plant) => [plant.id, plant] as const))(
@@ -65,6 +65,26 @@ describe("the catalogue", () => {
     for (const family of PLANT_FAMILIES) {
       expect(families, `no crop in ${family}`).toContain(family)
     }
+  })
+
+  it("has a crop in every kind the crop list is grouped by", () => {
+    const groups = new Set(PLANTS.map((plant) => plant.group))
+    for (const group of PLANT_GROUPS) {
+      expect(groups, `no crop in ${group}`).toContain(group)
+    }
+  })
+
+  it("groups crops by what is eaten, not by botany", () => {
+    const groupOf = (id: string) => getPlant(id)?.group
+    expect(groupOf("tomato")).toBe("fruit")
+    expect(groupOf("strawberry")).toBe("fruit")
+    // A brassica eaten for its leaves or its head sits with the greens.
+    expect(groupOf("cauliflower")).toBe("leaf")
+    expect(groupOf("potato")).toBe("root")
+    expect(groupOf("garlic")).toBe("bulb")
+    expect(groupOf("pea")).toBe("legume")
+    expect(groupOf("chives")).toBe("herb")
+    expect(groupOf("marigold")).toBe("flower")
   })
 
   it("lists each companion of a plant once", () => {

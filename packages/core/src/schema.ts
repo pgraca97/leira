@@ -181,6 +181,15 @@ export const PLANT_FAMILIES = [
 ] as const
 export type PlantFamily = (typeof PLANT_FAMILIES)[number]
 
+/**
+ * What a crop is grown for, as a gardener looks for it in a list: the fruit,
+ * the leaves (cabbages and their heads too), the root, the bulb, the pods, the
+ * herb or the flower. Botany is `family`, which rotation needs; this is for
+ * finding a crop. In the order the list shows them.
+ */
+export const PLANT_GROUPS = ["fruit", "leaf", "root", "bulb", "legume", "herb", "flower"] as const
+export type PlantGroup = (typeof PLANT_GROUPS)[number]
+
 /** `tender` dies at the first frost, `half-hardy` survives a light one, `hardy` a hard one. */
 export const FROST_TOLERANCES = ["tender", "half-hardy", "hardy"] as const
 export type FrostTolerance = (typeof FROST_TOLERANCES)[number]
@@ -191,6 +200,7 @@ export const PlantSchema = z.object({
   latin: z.string().min(1),
   /** Botanical family: crop rotation works on families, not single crops. */
   family: z.enum(PLANT_FAMILIES),
+  group: z.enum(PLANT_GROUPS),
   frost: z.enum(FROST_TOLERANCES),
   spacing: z.object({
     /** Distance between plants along a row. */
