@@ -336,6 +336,7 @@ export const pt: Translation = {
   export: {
     saveImage: "Guardar imagem",
     print: "Imprimir",
+    onDay: "No dia {{date}}",
     imageFailed: "Não foi possível guardar a imagem.",
     file: "Guardar ficheiro",
     plant: "Planta",

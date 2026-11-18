@@ -334,6 +334,7 @@ export const en = {
   export: {
     saveImage: "Save image",
     print: "Print",
+    onDay: "On {{date}}",
     imageFailed: "The image could not be saved.",
     file: "Save file",
     plant: "Plant",

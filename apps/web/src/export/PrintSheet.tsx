@@ -1,5 +1,6 @@
 import { getPlant, type IsoDate, plantingFill } from "@leira/core"
 import { useTranslation } from "react-i18next"
+import { shownPlan } from "../editor/store"
 import { useEditor } from "../editor/useEditor"
 import { currentLanguage } from "../i18n"
 import { PlanSvg } from "./PlanSvg"
@@ -11,7 +12,10 @@ import { PlanSvg } from "./PlanSvg"
  */
 export function PrintSheet({ gardenName }: { gardenName: string }) {
   const { t } = useTranslation()
-  const plan = useEditor((state) => state.plan)
+  // On paper as on the screen: with a day picked, only what is in the ground then.
+  const fullPlan = useEditor((state) => state.plan)
+  const viewDate = useEditor((state) => state.viewDate)
+  const plan = shownPlan({ plan: fullPlan, viewDate })
   const language = currentLanguage()
   // Dates carry no zone, so they are formatted in UTC to stay on the same day everywhere.
   const dateFormat = new Intl.DateTimeFormat(language, { dateStyle: "medium", timeZone: "UTC" })
@@ -31,6 +35,7 @@ export function PrintSheet({ gardenName }: { gardenName: string }) {
   return (
     <div data-testid="print-sheet" className="hidden p-4 text-stone-900 print:block">
       <h1 className="mb-3 text-2xl font-semibold">{gardenName}</h1>
+      {viewDate && <p className="-mt-2 mb-3">{t("export.onDay", { date: day(viewDate) })}</p>}
       <PlanSvg plan={plan} locale={language} title={gardenName} className="max-h-[60vh] w-full" />
       {rows.length > 0 && (
         <table className="mt-4 w-full border-collapse text-left text-sm">

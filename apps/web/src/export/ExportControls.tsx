@@ -3,7 +3,7 @@ import { useState } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 import { useTranslation } from "react-i18next"
 import { buttonClass } from "../components/ui"
-import { editorStore } from "../editor/store"
+import { editorStore, shownPlan } from "../editor/store"
 import { currentLanguage } from "../i18n"
 import { downloadText } from "./downloadFile"
 import { downloadPng } from "./downloadImage"
@@ -26,8 +26,9 @@ export function ExportControls({
   const [failed, setFailed] = useState(false)
 
   const saveImage = async () => {
-    // Read at the moment of the click, so the picture shows the plan as it is now.
-    const { plan } = editorStore.getState()
+    // Read at the moment of the click, so the picture shows the plan as it is now,
+    // and only what is in the ground on the day shown, as on the screen.
+    const plan = shownPlan(editorStore.getState())
     const markup = renderToStaticMarkup(
       <PlanSvg plan={plan} locale={currentLanguage()} title={gardenName} />
     )

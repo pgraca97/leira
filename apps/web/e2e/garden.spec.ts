@@ -325,6 +325,29 @@ test("the plan can be saved as an image and printed", async ({ page }) => {
   await expect(page.getByTestId("garden-canvas")).toBeHidden()
 })
 
+test("the printed sheet holds only what is in the ground on the day shown", async ({ page }) => {
+  await page.goto("/gardens")
+  await page.getByRole("button", { name: "New garden" }).click()
+  await page.getByRole("textbox", { name: "Garden name" }).fill("Allotment 12")
+  // Tomatoes next summer, potatoes the spring after, each starting on the day shown.
+  const year = new Date().getFullYear()
+  const showOn = page.getByLabel("Show the garden on")
+  await showOn.fill(`${year + 1}-05-15`)
+  await pickCrop(page, "Fruits", "Tomato")
+  await dragOnCanvas(page, [0.2, 0.2], [0.4, 0.4])
+  await showOn.fill(`${year + 2}-03-15`)
+  await pickCrop(page, "Roots and tubers", "Potato")
+  await dragOnCanvas(page, [0.6, 0.6], [0.8, 0.8])
+
+  await showOn.fill(`${year + 2}-04-10`)
+  await page.emulateMedia({ media: "print" })
+  const sheet = page.getByTestId("print-sheet")
+  await expect(sheet).toBeVisible()
+  await expect(sheet.getByText(`On Apr 10, ${year + 2}`)).toBeVisible()
+  await expect(sheet.getByRole("row", { name: /Potato/ })).toBeVisible()
+  await expect(sheet.getByRole("row", { name: /Tomato/ })).toHaveCount(0)
+})
+
 test("a garden saved as a file comes back whole after it is deleted", async ({ page }) => {
   await page.goto("/gardens")
   await page.getByRole("button", { name: "New garden" }).click()
