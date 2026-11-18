@@ -367,8 +367,14 @@ test("a garden saved as a file comes back whole after it is deleted", async ({ p
   expect(data.gardens[0].plan.plantings).toHaveLength(1)
 
   await page.getByRole("link", { name: "All gardens" }).click()
-  page.once("dialog", (dialog) => dialog.accept())
   await page.getByRole("button", { name: "Delete Plot to restore" }).click()
+  const row = page.getByRole("listitem").filter({ hasText: "Plot to restore" })
+  await expect(row).toContainText("With it you lose 1 planting.")
+  // The question offers the same file once more, in case it was not saved yet.
+  const again = page.waitForEvent("download")
+  await row.getByRole("button", { name: "Save file" }).click()
+  expect((await again).suggestedFilename()).toBe("plot-to-restore.json")
+  await row.getByRole("button", { name: "Delete for good" }).click()
   await expect(page.getByText(/You have no gardens yet/)).toBeVisible()
 
   await page.getByLabel("Import").setInputFiles(path)

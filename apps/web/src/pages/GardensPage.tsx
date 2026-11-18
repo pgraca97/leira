@@ -1,7 +1,7 @@
 import { emptyPlan, samplePlan, toIsoDate, withoutRecords } from "@leira/core"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link, useNavigate } from "@tanstack/react-router"
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { AccountNoticeBanner } from "../account/AccountNotice"
 import { AppHeader } from "../components/AppHeader"
@@ -13,6 +13,7 @@ import { importFile, importMessage } from "../import/importFile"
 import { useBackend } from "../lib/backend"
 import { type GardenSummary, gardenCopyName } from "../lib/gardens"
 import { TEMPLATES_KEY } from "../templates/TemplatesPanel"
+import { DeleteGarden } from "./DeleteGarden"
 
 const GARDENS_KEY = ["gardens"]
 
@@ -52,8 +53,24 @@ export function GardensPage() {
 
   const remove = useMutation({
     mutationFn: (garden: GardenSummary) => backend.gardens.remove(garden.id),
+    onSuccess: () => setConfirming(null),
     onSettled: () => queryClient.invalidateQueries({ queryKey: GARDENS_KEY }),
   })
+
+  // The garden whose deletion is being asked about: one at a time.
+  const [confirming, setConfirming] = useState<string | null>(null)
+  const deleteButtons = useRef(new Map<string, HTMLButtonElement>())
+  const refocus = useRef<string | null>(null)
+  const cancelDelete = (id: string) => {
+    refocus.current = id
+    setConfirming(null)
+  }
+  // The button that opened the question takes the focus back once the row has its buttons again.
+  useEffect(() => {
+    if (confirming !== null || !refocus.current) return
+    deleteButtons.current.get(refocus.current)?.focus()
+    refocus.current = null
+  }, [confirming])
 
   const fileInput = useRef<HTMLInputElement>(null)
   const restore = useMutation({
@@ -212,30 +229,39 @@ export function GardensPage() {
                     {t("gardens.updated", { date: dates.format(new Date(garden.updatedAt)) })}
                   </p>
                 </div>
-                <div className="ml-auto flex gap-2">
-                  <button
-                    type="button"
-                    className={buttonClass}
-                    aria-label={t("gardens.duplicateNamed", { name: garden.name })}
-                    disabled={duplicate.isPending}
-                    onClick={() => duplicate.mutate(garden)}
-                  >
-                    {t("gardens.duplicate")}
-                  </button>
-                  <button
-                    type="button"
-                    className={dangerButtonClass}
-                    aria-label={t("gardens.deleteNamed", { name: garden.name })}
-                    disabled={remove.isPending}
-                    onClick={() => {
-                      if (window.confirm(t("gardens.confirmDelete", { name: garden.name }))) {
-                        remove.mutate(garden)
-                      }
-                    }}
-                  >
-                    {t("gardens.delete")}
-                  </button>
-                </div>
+                {confirming === garden.id ? (
+                  <DeleteGarden
+                    garden={garden}
+                    deleting={remove.isPending}
+                    onCancel={() => cancelDelete(garden.id)}
+                    onDelete={() => remove.mutate(garden)}
+                  />
+                ) : (
+                  <div className="ml-auto flex gap-2">
+                    <button
+                      type="button"
+                      className={buttonClass}
+                      aria-label={t("gardens.duplicateNamed", { name: garden.name })}
+                      disabled={duplicate.isPending}
+                      onClick={() => duplicate.mutate(garden)}
+                    >
+                      {t("gardens.duplicate")}
+                    </button>
+                    <button
+                      ref={(button) => {
+                        if (button) deleteButtons.current.set(garden.id, button)
+                        else deleteButtons.current.delete(garden.id)
+                      }}
+                      type="button"
+                      className={dangerButtonClass}
+                      aria-label={t("gardens.deleteNamed", { name: garden.name })}
+                      disabled={remove.isPending}
+                      onClick={() => setConfirming(garden.id)}
+                    >
+                      {t("gardens.delete")}
+                    </button>
+                  </div>
+                )}
               </li>
             ))}
           </ul>

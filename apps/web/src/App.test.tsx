@@ -212,24 +212,105 @@ describe("the gardens list", () => {
     expect(history.location.pathname).toBe(`/gardens/${created?.id}`)
   })
 
-  it("deletes a garden once the user confirms", async () => {
-    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true)
-    open("/gardens")
-    const item = (await screen.findByRole("link", { name: "Tomato patch" })).closest("li")
-    await userEvent.click(within(item as HTMLElement).getByRole("button", { name: /Delete/ }))
+  describe("deleting a garden", () => {
+    const PICKED: Garden = {
+      ...TOMATOES,
+      location: { lat: 41.55, lon: -8.42, name: "Braga" },
+      plan: {
+        ...emptyPlan(),
+        notes: "Dry year.",
+        plantings: [
+          {
+            id: "p1",
+            plantId: "tomato",
+            rect: { x: 0, y: 0, w: 100, h: 100 },
+            layout: "block",
+            inGround: { from: "2026-05-01", to: "2026-09-30" },
+            harvests: [{ date: "2026-08-01" }, { date: "2026-08-15" }],
+          },
+          {
+            id: "p2",
+            plantId: "lettuce",
+            rect: { x: 100, y: 0, w: 100, h: 100 },
+            layout: "block",
+            inGround: { from: "2026-04-01", to: "2026-06-30" },
+          },
+        ],
+      },
+    }
+    const row = async () =>
+      (await screen.findByRole("link", { name: "Tomato patch" })).closest("li") as HTMLElement
+    const askToDelete = async () => {
+      await userEvent.click(
+        within(await row()).getByRole("button", { name: "Delete Tomato patch" })
+      )
+    }
 
-    await waitFor(() => expect(screen.queryByRole("link", { name: "Tomato patch" })).toBeNull())
-    expect(confirm).toHaveBeenCalledWith(expect.stringContaining("Tomato patch"))
-    expect(backend.rows.has(TOMATOES.id)).toBe(false)
-    expect(screen.getByRole("link", { name: "Herb spiral" })).toBeVisible()
-  })
+    beforeEach(() => {
+      backend = fakeBackend([PICKED, HERBS])
+    })
 
-  it("keeps the garden when the user cancels the deletion", async () => {
-    vi.spyOn(window, "confirm").mockReturnValue(false)
-    open("/gardens")
-    const item = (await screen.findByRole("link", { name: "Tomato patch" })).closest("li")
-    await userEvent.click(within(item as HTMLElement).getByRole("button", { name: /Delete/ }))
-    expect(backend.rows.has(TOMATOES.id)).toBe(true)
+    it("asks in place, saying what goes with the garden", async () => {
+      open("/gardens")
+      await askToDelete()
+      const item = await row()
+      expect(item).toHaveTextContent("Delete “Tomato patch”?")
+      expect(item).toHaveTextContent(
+        "With it you lose 2 plantings, 2 recorded harvests and its notes."
+      )
+      expect(item).toHaveTextContent("This cannot be undone.")
+      // The safe answer is the one under the finger.
+      expect(within(item).getByRole("button", { name: "Cancel" })).toHaveFocus()
+      expect(backend.rows.has(TOMATOES.id)).toBe(true)
+    })
+
+    it("says only that it cannot be undone when nothing is planted", async () => {
+      backend = fakeBackend([TOMATOES, HERBS])
+      open("/gardens")
+      await askToDelete()
+      expect(await row()).not.toHaveTextContent("With it you lose")
+      expect(await row()).toHaveTextContent("This cannot be undone.")
+    })
+
+    it("deletes the garden once the user says so", async () => {
+      open("/gardens")
+      await askToDelete()
+      await userEvent.click(within(await row()).getByRole("button", { name: "Delete for good" }))
+      await waitFor(() => expect(screen.queryByRole("link", { name: "Tomato patch" })).toBeNull())
+      expect(backend.rows.has(TOMATOES.id)).toBe(false)
+      expect(screen.getByRole("link", { name: "Herb spiral" })).toBeVisible()
+    })
+
+    it("keeps the garden when the user cancels, and gives the focus back", async () => {
+      open("/gardens")
+      await askToDelete()
+      await userEvent.click(within(await row()).getByRole("button", { name: "Cancel" }))
+      const button = within(await row()).getByRole("button", { name: "Delete Tomato patch" })
+      expect(button).toHaveFocus()
+      expect(backend.rows.has(TOMATOES.id)).toBe(true)
+    })
+
+    it("saves the whole garden to a file before it goes", async () => {
+      vi.mocked(downloadText).mockClear()
+      open("/gardens")
+      await askToDelete()
+      await userEvent.click(within(await row()).getByRole("button", { name: "Save file" }))
+      await waitFor(() => expect(downloadText).toHaveBeenCalledOnce())
+      const [text, , name] = vi.mocked(downloadText).mock.calls[0] ?? []
+      expect(name).toBe("tomato-patch.json")
+      const file = JSON.parse(text as string)
+      expect(file.gardens[0].location).toEqual(PICKED.location)
+      expect(file.gardens[0].plan.plantings).toHaveLength(2)
+      expect(backend.rows.has(TOMATOES.id)).toBe(true)
+    })
+
+    it("asks about one garden at a time", async () => {
+      open("/gardens")
+      await askToDelete()
+      await userEvent.click(screen.getByRole("button", { name: "Delete Herb spiral" }))
+      expect(screen.getAllByRole("button", { name: "Delete for good" })).toHaveLength(1)
+      expect(within(await row()).getByRole("button", { name: "Delete Tomato patch" })).toBeVisible()
+    })
   })
 
   it("says so when the server cannot be reached, and connects on retry", async () => {
