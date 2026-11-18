@@ -1,4 +1,11 @@
-import { emptyPlan, glancePlan, samplePlan, toIsoDate, withoutRecords } from "@leira/core"
+import {
+  type GardenLocation,
+  type GardenPlan,
+  glancePlan,
+  samplePlan,
+  toIsoDate,
+  withoutRecords,
+} from "@leira/core"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link, useNavigate } from "@tanstack/react-router"
 import { useEffect, useRef, useState } from "react"
@@ -14,6 +21,7 @@ import { useBackend } from "../lib/backend"
 import { type GardenSummary, gardenCopyName } from "../lib/gardens"
 import { TEMPLATES_KEY } from "../templates/TemplatesPanel"
 import { DeleteGarden } from "./DeleteGarden"
+import { NewGarden } from "./NewGarden"
 import { ThisWeek } from "./ThisWeek"
 
 const GARDENS_KEY = ["gardens"]
@@ -27,14 +35,17 @@ export function GardensPage() {
 
   const gardens = useQuery({ queryKey: GARDENS_KEY, queryFn: () => backend.gardens.list() })
 
+  const [adding, setAdding] = useState(false)
   const create = useMutation({
-    mutationFn: (start: "empty" | "example") =>
+    mutationFn: (
+      start: "example" | { name: string; plan: GardenPlan; location: GardenLocation | null }
+    ) =>
       start === "example"
         ? backend.gardens.create(
             t("gardens.exampleName"),
             samplePlan(toIsoDate(new Date()), () => crypto.randomUUID())
           )
-        : backend.gardens.create(t("gardens.defaultName"), emptyPlan()),
+        : backend.gardens.create(start.name, start.plan, start.location),
     onSuccess: (garden) => navigate({ to: "/gardens/$gardenId", params: { gardenId: garden.id } }),
   })
 
@@ -140,8 +151,8 @@ export function GardensPage() {
             <button
               type="button"
               className={primaryButtonClass}
-              disabled={create.isPending}
-              onClick={() => create.mutate("empty")}
+              aria-expanded={adding}
+              onClick={() => setAdding(true)}
             >
               {t("gardens.new")}
             </button>
@@ -168,6 +179,14 @@ export function GardensPage() {
               {imported.text}
             </p>
           ))}
+
+        {adding && (
+          <NewGarden
+            creating={create.isPending}
+            onCreate={(garden) => create.mutate(garden)}
+            onCancel={() => setAdding(false)}
+          />
+        )}
 
         {gardens.isPending && <Notice kind="status" message={t("gardens.loading")} />}
         {gardens.isError && (

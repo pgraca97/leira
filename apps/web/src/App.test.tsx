@@ -220,14 +220,93 @@ describe("the gardens list", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("could not be created")
   })
 
-  it("creates a garden and opens it in the editor", async () => {
-    backend = fakeBackend()
-    const history = open("/gardens")
-    await userEvent.click(await screen.findByRole("button", { name: "New garden" }))
+  describe("making a new garden", () => {
+    const BRAGA = [
+      {
+        name: "Braga",
+        area: "Braga",
+        region: "Distrito de Braga",
+        country: "PT",
+        lat: 41.5510583,
+        lon: -8.4280045,
+      },
+    ]
+    const form = async () => {
+      await userEvent.click(await screen.findByRole("button", { name: "New garden" }))
+      return screen.getByRole("region", { name: "New garden" })
+    }
+    const field = (region: HTMLElement, name: string) =>
+      within(region).getByRole("textbox", { name })
 
-    expect(await screen.findByRole("textbox", { name: "Garden name" })).toHaveValue("My garden")
-    const [created] = [...backend.rows.values()]
-    expect(history.location.pathname).toBe(`/gardens/${created?.id}`)
+    it("asks for a name, a size and a place, and opens the garden made with them", async () => {
+      backend = fakeBackend()
+      backend.placesResult = BRAGA
+      const history = open("/gardens")
+      const region = await form()
+      await userEvent.clear(field(region, "Name"))
+      await userEvent.type(field(region, "Name"), "Allotment")
+      await userEvent.clear(field(region, "Width (m)"))
+      await userEvent.type(field(region, "Width (m)"), "8")
+      await userEvent.clear(field(region, "Length (m)"))
+      await userEvent.type(field(region, "Length (m)"), "5,5")
+      await userEvent.type(within(region).getByRole("searchbox", { name: "Town or city" }), "Braga")
+      await userEvent.click(within(region).getByRole("button", { name: "Search" }))
+      await userEvent.click(
+        await within(region).findByRole("button", { name: "Braga, Distrito de Braga, PT" })
+      )
+      expect(within(region).getByText("Braga")).toBeVisible()
+      await userEvent.click(within(region).getByRole("button", { name: "Create garden" }))
+
+      expect(await screen.findByRole("textbox", { name: "Garden name" })).toHaveValue("Allotment")
+      const [created] = [...backend.rows.values()]
+      expect(history.location.pathname).toBe(`/gardens/${created?.id}`)
+      expect(created?.plan).toMatchObject({ widthCm: 800, heightCm: 550 })
+      expect(created?.location).toMatchObject({ name: "Braga" })
+    })
+
+    it("makes a 6 by 4 m garden with no place when nothing is changed", async () => {
+      backend = fakeBackend()
+      open("/gardens")
+      const region = await form()
+      await userEvent.click(within(region).getByRole("button", { name: "Create garden" }))
+
+      expect(await screen.findByRole("textbox", { name: "Garden name" })).toHaveValue("My garden")
+      const [created] = [...backend.rows.values()]
+      expect(created?.plan).toEqual(emptyPlan())
+      expect(created?.location).toBeNull()
+    })
+
+    it("lets the place be chosen again", async () => {
+      backend = fakeBackend()
+      backend.placesResult = BRAGA
+      open("/gardens")
+      const region = await form()
+      await userEvent.type(within(region).getByRole("searchbox", { name: "Town or city" }), "Braga")
+      await userEvent.click(within(region).getByRole("button", { name: "Search" }))
+      await userEvent.click(await within(region).findByRole("button", { name: /^Braga, Distrito/ }))
+      await userEvent.click(within(region).getByRole("button", { name: "Change place" }))
+      expect(within(region).getByRole("searchbox", { name: "Town or city" })).toBeVisible()
+    })
+
+    it("refuses a size the garden cannot have, and says why", async () => {
+      backend = fakeBackend()
+      open("/gardens")
+      const region = await form()
+      await userEvent.clear(field(region, "Width (m)"))
+      await userEvent.type(field(region, "Width (m)"), "0.5")
+      await userEvent.click(within(region).getByRole("button", { name: "Create garden" }))
+      expect(within(region).getByRole("alert")).toHaveTextContent("between 1 and 100 m")
+      expect(backend.rows.size).toBe(0)
+    })
+
+    it("closes without making anything", async () => {
+      backend = fakeBackend()
+      open("/gardens")
+      const region = await form()
+      await userEvent.click(within(region).getByRole("button", { name: "Cancel" }))
+      expect(screen.queryByRole("region", { name: "New garden" })).toBeNull()
+      expect(backend.rows.size).toBe(0)
+    })
   })
 
   describe("deleting a garden", () => {

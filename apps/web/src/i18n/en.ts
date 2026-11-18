@@ -381,6 +381,17 @@ export const en = {
     harvests: "Harvests",
     total: "Total",
   },
+  newGarden: {
+    name: "Name",
+    placeIntro:
+      "Where is it? Its weather, frost and soil warnings depend on it. Optional, and only an approximate position is saved.",
+    where: "In",
+    yourLocation: "your location",
+    changePlace: "Change place",
+    sizeRefused: "Each side must be between 1 and 100 m, in metres: 6 or 6.5.",
+    cancel: "Cancel",
+    create: "Create garden",
+  },
   week: {
     title: "This week",
     warnings: "Weather this week",

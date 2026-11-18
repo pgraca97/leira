@@ -381,6 +381,17 @@ export const pt: Translation = {
     harvests: "Colheitas",
     total: "Total",
   },
+  newGarden: {
+    name: "Nome",
+    placeIntro:
+      "Onde fica? O tempo, a geada e a terra dependem disso. É opcional, e só se guarda uma posição aproximada.",
+    where: "Em",
+    yourLocation: "a tua localização",
+    changePlace: "Mudar o lugar",
+    sizeRefused: "Cada lado tem de ter entre 1 e 100 m, em metros: 6 ou 6,5.",
+    cancel: "Cancelar",
+    create: "Criar horta",
+  },
   week: {
     title: "Esta semana",
     warnings: "Avisos do tempo desta semana",
