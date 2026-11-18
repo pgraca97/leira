@@ -145,6 +145,11 @@ export function roundCoordinate(value: number, decimals = 2): number {
 export const PlaceSchema = z.object({
   /** Short enough to be kept as a location's name. */
   name: z.string().min(1).max(120),
+  /**
+   * The municipality or county, where the provider knows it: in Portugal the
+   * concelho, which tells apart the many villages that share a name.
+   */
+  area: z.string().min(1).max(120).optional(),
   /** The district, state or province, where the provider knows it. */
   region: z.string().min(1).max(120).optional(),
   /** Country code, e.g. "PT". */
@@ -154,8 +159,11 @@ export const PlaceSchema = z.object({
 })
 export type Place = z.infer<typeof PlaceSchema>
 
-/** The answer to a place search: best match first, none when nothing matches. */
-export const PlacesSchema = z.array(PlaceSchema).max(5)
+/**
+ * The answer to a place search: best match first, none when nothing matches.
+ * Ten, since a village name can be shared by eight places in Portugal alone.
+ */
+export const PlacesSchema = z.array(PlaceSchema).max(10)
 
 export const PLANT_FAMILIES = [
   "amaranthaceae",

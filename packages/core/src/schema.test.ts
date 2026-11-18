@@ -143,14 +143,20 @@ describe("PlaceSchema", () => {
     expect(PlaceSchema.safeParse({ name: "Braga", lat: 41.5503, lon: -8.42 }).success).toBe(true)
   })
 
+  it("keeps the area a place lies in, which tells apart places of one name", () => {
+    const arcozelo = { name: "Arcozelo", area: "Vila Nova de Gaia", lat: 41.06, lon: -8.63 }
+    expect(PlaceSchema.parse(arcozelo)).toEqual(arcozelo)
+    expect(PlaceSchema.safeParse({ ...arcozelo, area: "" }).success).toBe(false)
+  })
+
   it("rejects a place with no name or off the globe", () => {
     expect(PlaceSchema.safeParse({ ...braga, name: "" }).success).toBe(false)
     expect(PlaceSchema.safeParse({ ...braga, lat: 91 }).success).toBe(false)
   })
 
-  it("holds at most five places, the most a search returns", () => {
-    expect(PlacesSchema.safeParse(Array(5).fill(braga)).success).toBe(true)
-    expect(PlacesSchema.safeParse(Array(6).fill(braga)).success).toBe(false)
+  it("holds at most ten places, the most a search returns", () => {
+    expect(PlacesSchema.safeParse(Array(10).fill(braga)).success).toBe(true)
+    expect(PlacesSchema.safeParse(Array(11).fill(braga)).success).toBe(false)
   })
 })
 
