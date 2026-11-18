@@ -115,6 +115,11 @@ The last two need `pnpm db:start` and a filled-in `.dev.vars`.
   Worker asks [Open-Meteo](https://open-meteo.com/) (no key, free for non-commercial use) in the
   same call as the forecast and caches the two together. When Open-Meteo fails, the forecast still
   comes back, without the soil. Its data are under CC BY 4.0, credited next to them.
+- **Places are found by Open-Meteo too.** OpenWeather's geocoder names no municipality in
+  Portugal, so a search for a village shared by several concelhos gave identical results. The
+  Worker asks Open-Meteo's geocoder (GeoNames data, CC BY 4.0) in the app's language, keeps towns
+  and villages only, and caches each search per language for 30 days. The results show each
+  place's concelho and district.
 - **A shared link is a key, not an account.** The link carries a random token, and one database
   function is the only thing a visitor with no session can call: it hands over the name and the
   plan, and the location only if the owner allowed it. Opening a link therefore creates no guest
