@@ -73,6 +73,7 @@ export {
 export { getPlant, PLANTS } from "./plants"
 export {
   addHarvest,
+  type CropHarvest,
   doneDateBounds,
   type GardenLosses,
   gardenLosses,
@@ -84,6 +85,7 @@ export {
   setPlanted,
   withoutPlantingRecords,
   withoutRecords,
+  yearHarvest,
 } from "./records"
 export {
   familiesToRest,

@@ -119,6 +119,55 @@ export function harvestTotals(planting: Planting): { kg: number; units: number }
   return { kg: tidy(totals.kg), units: tidy(totals.units) }
 }
 
+/** What one crop, or one variety of it, gave in a year. */
+export interface CropHarvest {
+  plantId: string
+  variety?: string
+  kg: number
+  units: number
+  /** How many times it was picked, with an amount or without. */
+  harvests: number
+}
+
+/**
+ * What the garden gave in a year: by crop and variety, the most weighed first
+ * (then the most counted, the most often picked), and in all. Only the
+ * harvests picked that year count, whenever the crop went in.
+ */
+export function yearHarvest(
+  plan: GardenPlan,
+  year: number
+): { crops: CropHarvest[]; total: Omit<CropHarvest, "plantId" | "variety"> } {
+  const byCrop = new Map<string, CropHarvest>()
+  const total = { kg: 0, units: 0, harvests: 0 }
+  for (const planting of plan.plantings) {
+    for (const harvest of planting.harvests ?? []) {
+      if (!harvest.date.startsWith(`${year}-`)) continue
+      const key = `${planting.plantId}\n${planting.variety ?? ""}`
+      const crop = byCrop.get(key) ?? {
+        plantId: planting.plantId,
+        ...(planting.variety ? { variety: planting.variety } : {}),
+        kg: 0,
+        units: 0,
+        harvests: 0,
+      }
+      crop.harvests += 1
+      total.harvests += 1
+      if (harvest.unit && harvest.quantity) {
+        crop[harvest.unit] += harvest.quantity
+        total[harvest.unit] += harvest.quantity
+      }
+      byCrop.set(key, crop)
+    }
+  }
+  // Adding decimals leaves dust (0.1 + 0.2), and a gram is as fine as anyone weighs.
+  const tidy = (sum: number) => Math.round(sum * 1000) / 1000
+  const crops = [...byCrop.values()]
+    .map((crop) => ({ ...crop, kg: tidy(crop.kg), units: tidy(crop.units) }))
+    .sort((a, b) => b.kg - a.kg || b.units - a.units || b.harvests - a.harvests)
+  return { crops, total: { ...total, kg: tidy(total.kg), units: tidy(total.units) } }
+}
+
 /**
  * Records a job as done on a day, or as not done when given null. The first
  * harvest is the one thing this does not undo: a planting can have many, and

@@ -10,6 +10,7 @@ import {
   setCleared,
   setPlanted,
   withoutRecords,
+  yearHarvest,
 } from "./records"
 import { emptyPlan, type GardenPlan, type Planting } from "./schema"
 
@@ -300,5 +301,46 @@ describe("gardenLosses", () => {
   it("sees the garden's own notes, and ignores blank ones", () => {
     expect(gardenLosses({ ...emptyPlan(), notes: "Dry year." }).notes).toBe(true)
     expect(gardenLosses({ ...emptyPlan(), notes: "  " }).notes).toBe(false)
+  })
+})
+
+describe("yearHarvest", () => {
+  const roma: Planting = {
+    ...base,
+    id: "roma",
+    variety: "Roma",
+    harvests: [
+      { date: "2025-08-01", quantity: 9, unit: "kg" },
+      { date: "2026-07-01", quantity: 0.1, unit: "kg" },
+      { date: "2026-07-08", quantity: 0.2, unit: "kg" },
+    ],
+  }
+  const romaAgain: Planting = { ...roma, id: "roma-2", harvests: [{ date: "2026-08-01" }] }
+  const lettuce: Planting = {
+    ...base,
+    id: "lettuce",
+    plantId: "lettuce",
+    harvests: [{ date: "2026-05-01", quantity: 30, unit: "units" }],
+  }
+  const plan: GardenPlan = { ...emptyPlan(), plantings: [lettuce, picked, roma, romaAgain] }
+
+  it("adds up the year's harvests by crop and variety, the biggest first", () => {
+    expect(yearHarvest(plan, 2026).crops).toEqual([
+      { plantId: "tomato", kg: 4.7, units: 12, harvests: 4 },
+      { plantId: "tomato", variety: "Roma", kg: 0.3, units: 0, harvests: 3 },
+      { plantId: "lettuce", kg: 0, units: 30, harvests: 1 },
+    ])
+  })
+
+  it("gives the garden's total for the year", () => {
+    expect(yearHarvest(plan, 2026).total).toEqual({ kg: 5, units: 42, harvests: 8 })
+  })
+
+  it("counts only the harvests of that year", () => {
+    expect(yearHarvest(plan, 2025)).toEqual({
+      crops: [{ plantId: "tomato", variety: "Roma", kg: 9, units: 0, harvests: 1 }],
+      total: { kg: 9, units: 0, harvests: 1 },
+    })
+    expect(yearHarvest(plan, 2024)).toEqual({ crops: [], total: { kg: 0, units: 0, harvests: 0 } })
   })
 })
