@@ -1,7 +1,7 @@
 import { type Forecast, type Place, publicPlan, type WeatherNow } from "@leira/core"
 import type { Language } from "../i18n/languages"
 import { deletionDue } from "../lib/account"
-import type { Backend, PublicBackend } from "../lib/backend"
+import type { Backend, PublicBackend, SessionChange } from "../lib/backend"
 import {
   type Garden,
   GardenConflictError,
@@ -42,6 +42,10 @@ export interface FakeBackend extends Backend {
   googleStarts: number
   /** Makes the next trip to Google fail before it starts. */
   failNextGoogle(): void
+  /** How many times the account was signed out on every device. */
+  signedOutEverywhere: number
+  /** Stands for the session ending, or changing user, in another tab or on another device. */
+  endSessionElsewhere(change: SessionChange): void
   /** How many times the user deleted their account at once. */
   deletedAccounts: number
   /**
@@ -164,6 +168,7 @@ export function fakeBackend(seed: Garden[] = []): FakeBackend {
   }
 
   let linkFailure = false
+  const sessionListeners = new Set<(change: SessionChange) => void>()
   let googleFailure = false
   let exportFailure = false
   let templateSaveFailure = false
@@ -197,6 +202,14 @@ export function fakeBackend(seed: Garden[] = []): FakeBackend {
     cancelledDeletion: null,
     // Set it with `email` to stand for a guest's gardens handed over on sign-in.
     handedOver: null,
+    signedOutEverywhere: 0,
+    endSessionElsewhere(change) {
+      for (const listener of sessionListeners) listener(change)
+    },
+    onSessionChange(listener) {
+      sessionListeners.add(listener)
+      return () => sessionListeners.delete(listener)
+    },
     async connect() {
       backend.cancelledDeletion = await backend.account.resume().catch(() => null)
       return backend
@@ -231,6 +244,10 @@ export function fakeBackend(seed: Garden[] = []): FakeBackend {
         rows.clear()
         shares.clear()
         backend.savedTemplates = []
+      },
+      async signOutEverywhere() {
+        backend.signedOutEverywhere += 1
+        await backend.account.signOut()
       },
       async exportData() {
         if (exportFailure) {

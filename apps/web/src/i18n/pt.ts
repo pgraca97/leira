@@ -19,6 +19,13 @@ export const pt: Translation = {
     connecting: "A ligar…",
     failed: "Não foi possível ligar ao servidor. Verifica a ligação e tenta de novo.",
   },
+  session: {
+    signedOut:
+      "A tua sessão terminou, noutro separador ou noutro dispositivo. O que ainda não estava guardado aqui perdeu-se.",
+    switched:
+      "Este browser entrou noutra conta, noutro separador. O que ainda não estava guardado aqui perdeu-se.",
+    continue: "Abrir as tuas hortas",
+  },
   account: {
     keep: "Guardar as tuas hortas",
     panel: "Conta",
@@ -34,6 +41,7 @@ export const pt: Translation = {
     sendFailed: "Não foi possível enviar o link. Tenta outra vez.",
     signedInAs: "Sessão iniciada como {{email}}. As tuas hortas ficam guardadas na tua conta.",
     signOut: "Terminar sessão",
+    signOutEverywhere: "Terminar sessão em todos os dispositivos",
     signOutFailed: "Não foi possível terminar a sessão. Tenta outra vez.",
     exportData: "Descarregar os meus dados",
     exportFileName: "leira-dados-{{date}}.json",

@@ -243,3 +243,17 @@ describe("a guest who signs in to an account that already exists", () => {
     expect(calls).toEqual([])
   })
 })
+
+describe("signing out", () => {
+  it("leaves the other devices signed in", async () => {
+    const { account, calls } = fakeClient()
+    await account.signOut()
+    expect(calls).toEqual(["signOut:local"])
+  })
+
+  it("ends every session of the account when asked to", async () => {
+    const { account, calls } = fakeClient()
+    await account.signOutEverywhere()
+    expect(calls).toEqual(["signOut:global"])
+  })
+})

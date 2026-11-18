@@ -173,6 +173,33 @@ describe("signing out", () => {
     const { data } = await guest.client.auth.getSession()
     expect(data.session).toBeNull()
   })
+
+  /** An account signed in on two devices: this client, and the refresh token of the other. */
+  async function onTwoDevices() {
+    const first = await signInVisitor(settings)
+    const address = freshAddress()
+    await accountApi(first.client, APP_URL).requestEmailLink(address)
+    await followEmailedLink(await emailedLink(address))
+    const second = await signInVisitor(settings)
+    await accountApi(second.client, APP_URL, { captcha: testCaptcha }).requestEmailLink(address)
+    const opened = await followEmailedLink(await emailedLink(address))
+    if (!opened.refreshToken) throw new Error("The link carried no session")
+    return { here: first.client, elsewhere: opened.refreshToken }
+  }
+
+  it("leaves the account signed in on its other devices", async () => {
+    const { here, elsewhere } = await onTwoDevices()
+    await accountApi(here, APP_URL).signOut()
+    const refreshed = await newClient(settings).auth.refreshSession({ refresh_token: elsewhere })
+    expect(refreshed.error).toBeNull()
+  })
+
+  it("ends every session of the account on every device, when asked to", async () => {
+    const { here, elsewhere } = await onTwoDevices()
+    await accountApi(here, APP_URL).signOutEverywhere()
+    const refreshed = await newClient(settings).auth.refreshSession({ refresh_token: elsewhere })
+    expect(refreshed.error).not.toBeNull()
+  })
 })
 
 // The auth server asks for a captcha before it makes a guest or emails a

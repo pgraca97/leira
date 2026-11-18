@@ -27,7 +27,10 @@ export interface AccountApi {
    * that one instead, as with an emailed link.
    */
   continueWithGoogle(): Promise<void>
+  /** Signs this browser out. The account's other devices stay signed in. */
   signOut(): Promise<void>
+  /** Ends every session of the account, on every device, this one too. */
+  signOutEverywhere(): Promise<void>
   /** Everything kept about the user, as one JSON document, for them to take away. */
   exportData(): Promise<unknown>
   /**
@@ -253,7 +256,13 @@ export function accountApi(
     },
 
     async signOut() {
-      const { error } = await client.auth.signOut()
+      // Named, since the client's own default is "global": every device.
+      const { error } = await client.auth.signOut({ scope: "local" })
+      if (error) throw new Error(error.message)
+    },
+
+    async signOutEverywhere() {
+      const { error } = await client.auth.signOut({ scope: "global" })
       if (error) throw new Error(error.message)
     },
 

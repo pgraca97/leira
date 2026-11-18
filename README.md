@@ -52,7 +52,9 @@ A _leira_ is what a plot of cultivated land is called in Minho, in the north of 
 - **Accounts without a sign-up wall.** A guest gets a real user straight away. Signing in with
   Google or an emailed link attaches to that same user, so the gardens made as a guest are kept.
   When the address or the Google account already has an account, as on a second device, the
-  guest's gardens and templates move into it.
+  guest's gardens and templates move into it. Signing out leaves the account's other devices signed
+  in, unless it is asked to sign out on every device, and a tab whose session ends elsewhere says
+  so instead of carrying on as a new guest.
 - **A privacy page** at `/privacy`, linked from the account panel, says what is kept, who else
   handles it, for how long and how to take it away or delete it. Reading it makes nobody a guest.
 - **A landing page** at `/`, in English at `/en/`, written as plain HTML when the app is built, so

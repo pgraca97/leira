@@ -3,7 +3,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js"
 import { z } from "zod"
 import { currentLanguage } from "../i18n"
 import { accountApi, authErrorCode, IDENTITY_TAKEN } from "./account"
-import type { Backend } from "./backend"
+import type { Backend, SessionChange } from "./backend"
 import { type CaptchaSolver, captchaSolver } from "./captcha"
 import { loadConfig } from "./config"
 import { gardensApi } from "./gardens"
@@ -63,6 +63,46 @@ export async function connectBackend(): Promise<Backend> {
   /** The session's token, signing in a new guest if there is none. */
   const token = () => accessToken(client, captcha)
   await token()
+
+  /**
+   * Who the pages were opened for. Every user change after this one is the
+   * page's own doing (`startOver` below) or news to tell the pages: a tab
+   * that quietly became someone else would save as them.
+   */
+  const userNow = async () => (await client.auth.getSession()).data.session?.user.id ?? null
+  let expectedUser = await userNow()
+  let startingOver = false
+  const sessionListeners = new Set<(change: SessionChange) => void>()
+  client.auth.onAuthStateChange((_event, session) => {
+    const user = session?.user.id ?? null
+    if (startingOver || user === expectedUser) return
+    const change: SessionChange = user === null ? "signedOut" : "switched"
+    for (const listener of sessionListeners) listener(change)
+  })
+
+  /** Leaves the user behind on purpose, and goes on as a new guest. */
+  async function startOver<T>(leave: () => Promise<T>): Promise<T> {
+    startingOver = true
+    try {
+      const left = await leave()
+      await token()
+      expectedUser = await userNow()
+      return left
+    } finally {
+      startingOver = false
+    }
+  }
+
+  /**
+   * The session's token for a call to the Worker. A session that ended
+   * elsewhere is not replaced by a new guest here: the page says it ended.
+   */
+  async function currentToken(): Promise<string> {
+    const { data, error } = await client.auth.getSession()
+    if (error) throw new Error(error.message)
+    if (!data.session) throw new Error("The session ended")
+    return data.session.access_token
+  }
   recordVisit(client)
   if (refusal) window.history.replaceState(null, "", window.location.pathname)
 
@@ -96,7 +136,7 @@ export async function connectBackend(): Promise<Backend> {
   ) {
     const query = new URLSearchParams(params)
     const response = await fetch(`${path}?${query}`, {
-      headers: { Authorization: `Bearer ${await token()}` },
+      headers: { Authorization: `Bearer ${await currentToken()}` },
     })
     if (!response.ok) throw new Error(`${path} failed: ${response.status}`)
     return schema.parse(await response.json())
@@ -108,23 +148,18 @@ export async function connectBackend(): Promise<Backend> {
     gardens: gardensApi(client),
     account: {
       ...account,
-      async signOut() {
-        await account.signOut()
-        // Nobody uses the app without a session: start over as a new guest.
-        await token()
-      },
-      async deleteAccount() {
-        await account.deleteAccount()
-        await token()
-      },
-      async requestDeletion() {
-        const deleteOn = await account.requestDeletion()
-        await token()
-        return deleteOn
-      },
+      // Nobody uses the app without a session: each of these starts over as a new guest.
+      signOut: () => startOver(() => account.signOut()),
+      signOutEverywhere: () => startOver(() => account.signOutEverywhere()),
+      deleteAccount: () => startOver(() => account.deleteAccount()),
+      requestDeletion: () => startOver(() => account.requestDeletion()),
     },
     cancelledDeletion,
     handedOver,
+    onSessionChange(listener) {
+      sessionListeners.add(listener)
+      return () => sessionListeners.delete(listener)
+    },
     weather: (lat, lon) => workerRoute("/api/weather", at(lat, lon), WeatherNowSchema),
     forecast: (lat, lon) => workerRoute("/api/forecast", at(lat, lon), ForecastSchema),
     places: (query, language) =>

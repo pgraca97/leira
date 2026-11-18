@@ -524,7 +524,7 @@ test("a guest keeps their gardens with an emailed link, then signs out", async (
   expect(new URL(page.url()).hash).toBe("")
 
   await page.getByRole("button", { name: address }).click()
-  await page.getByRole("button", { name: "Sign out" }).click()
+  await page.getByRole("button", { name: "Sign out", exact: true }).click()
   await expect(page.getByRole("button", { name: "Keep your gardens" })).toBeVisible()
   await expect(page.getByText(/You have no gardens yet/)).toBeVisible()
 })
@@ -565,6 +565,39 @@ test("a guest who signs in to an account made elsewhere brings their garden alon
   await expect(home.getByRole("link", { name: "On the phone" })).toBeVisible()
   await home.close()
   await phone.close()
+})
+
+test("signing out in one tab tells the other tabs, which save nothing more", async ({
+  context,
+}) => {
+  const address = `gardener-${crypto.randomUUID()}@example.com`
+  const page = await context.newPage()
+  await page.goto("/gardens")
+  await page.getByRole("button", { name: "New garden" }).click()
+  await page.getByRole("textbox", { name: "Garden name" }).fill("Two tabs")
+  await expect(page.getByText("Saved", { exact: true })).toBeVisible()
+  const gardenUrl = page.url()
+  await page.getByRole("button", { name: "Keep your gardens" }).click()
+  await page.getByRole("textbox", { name: "Email" }).fill(address)
+  await page.getByRole("button", { name: "Send link" }).click()
+  await expect(page.getByText(`We sent a link to ${address}`)).toBeVisible()
+  await page.goto(await emailedLink(address))
+  await expect(page.getByRole("button", { name: address })).toBeVisible()
+
+  const other = await context.newPage()
+  await other.goto(gardenUrl)
+  await expect(other.getByRole("textbox", { name: "Garden name" })).toHaveValue("Two tabs")
+
+  await page.getByRole("button", { name: address }).click()
+  await page.getByRole("button", { name: "Sign out", exact: true }).click()
+  await expect(page.getByRole("button", { name: "Keep your gardens" })).toBeVisible()
+
+  await expect(
+    other.getByText(/You were signed out, in another tab or on another device/)
+  ).toBeVisible()
+  await expect(other.getByRole("textbox", { name: "Garden name" })).toHaveCount(0)
+  await other.getByRole("link", { name: "Open your gardens" }).click()
+  await expect(other.getByText(/You have no gardens yet/)).toBeVisible()
 })
 
 test("the privacy page opens on its own without making a guest, and from the account panel", async ({

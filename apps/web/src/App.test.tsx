@@ -3,7 +3,7 @@ import "./test/setup"
 import "./i18n"
 import { emptyPlan, type Forecast, gardenFile, type WeatherNow } from "@leira/core"
 import { createMemoryHistory } from "@tanstack/react-router"
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react"
+import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 // The instance "./i18n" sets up, to put the language back after a test changes it.
 import i18n from "i18next"
@@ -681,6 +681,42 @@ describe("the account", () => {
     // Signed out, the visitor is a new guest, who owns nothing yet.
     expect(await screen.findByText(/You have no gardens yet/)).toBeVisible()
     expect(history.location.pathname).toBe("/gardens")
+  })
+
+  it("signs out of every device when asked to", async () => {
+    backend.email = "ana@example.com"
+    open("/gardens")
+    await userEvent.click(await screen.findByRole("button", { name: "ana@example.com" }))
+    await userEvent.click(screen.getByRole("button", { name: "Sign out on every device" }))
+
+    expect(await screen.findByRole("button", { name: "Keep your gardens" })).toBeVisible()
+    expect(backend.signedOutEverywhere).toBe(1)
+  })
+
+  it("says so when another tab or device signed this browser out, and saves nothing more", async () => {
+    backend.email = "ana@example.com"
+    open(`/gardens/${TOMATOES.id}`)
+    await screen.findByRole("textbox", { name: "Garden name" })
+
+    act(() => backend.endSessionElsewhere("signedOut"))
+    expect(
+      await screen.findByText(/You were signed out, in another tab or on another device/)
+    ).toBeVisible()
+    expect(screen.queryByRole("textbox", { name: "Garden name" })).toBeNull()
+    // A page load of its own, so whoever is signed in now starts afresh.
+    expect(screen.getByRole("link", { name: "Open your gardens" })).toHaveAttribute(
+      "href",
+      "/gardens"
+    )
+  })
+
+  it("says so when another tab signed this browser in to another account", async () => {
+    open("/gardens")
+    await screen.findByRole("button", { name: "Keep your gardens" })
+    act(() => backend.endSessionElsewhere("switched"))
+    expect(
+      await screen.findByText(/This browser was signed in to another account, in another tab/)
+    ).toBeVisible()
   })
 
   it("notices a link opened in another tab when the user comes back", async () => {

@@ -48,7 +48,10 @@ export function AccountMenu() {
   }
 
   const signOut = useMutation({
-    mutationFn: () => startOver(() => backend.account.signOut()),
+    mutationFn: (everywhere: boolean) =>
+      startOver(() =>
+        everywhere ? backend.account.signOutEverywhere() : backend.account.signOut()
+      ),
     onSuccess: () => setOpen(false),
   })
 
@@ -101,9 +104,18 @@ export function AccountMenu() {
                 type="button"
                 className={buttonClass}
                 disabled={signOut.isPending}
-                onClick={() => signOut.mutate()}
+                onClick={() => signOut.mutate(false)}
               >
                 {t("account.signOut")}
+              </button>
+              {/* For a session left open somewhere else, on a computer that is not to hand. */}
+              <button
+                type="button"
+                className={buttonClass}
+                disabled={signOut.isPending}
+                onClick={() => signOut.mutate(true)}
+              >
+                {t("account.signOutEverywhere")}
               </button>
             </>
           ) : (

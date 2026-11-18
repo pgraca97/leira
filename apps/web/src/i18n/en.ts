@@ -17,6 +17,13 @@ export const en = {
     connecting: "Connecting…",
     failed: "Could not connect to the server. Check your connection and try again.",
   },
+  session: {
+    signedOut:
+      "You were signed out, in another tab or on another device. Anything not saved yet here was not kept.",
+    switched:
+      "This browser was signed in to another account, in another tab. Anything not saved yet here was not kept.",
+    continue: "Open your gardens",
+  },
   account: {
     keep: "Keep your gardens",
     panel: "Account",
@@ -32,6 +39,7 @@ export const en = {
     sendFailed: "The link could not be sent. Try again.",
     signedInAs: "Signed in as {{email}}. Your gardens are kept in your account.",
     signOut: "Sign out",
+    signOutEverywhere: "Sign out on every device",
     signOutFailed: "You could not be signed out. Try again.",
     exportData: "Download my data",
     exportFileName: "leira-data-{{date}}.json",

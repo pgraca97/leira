@@ -6,6 +6,13 @@ import type { GardensApi, SharedGarden } from "./gardens"
 import type { StatsApi } from "./stats"
 import type { TemplatesApi } from "./templates"
 
+/**
+ * How the session a page was opened with ended without the page asking:
+ * `signedOut` in another tab or on another device (signing out, a request to
+ * delete the account), or `switched` to another user by another tab.
+ */
+export type SessionChange = "signedOut" | "switched"
+
 /** Everything the pages need from the server. Tests pass an in-memory one. */
 export interface Backend {
   gardens: GardensApi
@@ -33,6 +40,12 @@ export interface Backend {
    * signing in to it, on the visit that brought it. Null on any other visit.
    */
   handedOver: HandedOver | null
+  /**
+   * Calls `listener` when the session ends or changes user behind the page's
+   * back. Signing out or deleting the account through `account` does not
+   * count. Returns how to stop listening.
+   */
+  onSessionChange(listener: (change: SessionChange) => void): () => void
 }
 
 export const BackendContext = createContext<Backend | null>(null)
