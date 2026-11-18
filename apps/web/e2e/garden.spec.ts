@@ -325,6 +325,28 @@ test("the plan can be saved as an image and printed", async ({ page }) => {
   await expect(page.getByTestId("garden-canvas")).toBeHidden()
 })
 
+test("a change made with no network is saved when the network comes back", async ({
+  page,
+  context,
+}) => {
+  await page.goto("/gardens")
+  await page.getByRole("button", { name: "New garden" }).click()
+  await page.getByRole("textbox", { name: "Garden name" }).fill("Out of signal")
+  await expect(page.getByText("Saved", { exact: true })).toBeVisible()
+
+  // In the garden, out of signal: the change waits and says so.
+  await context.setOffline(true)
+  await pickCrop(page, "Fruits", "Tomato")
+  await dragOnCanvas(page, [0.4, 0.4], [0.6, 0.6])
+  await expect(page.getByRole("alert")).toContainText("Not saved yet")
+
+  // Back in signal, it goes through with no button pressed.
+  await context.setOffline(false)
+  await expect(page.getByText("Saved", { exact: true })).toBeVisible()
+  await page.reload()
+  await expect(page.getByRole("region", { name: "Plantings" }).getByRole("button")).toHaveCount(1)
+})
+
 test("the printed sheet holds only what is in the ground on the day shown", async ({ page }) => {
   await page.goto("/gardens")
   await page.getByRole("button", { name: "New garden" }).click()

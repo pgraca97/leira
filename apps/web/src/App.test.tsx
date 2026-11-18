@@ -412,6 +412,36 @@ describe("a garden's page", () => {
     await waitFor(() => expect(backend.rows.get(TOMATOES.id)?.plan.beds).toHaveLength(1))
   })
 
+  it("says it will try again by itself, and saves when the network comes back", async () => {
+    open(`/gardens/${TOMATOES.id}`)
+    await screen.findByRole("textbox", { name: "Garden name" })
+    backend.failNextSave(new Error("offline"))
+    editorStore.getState().addBed({ x: 0, y: 0, w: 100, h: 200 })
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Not saved yet. Trying again as soon as there is a connection."
+    )
+    act(() => {
+      window.dispatchEvent(new Event("online"))
+    })
+    await waitFor(() => expect(backend.rows.get(TOMATOES.id)?.plan.beds).toHaveLength(1))
+    expect(await screen.findByText("Saved")).toBeVisible()
+  })
+
+  it("tries again at once when the page is shown again", async () => {
+    open(`/gardens/${TOMATOES.id}`)
+    await screen.findByRole("textbox", { name: "Garden name" })
+    backend.failNextSave(new Error("offline"))
+    editorStore.getState().addBed({ x: 0, y: 0, w: 100, h: 200 })
+    await screen.findByRole("alert")
+
+    // The phone back out of a pocket: the page was hidden and is visible again.
+    act(() => {
+      document.dispatchEvent(new Event("visibilitychange"))
+    })
+    await waitFor(() => expect(backend.rows.get(TOMATOES.id)?.plan.beds).toHaveLength(1))
+  })
+
   /** Whether leaving the page now would ask first, as the browser decides from the event. */
   function leavingAsks(): boolean {
     const leaving = new Event("beforeunload", { cancelable: true })

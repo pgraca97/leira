@@ -63,14 +63,19 @@ export function useGardenDocument(garden: Garden): GardenDocumentHandle {
       if (state.plan !== previous.plan) autosave.changed({ ...details.current, plan: state.plan })
     })
     // A hidden page may never come back (closed tab, killed app): save while we can.
+    // A page shown again, or the network back, is a good moment to try a failed save.
     const saveWhenHidden = () => {
       if (document.visibilityState === "hidden") void autosave.flush()
+      else autosave.retry()
     }
+    const retryOnline = () => autosave.retry()
     document.addEventListener("visibilitychange", saveWhenHidden)
+    window.addEventListener("online", retryOnline)
 
     return () => {
       unsubscribe()
       document.removeEventListener("visibilitychange", saveWhenHidden)
+      window.removeEventListener("online", retryOnline)
       void autosave.flush()
       autosaveRef.current = null
     }
