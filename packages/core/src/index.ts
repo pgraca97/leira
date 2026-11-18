@@ -60,6 +60,8 @@ export { getPlant, PLANTS } from "./plants"
 export {
   addHarvest,
   doneDateBounds,
+  type GardenLosses,
+  gardenLosses,
   harvestTotals,
   publicPlan,
   recordTask,

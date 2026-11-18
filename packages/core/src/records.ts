@@ -179,3 +179,20 @@ export function publicPlan(plan: GardenPlan): GardenPlan {
     ),
   }
 }
+
+/** What deleting a garden takes with it, to say so before it goes. */
+export interface GardenLosses {
+  plantings: number
+  harvests: number
+  /** Whether the garden or any planting holds a note with something in it. */
+  notes: boolean
+}
+
+export function gardenLosses(plan: GardenPlan): GardenLosses {
+  const written = (text: string | undefined) => Boolean(text?.trim())
+  return {
+    plantings: plan.plantings.length,
+    harvests: plan.plantings.reduce((sum, planting) => sum + (planting.harvests?.length ?? 0), 0),
+    notes: written(plan.notes) || plan.plantings.some((planting) => written(planting.notes)),
+  }
+}

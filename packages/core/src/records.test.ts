@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import {
   addHarvest,
   doneDateBounds,
+  gardenLosses,
   harvestTotals,
   publicPlan,
   recordTask,
@@ -280,5 +281,24 @@ describe("publicPlan", () => {
         { ...base, id: "0b0e0c7e-3a53-4f5c-9a43-3a4f6a1c2b10" },
       ],
     })
+  })
+})
+
+describe("gardenLosses", () => {
+  it("finds nothing to lose in an empty plan", () => {
+    expect(gardenLosses(emptyPlan())).toEqual({ plantings: 0, harvests: 0, notes: false })
+  })
+
+  it("counts plantings and harvests, and sees a planting's note", () => {
+    const plan: GardenPlan = {
+      ...emptyPlan(),
+      plantings: [picked, { ...base, id: "other", notes: "Blight in August." }],
+    }
+    expect(gardenLosses(plan)).toEqual({ plantings: 2, harvests: 4, notes: true })
+  })
+
+  it("sees the garden's own notes, and ignores blank ones", () => {
+    expect(gardenLosses({ ...emptyPlan(), notes: "Dry year." }).notes).toBe(true)
+    expect(gardenLosses({ ...emptyPlan(), notes: "  " }).notes).toBe(false)
   })
 })
