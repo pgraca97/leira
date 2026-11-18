@@ -229,6 +229,14 @@ export const pt: Translation = {
       coldSoil:
         "Solo frio a {{date}} ({{temp}} a 6 cm): {{name}} precisa de {{need}} para nascer. Espera uns dias, ou aquece o solo com uma cobertura.",
     },
+    riskGreenhouse: {
+      frost:
+        "Geada a {{date}} ({{temp}}): uma estufa sem aquecimento não a segura numa noite limpa. Cobre {{name}}.",
+      heat: "Calor na estufa a {{date}} ({{temp}} lá fora): areja-a e dá sombra a {{name}}.",
+      cold: "Noite fria a {{date}} ({{temp}}): mesmo na estufa, espera para transplantar {{name}}, ou cobre.",
+      coldSoil:
+        "Solo frio a {{date}} ({{temp}} a 6 cm lá fora): mesmo na estufa, {{name}} pode não nascer abaixo de {{need}}. Espera uns dias.",
+    },
     soil: "solo {{value}}°",
     soilCredit: "Solo a 6 cm, em média diária, com dados de",
     placeCredit:
@@ -309,6 +317,10 @@ export const pt: Translation = {
       clear: "Retirar {{name}}",
     },
   },
+  offSoil: {
+    title: "Fora da terra",
+    warning: "{{name}} está num caminho ou numa estrutura. Passa-a para um canteiro.",
+  },
   season: {
     range: "{{from}} a {{to}}",
     allYear: "todo o ano",
@@ -316,6 +328,7 @@ export const pt: Translation = {
     outOfSeason: "{{name}} vai para a terra em {{month}}. Época: {{season}}.",
     goesIn: "Vai para a terra (norte e centro): {{season}}.",
     where: "Meses do norte e centro de Portugal continental.",
+    greenhouse: "Na estufa, mais um mês de cada lado, contando com uma estufa sem aquecimento.",
     startNow: "Para semear ou plantar agora",
     nothingNow: "Nada para semear ou plantar em {{month}}.",
     way: {

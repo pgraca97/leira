@@ -21,8 +21,8 @@ function planting(id: string, plantId: string, from: string, to: string, x = 0):
   }
 }
 
-function show(plantings: Planting[], selectedId?: string) {
-  editorStore.getState().loadPlan({ ...emptyPlan(), plantings })
+function show(plantings: Planting[], selectedId?: string, beds: Bed[] = []) {
+  editorStore.getState().loadPlan({ ...emptyPlan(), beds, plantings })
   if (selectedId) editorStore.getState().select({ kind: "planting", id: selectedId })
   render(<Inspector />)
 }
@@ -469,5 +469,48 @@ describe("copy and paste", () => {
     render(<Inspector />)
     await userEvent.click(screen.getByRole("button", { name: "Paste" }))
     expect(screen.getByRole("alert")).toHaveTextContent("does not fit this garden")
+  })
+})
+
+describe("crops off the soil", () => {
+  const path: Bed = { id: "path", name: "", kind: "path", rect: { x: 0, y: 0, w: 100, h: 300 } }
+
+  it("warns about a crop drawn on a path, and selects it from the warning", async () => {
+    show([planting("lost", "tomato", "2026-05-01", "2026-09-30")], undefined, [path])
+    const warnings = screen.getByRole("region", { name: "Not on soil" })
+    const button = within(warnings).getByRole("button")
+    expect(button).toHaveTextContent("Tomato is on a path or structure. Move it onto a bed.")
+    await userEvent.click(button)
+    expect(editorStore.getState().selection).toEqual([{ kind: "planting", id: "lost" }])
+  })
+
+  it("stays quiet for a crop on a bed", () => {
+    show([planting("fine", "tomato", "2026-05-01", "2026-09-30")], undefined, [
+      { ...path, kind: "bed" },
+    ])
+    expect(screen.queryByRole("region", { name: "Not on soil" })).toBeNull()
+  })
+})
+
+describe("the season under glass", () => {
+  const glass: Bed = {
+    id: "glass",
+    name: "",
+    kind: "greenhouse",
+    rect: { x: 0, y: 0, w: 100, h: 300 },
+  }
+
+  it("says how the greenhouse changes the season when a crop in one is out of it", () => {
+    show([planting("december", "tomato", "2026-12-10", "2026-12-31")], undefined, [glass])
+    expect(screen.getByRole("region", { name: "Out of season" })).toHaveTextContent(
+      "In a greenhouse, one month more at each end, counting on an unheated one."
+    )
+  })
+
+  it("says nothing of greenhouses when the crop out of season is outside", () => {
+    show([planting("december", "tomato", "2026-12-10", "2026-12-31")])
+    expect(screen.getByRole("region", { name: "Out of season" })).not.toHaveTextContent(
+      "In a greenhouse"
+    )
   })
 })

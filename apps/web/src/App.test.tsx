@@ -1350,6 +1350,20 @@ describe("the garden's forecast", () => {
     expect(editorStore.getState().selection).toEqual([{ kind: "planting", id: TOMATO_ID }])
   })
 
+  it("tells a crop in a greenhouse to be covered, since the glass is no frost cover", async () => {
+    const glass = {
+      id: "44444444-4444-4444-8444-444444444444",
+      name: "",
+      kind: "greenhouse" as const,
+      rect: { x: 0, y: 0, w: 200, h: 200 },
+    }
+    openGarden(FORECAST, { plan: { ...plan, beds: [glass] } })
+    const warning = await screen.findByRole("button", { name: /Frost/ })
+    expect(warning).toHaveTextContent(
+      "Frost on Apr 10 (1 °C): an unheated greenhouse does not keep it out on a clear night. Cover Tomato."
+    )
+  })
+
   it("warns of a cold night for a seedling that has just been planted out", async () => {
     const mild: Forecast = [
       { date: "2026-04-03", minC: 11, maxC: 18, condition: "clear" },

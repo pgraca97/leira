@@ -3,6 +3,7 @@ import {
   BED_KINDS,
   type BedKind,
   findCompanions,
+  findOffSoil,
   findOutOfSeason,
   findRotationConflicts,
   getPlant,
@@ -14,6 +15,7 @@ import {
   plantingFill,
   plantingSchedule,
   ROTATION_YEARS,
+  siteOf,
 } from "@leira/core"
 import { type ReactNode, useState } from "react"
 import { useTranslation } from "react-i18next"
@@ -84,6 +86,11 @@ export function Inspector({ children }: { children?: ReactNode }) {
   }
   const companions = findCompanions(plan, getPlant)
   const outOfSeason = findOutOfSeason(plan, getPlant)
+  const offSoil = findOffSoil(plan)
+  const seasonUnderGlass = outOfSeason.some((late) => {
+    const planting = plan.plantings.find((item) => item.id === late.plantingId)
+    return planting !== undefined && siteOf(plan, planting) === "greenhouse"
+  })
 
   const group = selectedItems({ plan, selection })
   /** "2 beds, 1 crop": the kinds of item in a group, leaving out a kind it has none of. */
@@ -448,6 +455,31 @@ export function Inspector({ children }: { children?: ReactNode }) {
         </section>
       )}
 
+      {offSoil.length > 0 && (
+        <section aria-labelledby="inspector-off-soil">
+          <h3
+            id="inspector-off-soil"
+            className="mb-1 text-xs font-semibold tracking-wide text-amber-800 uppercase"
+          >
+            {t("offSoil.title")}
+          </h3>
+          <ul className="flex flex-col gap-1">
+            {offSoil.map((plantingId) => (
+              <li key={plantingId}>
+                <button
+                  type="button"
+                  className={`${toggleButtonClass} bg-amber-50 text-amber-900`}
+                  aria-pressed={isSelected(selection, { kind: "planting", id: plantingId })}
+                  onClick={() => select({ kind: "planting", id: plantingId })}
+                >
+                  {t("offSoil.warning", { name: plantNameOf(plantingId) })}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {outOfSeason.length > 0 && (
         <section aria-labelledby="inspector-season">
           <h3
@@ -457,6 +489,9 @@ export function Inspector({ children }: { children?: ReactNode }) {
             {t("season.title")}
           </h3>
           <p className="mb-1 text-xs text-stone-500">{t("season.where")}</p>
+          {seasonUnderGlass && (
+            <p className="mb-1 text-xs text-stone-500">{t("season.greenhouse")}</p>
+          )}
           <ul className="flex flex-col gap-1">
             {outOfSeason.map((late) => (
               <li key={late.plantingId}>

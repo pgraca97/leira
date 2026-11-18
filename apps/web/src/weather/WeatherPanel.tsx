@@ -122,7 +122,7 @@ function WeatherWarnings({ forecast }: { forecast: Forecast }) {
                 editorStore.getState().select({ kind: "planting", id: risk.plantingId })
               }
             >
-              {t(`weather.risk.${risk.kind}`, {
+              {t(`weather.${risk.site === "greenhouse" ? "riskGreenhouse" : "risk"}.${risk.kind}`, {
                 date: day(risk.date),
                 temp: degrees(risk.tempC),
                 name: plant?.name[currentLanguage()] ?? risk.plantId,

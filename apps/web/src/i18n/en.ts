@@ -227,6 +227,15 @@ export const en = {
       coldSoil:
         "Cold soil on {{date}} ({{temp}} at 6 cm): {{name}} needs {{need}} to come up. Wait a few days, or warm the soil under a cover.",
     },
+    /** The same warnings for a crop in a greenhouse. The temperatures are still the forecast outside. */
+    riskGreenhouse: {
+      frost:
+        "Frost on {{date}} ({{temp}}): an unheated greenhouse does not keep it out on a clear night. Cover {{name}}.",
+      heat: "Heat in the greenhouse on {{date}} ({{temp}} outside): open it up and shade {{name}}.",
+      cold: "Cold night on {{date}} ({{temp}}): even in the greenhouse, wait to plant out {{name}}, or cover it.",
+      coldSoil:
+        "Cold soil on {{date}} ({{temp}} at 6 cm outside): even in the greenhouse, {{name}} may not come up below {{need}}. Wait a few days.",
+    },
     soil: "soil {{value}}°",
     soilCredit: "Soil 6 cm down, as a daily mean, from data by",
     placeCredit:
@@ -307,6 +316,10 @@ export const en = {
       clear: "Clear {{name}}",
     },
   },
+  offSoil: {
+    title: "Not on soil",
+    warning: "{{name}} is on a path or structure. Move it onto a bed.",
+  },
   season: {
     range: "{{from}} to {{to}}",
     allYear: "all year",
@@ -315,6 +328,7 @@ export const en = {
     goesIn: "Goes in the ground (north and centre): {{season}}.",
     /** The sowing months come from calendars for this part of the country only. */
     where: "Months for the north and centre of mainland Portugal.",
+    greenhouse: "In a greenhouse, one month more at each end, counting on an unheated one.",
     startNow: "To sow or plant now",
     nothingNow: "Nothing to sow or plant in {{month}}.",
     way: {
