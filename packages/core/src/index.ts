@@ -100,6 +100,7 @@ export {
   type GardenTaskKind,
   gardenTasks,
   glancePlan,
+  harvestingOn,
   isInGround,
   nearestPlantedDay,
   type PlantingSchedule,

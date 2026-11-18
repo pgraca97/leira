@@ -4,6 +4,7 @@ import {
   defaultDoneDate,
   gardenTasks,
   glancePlan,
+  harvestingOn,
   isInGround,
   nearestPlantedDay,
   plantingSchedule,
@@ -271,6 +272,31 @@ describe("gardenTasks", () => {
       plantings: [planting("mystery", "dragonfruit", "2026-03-15", "2026-04-15")],
     }
     expect(gardenTasks(unknown, getPlant, all)).toEqual([])
+  })
+})
+
+describe("harvestingOn", () => {
+  const plan: GardenPlan = { ...emptyPlan(), plantings: [tomatoes, carrots] }
+
+  it("lists the crops being picked on the day, in the plan's order", () => {
+    // Carrots from May 24, tomatoes from June 30.
+    expect(harvestingOn(plan, getPlant, "2026-06-01").map((item) => item.id)).toEqual(["carrots"])
+    expect(harvestingOn(plan, getPlant, "2026-07-01").map((item) => item.id)).toEqual([
+      "tomatoes",
+      "carrots",
+    ])
+  })
+
+  it("starts on the first harvest recorded, even before the usual day", () => {
+    const early = { ...tomatoes, harvests: [{ date: "2026-06-10" }] }
+    expect(harvestingOn({ ...plan, plantings: [early] }, getPlant, "2026-06-12")).toEqual([early])
+  })
+
+  it("leaves out a crop not yet ready, one gone from the ground, and one cleared", () => {
+    expect(harvestingOn(plan, getPlant, "2026-05-01")).toEqual([])
+    expect(harvestingOn(plan, getPlant, "2026-10-01")).toEqual([])
+    const cleared = { ...carrots, cleared: true as const }
+    expect(harvestingOn({ ...plan, plantings: [cleared] }, getPlant, "2026-06-01")).toEqual([])
   })
 })
 

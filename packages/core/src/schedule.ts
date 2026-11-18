@@ -145,6 +145,23 @@ export function gardenTasks(
   return tasks.sort((a, b) => a.date.localeCompare(b.date))
 }
 
+/**
+ * The crops being picked on a day: from their first harvest (recorded, or
+ * else the usual day) until they leave the ground, unless already cleared.
+ */
+export function harvestingOn(
+  plan: GardenPlan,
+  getPlant: (id: string) => Plant | undefined,
+  date: IsoDate
+): Planting[] {
+  return plan.plantings.filter((planting) => {
+    const plant = getPlant(planting.plantId)
+    if (!plant || planting.cleared) return false
+    const { harvest } = plantingSchedule(planting, plant)
+    return harvest !== null && harvest.from <= date && date <= harvest.to
+  })
+}
+
 /** How far ahead "this week" looks for jobs. */
 export const TASK_AHEAD_DAYS = 7
 
