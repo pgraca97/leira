@@ -95,6 +95,19 @@ describe("an account that asks to be deleted", () => {
     expect(data.gardens.map((garden: { name: string }) => garden.name)).toEqual(["Kept after all"])
   })
 
+  it("cannot skip the 30 days by deleting itself at once", async () => {
+    const visitor = await signInVisitor(settings)
+    const address = `hasty-${crypto.randomUUID()}@example.com`
+    await accountApi(visitor.client, APP_URL).requestEmailLink(address)
+    await followEmailedLink(await emailedLink(address))
+    // The link turned the guest into an account: a fresh token says so.
+    await visitor.client.auth.refreshSession()
+
+    const { error } = await visitor.client.rpc("delete_account")
+    expect(error?.code).toBe("42501")
+    expect((await visitor.client.auth.getUser()).error).toBeNull()
+  })
+
   it("cannot be asked for by a guest, who is deleted at once instead", async () => {
     const guest = await signInVisitor(settings)
     const { error } = await guest.client.rpc("request_account_deletion")

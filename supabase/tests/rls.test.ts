@@ -92,6 +92,12 @@ async function signOut(): Promise<void> {
   await db.exec("set role anon")
 }
 
+/** Makes a user a guest: only a guest deletes their user at once, an account waits 30 days. */
+async function makeGuest(userId: string): Promise<void> {
+  await db.exec("reset role")
+  await db.query("update auth.users set is_anonymous = true where id = $1", [userId])
+}
+
 async function createUser(): Promise<string> {
   const result = await db.query<{ id: string }>(
     "insert into auth.users default values returning id"
@@ -861,12 +867,13 @@ describe("a user's own data", () => {
     await expect(exportMine()).rejects.toThrow(/permission denied/)
   })
 
-  it("is deleted with the account, and nobody else's goes with it", async () => {
+  it("is deleted with its user, and nobody else's goes with it", async () => {
     await db.query("select public.record_visit()")
     await db.query("insert into public.garden_shares (garden_id) values ($1)", [gardenId])
     await signInAs(bob)
     await db.query("insert into public.gardens (name, plan) values ('Bob''s garden', $1)", [PLAN])
 
+    await makeGuest(alice)
     await signInAs(alice)
     await db.query("select public.delete_account()")
 
@@ -885,6 +892,7 @@ describe("a user's own data", () => {
     await audited(alice)
     await audited(bob)
 
+    await makeGuest(alice)
     await signInAs(alice)
     await db.query("select public.delete_account()")
 
@@ -980,7 +988,7 @@ describe("templates", () => {
     await expect(db.query("select id from public.templates")).rejects.toThrow(/permission denied/)
   })
 
-  it("go with the account, and come along in the export", async () => {
+  it("go with their user, and come along in the export", async () => {
     await saveTemplate()
     const exported = await db.query<{ data: { templates: { name: string }[] } }>(
       "select public.export_my_data() as data"
@@ -988,6 +996,8 @@ describe("templates", () => {
     expect(exported.rows[0]?.data.templates.map((template) => template.name)).toEqual([
       "Tomatoes and basil",
     ])
+    await makeGuest(alice)
+    await signInAs(alice)
     await db.query("select public.delete_account()")
     await db.exec("reset role")
     expect((await db.query("select id from public.templates")).rows).toEqual([])
@@ -1376,11 +1386,15 @@ describe("a deletion that waits 30 days", () => {
     expect(new Date((await exported())!)).toEqual(await inDays(-3))
   })
 
-  it("goes with the account when the account is deleted at once", async () => {
+  it("goes with the account when it is deleted by hand, as from the dashboard", async () => {
     await askedDaysAgo(alice, 3)
-    await signInAs(alice)
-    await db.query("select public.delete_account()")
+    await db.query("delete from auth.users where id = $1", [alice])
     expect(await waiting()).toEqual([])
+  })
+
+  it("cannot be skipped: an account is never deleted at once", async () => {
+    await aliceOnSession()
+    await expect(db.query("select public.delete_account()")).rejects.toThrow(/only a guest/)
   })
 
   describe("carried out", () => {
