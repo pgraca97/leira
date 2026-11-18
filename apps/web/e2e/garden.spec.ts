@@ -229,6 +229,37 @@ test("a bed saved as a template goes into another garden", async ({ page }) => {
   await expect(page.getByRole("button", { name: /^Bed 1/ })).toBeVisible()
 })
 
+test("next year's crops are not drawn over this year's", async ({ page }) => {
+  await page.goto("/gardens")
+  await page.getByRole("button", { name: "New garden" }).click()
+  await pickCrop(page, "Fruits", "Tomato")
+  await dragOnCanvas(page, [0.4, 0.4], [0.6, 0.6])
+  const plantings = page.getByRole("region", { name: "Plantings" }).getByRole("button")
+  await plantings.first().click()
+
+  // The same crop again, a year on: the garden then shows next year.
+  await page.keyboard.press("ControlOrMeta+c")
+  await page.keyboard.press("ControlOrMeta+Shift+v")
+  await expect(plantings).toHaveCount(2)
+  await expect(plantings.first()).toContainText("not in the ground")
+  await expect(page.getByText("Saved", { exact: true })).toBeVisible()
+
+  // Opened again, it shows today: only this year's crop is in the ground.
+  await page.reload()
+  await expect(plantings).toHaveCount(2)
+  await expect(plantings.first()).not.toContainText("not in the ground")
+  await expect(plantings.last()).toContainText("not in the ground")
+
+  // The calendar keeps to the same year as the plan.
+  const year = new Date().getFullYear()
+  await page.getByRole("link", { name: "Calendar" }).click()
+  await expect(page.getByRole("heading", { name: String(year), exact: true })).toBeVisible()
+  await page.getByRole("button", { name: "Next year" }).click()
+  await page.getByRole("link", { name: "Plan" }).click()
+  await expect(page.getByLabel("Show the garden on")).toHaveValue(new RegExp(`^${year + 1}-`))
+  await expect(plantings.first()).toContainText("not in the ground")
+})
+
 test("a planting shows on the calendar and on the day it is in the ground", async ({ page }) => {
   await page.goto("/gardens")
   await page.getByRole("button", { name: "New garden" }).click()
@@ -241,7 +272,7 @@ test("a planting shows on the calendar and on the day it is in the ground", asyn
   const year = new Date().getFullYear()
   await page.getByLabel("Show the garden on").fill(`${year + 10}-06-01`)
   await expect(planting).toContainText("not in the ground")
-  await page.getByRole("button", { name: "Show everything" }).click()
+  await page.getByRole("button", { name: "Show all" }).click()
   await expect(planting).not.toContainText("not in the ground")
 
   await page.getByRole("link", { name: "Calendar" }).click()
@@ -767,8 +798,11 @@ test("the list pictures each garden and makes a copy that stands on its own", as
   await page.getByRole("link", { name: "All gardens" }).click()
 
   const example = page.getByRole("listitem").filter({ hasText: "Example garden" })
-  // The picture draws the plan itself: eight plantings on two beds.
-  await expect(example.locator("svg [data-planting]")).toHaveCount(8)
+  // The picture draws the plan as it is today: some of its eight plantings, or all of them
+  // when nothing is in the ground, depending on the day the test runs.
+  const shown = await example.locator("svg [data-planting]").count()
+  expect(shown).toBeGreaterThan(0)
+  expect(shown).toBeLessThanOrEqual(8)
 
   await page.getByRole("button", { name: "Duplicate Example garden" }).click()
   const copy = page.getByRole("link", { name: "Example garden (copy)" })
@@ -778,7 +812,9 @@ test("the list pictures each garden and makes a copy that stands on its own", as
   // The copy has the plan, and changing it leaves the original alone.
   await copy.click()
   await expect(page.getByRole("region", { name: "Crop rotation" })).toBeVisible()
-  await page.getByRole("button", { name: /^Potato × 16/ }).click()
+  // Every season in view, then everything in it selected and deleted.
+  await page.getByRole("button", { name: "Show all" }).click()
+  await page.keyboard.press("ControlOrMeta+a")
   await page
     .getByRole("region", { name: "Selected" })
     .getByRole("button", { name: "Delete" })
@@ -787,10 +823,10 @@ test("the list pictures each garden and makes a copy that stands on its own", as
   await page.getByRole("link", { name: "All gardens" }).click()
   await expect(
     page.getByRole("listitem").filter({ hasText: "(copy)" }).locator("svg [data-planting]")
-  ).toHaveCount(7)
+  ).toHaveCount(0)
   await expect(
     page.getByRole("listitem").filter({ hasNotText: "(copy)" }).locator("svg [data-planting]")
-  ).toHaveCount(8)
+  ).toHaveCount(shown)
 })
 
 test("the canvas zooms with its buttons and goes back to fitting the garden", async ({ page }) => {
