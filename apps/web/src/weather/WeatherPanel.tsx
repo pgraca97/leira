@@ -16,6 +16,8 @@ import { editorStore, isSelected } from "../editor/store"
 import { useEditor } from "../editor/useEditor"
 import { currentLanguage } from "../i18n"
 import { useBackend } from "../lib/backend"
+import { forecastQuery } from "./forecast"
+import { useRiskText } from "./riskText"
 
 interface WeatherPanelProps {
   location: GardenLocation | null
@@ -74,12 +76,7 @@ function CurrentWeather({ location, onRemove }: { location: GardenLocation; onRe
 function ComingDays({ location }: { location: GardenLocation }) {
   const { t } = useTranslation()
   const backend = useBackend()
-  const forecast = useQuery({
-    queryKey: ["forecast", location.lat, location.lon],
-    queryFn: () => backend.forecast(location.lat, location.lon),
-    // The server refreshes a zone's forecast every three hours at most.
-    staleTime: 30 * 60 * 1000,
-  })
+  const forecast = useQuery(forecastQuery(backend, location))
 
   if (forecast.isError)
     return <p className="text-sm text-stone-600">{t("weather.forecastFailed")}</p>
@@ -102,37 +99,24 @@ function WeatherWarnings({ forecast }: { forecast: Forecast }) {
   const { t } = useTranslation()
   const plan = useEditor((state) => state.plan)
   const selection = useEditor((state) => state.selection)
-  const day = dateFormatter({ day: "numeric", month: "short" })
-  const whole = new Intl.NumberFormat(currentLanguage(), { maximumFractionDigits: 0 })
+  const riskText = useRiskText()
   const risks = findWeatherRisks(plan, getPlant, forecast)
   if (risks.length === 0) return null
 
   return (
     <ul aria-label={t("weather.warnings")} className="flex w-full flex-col gap-1">
-      {risks.map((risk) => {
-        const plant = getPlant(risk.plantId)
-        const degrees = (value: number) => t("weather.degrees", { value: whole.format(value) })
-        return (
-          <li key={`${risk.plantingId}:${risk.kind}`}>
-            <button
-              type="button"
-              className={`${toggleButtonClass} bg-amber-50 text-amber-900`}
-              aria-pressed={isSelected(selection, { kind: "planting", id: risk.plantingId })}
-              onClick={() =>
-                editorStore.getState().select({ kind: "planting", id: risk.plantingId })
-              }
-            >
-              {t(`weather.${risk.site === "greenhouse" ? "riskGreenhouse" : "risk"}.${risk.kind}`, {
-                date: day(risk.date),
-                temp: degrees(risk.tempC),
-                name: plant?.name[currentLanguage()] ?? risk.plantId,
-                // Only the cold soil warning says what the seed needs.
-                need: degrees(plant?.temps.germMinSoilC ?? 0),
-              })}
-            </button>
-          </li>
-        )
-      })}
+      {risks.map((risk) => (
+        <li key={`${risk.plantingId}:${risk.kind}`}>
+          <button
+            type="button"
+            className={`${toggleButtonClass} bg-amber-50 text-amber-900`}
+            aria-pressed={isSelected(selection, { kind: "planting", id: risk.plantingId })}
+            onClick={() => editorStore.getState().select({ kind: "planting", id: risk.plantingId })}
+          >
+            {riskText(risk)}
+          </button>
+        </li>
+      ))}
     </ul>
   )
 }
