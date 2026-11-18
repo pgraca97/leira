@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { getPlant } from "./plants"
-import { findRotationConflicts } from "./rotation"
+import { familiesToRest, findRotationConflicts, ROTATION_YEARS } from "./rotation"
 import { emptyPlan, type GardenPlan, type Planting } from "./schema"
 
 const bedA = { x: 0, y: 0, w: 200, h: 100 }
@@ -119,5 +119,29 @@ describe("findRotationConflicts", () => {
   it("skips plants it does not know", () => {
     const plan = planWith(planting("first", "triffid", 2025), planting("second", "triffid", 2026))
     expect(findRotationConflicts(plan, getPlant)).toEqual([])
+  })
+})
+
+describe("familiesToRest", () => {
+  // Tomato is a nightshade, garlic an allium, lettuce a daisy.
+  it("names the families grown on the ground in the years the rotation counts", () => {
+    const plan = planWith(
+      planting("tomatoes", "tomato", 2025),
+      planting("garlic", "garlic", 2024),
+      planting("lettuces", "lettuce", 2023)
+    )
+    expect(ROTATION_YEARS).toBe(3)
+    const rest = familiesToRest(plan, bedA, "2026-03-01", getPlant)
+    expect([...rest].sort()).toEqual(["amaryllidaceae", "solanaceae"])
+  })
+
+  it("leaves out other ground and crops still to come", () => {
+    const plan = planWith(
+      planting("elsewhere", "tomato", 2025, { rect: bedB }),
+      planting("later", "garlic", 2026, {
+        inGround: { from: "2026-10-01", to: "2027-06-30" },
+      })
+    )
+    expect([...familiesToRest(plan, bedA, "2026-03-01", getPlant)]).toEqual([])
   })
 })

@@ -13,6 +13,7 @@ import {
   type PlantingLayout,
   plantingFill,
   plantingSchedule,
+  ROTATION_YEARS,
 } from "@leira/core"
 import { type ReactNode, useState } from "react"
 import { useTranslation } from "react-i18next"
@@ -24,9 +25,6 @@ import { PlantingMarks, PlantingRecord } from "./PlantingRecord"
 import { monthName, seasonText } from "./season"
 import { editorStore, isSelected, selectedBed, selectedItems, selectedPlanting } from "./store"
 import { useEditor } from "./useEditor"
-
-/** Years a botanical family should stay away from ground it has just used. */
-const ROTATION_YEARS = 3
 
 /**
  * Lists what is on the plan and describes the selected item. It is also the

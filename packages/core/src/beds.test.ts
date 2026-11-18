@@ -136,6 +136,22 @@ describe("cropsThatFit", () => {
   it("follows a window over the year's end", () => {
     expect(fits("2026-12-01", "2027-05-15")).toEqual(["spring"])
   })
+
+  it("gives a greenhouse a month more at each end of the season", () => {
+    const plants = [quick, slow, later, spring]
+    const may = { from: "2026-05-01", to: "2026-06-15" }
+    expect(cropsThatFit(may, plants).map((plant) => plant.id)).toEqual([])
+    expect(cropsThatFit(may, plants, { site: "greenhouse" }).map((plant) => plant.id)).toEqual([
+      "spring",
+    ])
+  })
+
+  it("leaves out the families the ground should rest from", () => {
+    const cabbage = { ...crop("cabbage", [7, 8], 30), family: "brassicaceae" as const }
+    const window = { from: "2026-07-11", to: "2026-09-30" }
+    const kept = cropsThatFit(window, [quick, cabbage], { avoid: new Set(["solanaceae"]) })
+    expect(kept.map((plant) => plant.id)).toEqual(["cabbage"])
+  })
 })
 
 describe("siteOf", () => {

@@ -6,6 +6,7 @@ import {
   type DateRange,
   defaultDoneDate,
   doneDateBounds,
+  familiesToRest,
   type GardenPlan,
   type GardenTask,
   type GardenTaskKind,
@@ -211,8 +212,13 @@ export function PlanCalendar({
         // Nothing is planned into days gone by: the room is what is left from today.
         // biome-ignore lint/complexity/useMathMinMax: dates are strings, which Math.max does not compare
         const room = { from: window.from > today ? window.from : today, to: window.to }
-        // Quickest first: the crops most likely to be what a gap is for.
-        const fits = cropsThatFit(room, PLANTS)
+        // Quickest first: the crops most likely to be what a gap is for. A
+        // greenhouse has a longer season, and the families the rotation would
+        // flag on this bed are not offered at all.
+        const fits = cropsThatFit(room, PLANTS, {
+          site: bed?.kind === "greenhouse" ? "greenhouse" : "open",
+          avoid: bed ? familiesToRest(plan, bed.rect, room.from, getPlant) : undefined,
+        })
           .toSorted((a, b) => a.daysToHarvest[1] - b.daysToHarvest[1])
           .map((plant) => plant.name[language])
         const named = fits.slice(0, FITS_SHOWN)

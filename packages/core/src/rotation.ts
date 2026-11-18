@@ -1,4 +1,4 @@
-import { yearOf } from "./dates"
+import { type IsoDate, yearOf } from "./dates"
 import { intersection, type Rect } from "./geometry"
 import type { GardenPlan, Plant, PlantFamily, Planting } from "./schema"
 
@@ -14,6 +14,9 @@ export interface RotationConflict {
   /** The ground both plantings share. */
   overlap: Rect
 }
+
+/** How many years a family keeps away from the same ground. */
+export const ROTATION_YEARS = 3
 
 export interface RotationOptions {
   /**
@@ -35,7 +38,7 @@ export function findRotationConflicts(
   getPlant: (id: string) => Plant | undefined,
   options: RotationOptions = {}
 ): RotationConflict[] {
-  const years = options.years ?? 3
+  const years = options.years ?? ROTATION_YEARS
 
   const byFamily = new Map<PlantFamily, Planting[]>()
   for (const planting of plan.plantings) {
@@ -68,4 +71,28 @@ export function findRotationConflicts(
     }
   }
   return conflicts
+}
+
+/**
+ * The families a stretch of ground should rest from for a crop going in on a
+ * day: those of the plantings on it that left the ground before then, fewer
+ * than `years` calendar years earlier. The same rule as the rotation warning,
+ * so what is suggested for the ground is never what the warning then condemns.
+ */
+export function familiesToRest(
+  plan: GardenPlan,
+  ground: Rect,
+  from: IsoDate,
+  getPlant: (id: string) => Plant | undefined,
+  years = ROTATION_YEARS
+): Set<PlantFamily> {
+  const families = new Set<PlantFamily>()
+  for (const planting of plan.plantings) {
+    if (planting.inGround.to >= from) continue
+    if (yearOf(from) - yearOf(planting.inGround.from) >= years) continue
+    if (!intersection(planting.rect, ground)) continue
+    const family = getPlant(planting.plantId)?.family
+    if (family && family !== "other") families.add(family)
+  }
+  return families
 }

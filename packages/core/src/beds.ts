@@ -1,8 +1,8 @@
 import { addDays, daysBetween, type IsoDate } from "./dates"
 import { intersection } from "./geometry"
-import type { GrowingSite } from "./greenhouse"
+import { type GrowingSite, seasonMonths } from "./greenhouse"
 import type { DateRange } from "./schedule"
-import type { Bed, BedKind, GardenPlan, Plant, Planting } from "./schema"
+import type { Bed, BedKind, GardenPlan, Plant, PlantFamily, Planting } from "./schema"
 
 /** The kinds of area crops grow in. Paths and structures are drawn as beds too, but hold none. */
 const GROWING: readonly BedKind[] = ["bed", "container", "greenhouse"]
@@ -100,13 +100,23 @@ export function bedSeasons(plan: GardenPlan, range: DateRange, minFreeDays = 14)
  * The crops a free stretch of ground has room for: those that can go in on
  * some day of it, in season, and be done before it ends. "Done" is the long
  * end of the crop's days to harvest, the same stay a new planting is given.
+ *
+ * In a greenhouse the season is a month longer at each end. Families in
+ * `avoid` are left out: those the ground should rest from (`familiesToRest`).
  */
-export function cropsThatFit(window: DateRange, plants: readonly Plant[]): Plant[] {
+export function cropsThatFit(
+  window: DateRange,
+  plants: readonly Plant[],
+  options: { site?: GrowingSite; avoid?: ReadonlySet<PlantFamily> } = {}
+): Plant[] {
+  const { site = "open", avoid } = options
   return plants.filter((plant) => {
+    if (avoid?.has(plant.family)) return false
+    const months = seasonMonths(plant, site)
     // The first day of the window that is in the crop's season: the window's
     // own first day, or else the first of the next month that is.
     let day = window.from
-    while (day <= window.to && !plant.groundMonths.includes(Number(day.slice(5, 7)))) {
+    while (day <= window.to && !months.includes(Number(day.slice(5, 7)))) {
       const month = Number(day.slice(5, 7))
       const year = Number(day.slice(0, 4))
       day = month === 12 ? `${year + 1}-01-01` : `${year}-${String(month + 1).padStart(2, "0")}-01`

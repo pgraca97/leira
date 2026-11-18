@@ -295,6 +295,17 @@ describe("the year by bed", () => {
     expect(freeOf("Bed 1")).toHaveLength(2)
   })
 
+  it("does not offer the family the bed should rest from", async () => {
+    // Radishes, a cabbage, out on 30 April: the rotation would flag another one.
+    const radishes = planting("radishes", "radish", "2026-03-15", "2026-04-30")
+    showBeds([bed("b1", "", 0), bed("b2", "Herbs", 500)], [at(radishes, 10)])
+    await byBed()
+    expect(freeOf("Herbs")[0]).toMatch(/Radish/)
+    const after = freeOf("Bed 1").at(-1)
+    expect(after).toMatch(/^Free May 1 to Dec 31: room for /)
+    expect(after).not.toMatch(/Radish|Rocket|Turnip|Cabbage|Kale|Broccoli/)
+  })
+
   it("offers the whole year of a bed with nothing in it, from today on", async () => {
     showBeds([bed("b1", "", 0), bed("b2", "Herbs", 500)], [at(CARROTS, 10)])
     await byBed()
