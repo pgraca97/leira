@@ -101,7 +101,7 @@ export async function emailedLink(address: string): Promise<string> {
  */
 export async function followEmailedLink(
   link: string
-): Promise<{ redirectedTo: string; accessToken: string | null }> {
+): Promise<{ redirectedTo: string; accessToken: string | null; refreshToken: string | null }> {
   const response = await fetch(link, { redirect: "manual" })
   const location = response.headers.get("location")
   if (!location) throw new Error(`The link did not redirect (status ${response.status})`)
@@ -110,5 +110,6 @@ export async function followEmailedLink(
   return {
     redirectedTo: `${target.origin}${target.pathname}`,
     accessToken: fragment.get("access_token"),
+    refreshToken: fragment.get("refresh_token"),
   }
 }

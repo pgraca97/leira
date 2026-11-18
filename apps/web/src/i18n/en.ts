@@ -50,6 +50,9 @@ export const en = {
     deletionCancelled:
       "Your account was going to be deleted on {{date}}. Since you signed in again, it stays.",
     deletionDismiss: "Close",
+    handedOver: "Added {{items}} you had in this browser as a guest to your account.",
+    handedOverBoth:
+      "Added {{gardens}} and {{templates}} you had in this browser as a guest to your account.",
     privacy: "Privacy",
   },
   gardens: {

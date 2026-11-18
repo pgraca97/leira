@@ -51,6 +51,8 @@ A _leira_ is what a plot of cultivated land is called in Minho, in the north of 
   follow the seasons, with a rotation mistake and good and bad neighbours to show the advice.
 - **Accounts without a sign-up wall.** A guest gets a real user straight away. Signing in with
   Google or an emailed link attaches to that same user, so the gardens made as a guest are kept.
+  When the address or the Google account already has an account, as on a second device, the
+  guest's gardens and templates move into it.
 - **A privacy page** at `/privacy`, linked from the account panel, says what is kept, who else
   handles it, for how long and how to take it away or delete it. Reading it makes nobody a guest.
 - **A landing page** at `/`, in English at `/en/`, written as plain HTML when the app is built, so
@@ -170,6 +172,12 @@ The last two need `pnpm db:start` and a filled-in `.dev.vars`.
   garden or a template after a year: a guest's session never expires, but after that long the
   browser that held it is almost surely gone, and a guest has no email to warn. Seen means
   arriving, signing in, opening the app or saving a garden. Accounts and admins are never touched.
+- **A guest's gardens follow it into an account that already exists.** Signing in to one leaves
+  the guest's own user behind, with its gardens. So just before, the guest asks the database for a
+  one-time code, which the browser keeps; once signed in, the account hands it back, the guest's
+  gardens and templates change owner with their ids, share links and history, and the empty guest
+  is deleted. The code is good for a day and is the whole proof: only the browser that held the
+  guest's session has it.
 - **The privacy page only says what was checked, and the data keeps to it.** Each claim about a
   service (Supabase, Cloudflare, Google, OpenWeather, Open-Meteo) was checked against that
   service's own documentation on the date the page gives; change the date with the words. The

@@ -42,6 +42,9 @@ function fakeClient({
     user: { is_anonymous: boolean }
   } | null,
   askDeletion = undefined as ((accessToken: string) => Promise<Date>) | undefined,
+  /** What attaching an address to the guest answers: an address already used refuses. */
+  attachError = null as { code: string; message: string } | null,
+  handover = memoryHandover(),
 } = {}) {
   const calls: string[] = []
   const client = {
@@ -55,13 +58,46 @@ function fakeClient({
         calls.push(`signOut:${options?.scope}`)
         return { error: null }
       }),
+      updateUser: vi.fn(async () => {
+        calls.push("updateUser")
+        return { error: attachError }
+      }),
+      signInWithOtp: vi.fn(async () => {
+        calls.push("signInWithOtp")
+        return { error: null }
+      }),
+      signInWithOAuth: vi.fn(async () => {
+        calls.push("signInWithOAuth")
+        return { data: { url: "https://accounts.google.com/o/oauth2" }, error: null }
+      }),
     },
   }
   return {
-    account: accountApi(client as never, "https://app.example/gardens", { askDeletion }),
+    account: accountApi(client as never, "https://app.example/gardens", {
+      askDeletion,
+      handover,
+      navigate: () => {},
+    }),
     calls,
+    handover,
   }
 }
+
+/** Keeps a handover code in memory, as the browser's storage would. */
+function memoryHandover(code: string | null = null) {
+  let kept = code
+  return {
+    read: () => kept,
+    write: (next: string) => {
+      kept = next
+    },
+    clear: () => {
+      kept = null
+    },
+  }
+}
+
+const GUEST = { access_token: "token-guest", user: { is_anonymous: true } }
 
 describe("asking to delete an account", () => {
   it("asks the database, then forgets the ended session in this browser", async () => {
@@ -130,5 +166,80 @@ describe("keeping an account by signing in again", () => {
   it("fails when the database does, so the next visit tries again", async () => {
     const { account } = fakeClient({ answer: { data: null, error: { message: "down" } } })
     await expect(account.resume()).rejects.toThrow("down")
+  })
+})
+
+describe("a guest who signs in to an account that already exists", () => {
+  it("leaves a code for the account before the emailed link is sent", async () => {
+    const { account, calls, handover } = fakeClient({
+      session: GUEST,
+      attachError: { code: "email_exists", message: "already registered" },
+      answer: { data: "code-1", error: null },
+    })
+    await account.requestEmailLink("ana@example.com")
+    expect(calls).toEqual(["updateUser", "offer_guest_handover", "signInWithOtp"])
+    expect(handover.read()).toBe("code-1")
+  })
+
+  it("leaves none for an address nobody uses, which the guest itself becomes", async () => {
+    const { account, calls, handover } = fakeClient({ session: GUEST })
+    await account.requestEmailLink("new@example.com")
+    expect(calls).toEqual(["updateUser"])
+    expect(handover.read()).toBeNull()
+  })
+
+  it("sends no link when the code cannot be had: the gardens would stay behind", async () => {
+    const { account, calls } = fakeClient({
+      session: GUEST,
+      attachError: { code: "email_exists", message: "already registered" },
+      answer: { data: null, error: { message: "down" } },
+    })
+    await expect(account.requestEmailLink("ana@example.com")).rejects.toThrow("down")
+    expect(calls).not.toContain("signInWithOtp")
+  })
+
+  it("leaves a code before going to Google for the account its identity has", async () => {
+    const { account, calls, handover } = fakeClient({
+      session: GUEST,
+      answer: { data: "code-2", error: null },
+    })
+    await account.signInWithGoogle()
+    expect(calls).toEqual(["offer_guest_handover", "signInWithOAuth"])
+    expect(handover.read()).toBe("code-2")
+  })
+
+  it("has the account take the gardens once signed in, and forgets the code", async () => {
+    const { account, calls, handover } = fakeClient({
+      answer: { data: { gardens: 2, templates: 1 }, error: null },
+      handover: memoryHandover("code-1"),
+    })
+    expect(await account.takeOver()).toEqual({ gardens: 2, templates: 1 })
+    expect(calls).toEqual(["claim_guest_handover"])
+    expect(handover.read()).toBeNull()
+  })
+
+  it("waits while this browser is still the guest: the link is not opened yet", async () => {
+    const { account, calls, handover } = fakeClient({
+      session: GUEST,
+      handover: memoryHandover("code-1"),
+    })
+    expect(await account.takeOver()).toBeNull()
+    expect(calls).toEqual([])
+    expect(handover.read()).toBe("code-1")
+  })
+
+  it("keeps the code when the database fails, so the next visit tries again", async () => {
+    const { account, handover } = fakeClient({
+      answer: { data: null, error: { message: "down" } },
+      handover: memoryHandover("code-1"),
+    })
+    await expect(account.takeOver()).rejects.toThrow("down")
+    expect(handover.read()).toBe("code-1")
+  })
+
+  it("asks nothing when no code was left", async () => {
+    const { account, calls } = fakeClient()
+    expect(await account.takeOver()).toBeNull()
+    expect(calls).toEqual([])
   })
 })

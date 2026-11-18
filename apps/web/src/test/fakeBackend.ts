@@ -195,6 +195,8 @@ export function fakeBackend(seed: Garden[] = []): FakeBackend {
     deletedAccounts: 0,
     pendingDeletion: null,
     cancelledDeletion: null,
+    // Set it with `email` to stand for a guest's gardens handed over on sign-in.
+    handedOver: null,
     async connect() {
       backend.cancelledDeletion = await backend.account.resume().catch(() => null)
       return backend

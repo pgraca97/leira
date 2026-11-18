@@ -70,10 +70,68 @@ function dueDate(value: unknown): Date | null {
   return due === null ? null : new Date(due)
 }
 
+/** What a guest's code brought into the account. */
+export interface HandedOver {
+  gardens: number
+  templates: number
+}
+
+const HandedOverSchema = z.object({ gardens: z.int().min(0), templates: z.int().min(0) })
+
 /** The real account also knows how to finish a trip to Google that was refused. */
 export interface SupabaseAccountApi extends AccountApi {
-  /** Sends the browser to Google to sign in to the account that Google identity already has. */
+  /**
+   * Sends the browser to Google to sign in to the account that Google
+   * identity already has. A guest leaves a code first, so that account can
+   * take the guest's gardens along (see `takeOver`).
+   */
   signInWithGoogle(): Promise<void>
+  /**
+   * Once this browser is signed in to an account, takes over the gardens and
+   * templates of the guest who left a code here before signing in to it.
+   * Null when no code waits, or while this browser is still that guest.
+   */
+  takeOver(): Promise<HandedOver | null>
+}
+
+/**
+ * Where a guest's code waits while the browser signs in to another user: an
+ * emailed link may come back in another tab, Google in a new page load.
+ */
+export interface HandoverStore {
+  read(): string | null
+  write(code: string): void
+  clear(): void
+}
+
+const HANDOVER_KEY = "leira.handover"
+
+/**
+ * This browser's storage. Storage can be blocked: the code is then not kept,
+ * and the guest's gardens stay behind as they would with no code at all.
+ */
+const browserHandover: HandoverStore = {
+  read() {
+    try {
+      return localStorage.getItem(HANDOVER_KEY)
+    } catch {
+      return null
+    }
+  },
+  write(code) {
+    try {
+      localStorage.setItem(HANDOVER_KEY, code)
+    } catch {
+      // Not kept: see above.
+    }
+  },
+  clear() {
+    try {
+      localStorage.removeItem(HANDOVER_KEY)
+    } catch {
+      // Nothing was kept to clear.
+    }
+  },
 }
 
 /**
@@ -109,13 +167,20 @@ interface AccountOptions {
    * with no Worker.
    */
   askDeletion?: (accessToken: string) => Promise<Date>
+  /** Where a guest's code waits for the account it signs in to. */
+  handover?: HandoverStore
 }
 
 /** `appUrl` is where an emailed link or Google sends the user back to. */
 export function accountApi(
   client: SupabaseClient,
   appUrl: string,
-  { navigate = (url) => window.location.assign(url), captcha, askDeletion }: AccountOptions = {}
+  {
+    navigate = (url) => window.location.assign(url),
+    captcha,
+    askDeletion,
+    handover = browserHandover,
+  }: AccountOptions = {}
 ): SupabaseAccountApi {
   /** Asks the database itself, as the user, when there is no Worker to ask. */
   async function askDatabase(): Promise<Date> {
@@ -124,6 +189,22 @@ export function accountApi(
     const due = dueDate(data)
     if (!due) throw new Error("The database gave no date for the deletion")
     return due
+  }
+
+  /**
+   * Before a guest signs in to an account that already exists, and so stops
+   * being the user its gardens belong to, it leaves a code in this browser
+   * for that account to take them with. Refused, it throws: signing in then
+   * would leave the gardens behind.
+   */
+  async function offerHandover(): Promise<void> {
+    const { data: signedIn, error: sessionError } = await client.auth.getSession()
+    if (sessionError) throw new Error(sessionError.message)
+    if (!signedIn.session?.user.is_anonymous) return
+    const { data, error } = await client.rpc("offer_guest_handover")
+    if (error) throw new Error(error.message)
+    if (typeof data !== "string") throw new Error("The database gave no handover code")
+    handover.write(data)
   }
 
   // The client would navigate by itself, but only in a browser. Asking for
@@ -143,6 +224,7 @@ export function accountApi(
       if (!attached.error) return
       if (attached.error.code !== "email_exists") throw new Error(attached.error.message)
 
+      await offerHandover()
       const signIn = await client.auth.signInWithOtp({
         email,
         options: {
@@ -163,6 +245,7 @@ export function accountApi(
     },
 
     async signInWithGoogle() {
+      await offerHandover()
       const { data, error } = await client.auth.signInWithOAuth({ provider: "google", options })
       if (error) throw new Error(error.message)
       if (!data.url) throw new Error("The auth server gave no address for Google")
@@ -205,6 +288,20 @@ export function accountApi(
       const local = await client.auth.signOut({ scope: "local" })
       if (local.error) throw new Error(local.error.message)
       return due
+    },
+
+    async takeOver() {
+      const code = handover.read()
+      if (!code) return null
+      const { data: signedIn, error: sessionError } = await client.auth.getSession()
+      if (sessionError) throw new Error(sessionError.message)
+      // Still the guest who left it: the link is not opened yet, or Google has not answered.
+      if (!signedIn.session || signedIn.session.user.is_anonymous) return null
+      const { data, error } = await client.rpc("claim_guest_handover", { handover_code: code })
+      if (error) throw new Error(error.message)
+      // Spent, or too old to take anything: either way it is done with.
+      handover.clear()
+      return HandedOverSchema.parse(data)
     },
 
     async resume() {

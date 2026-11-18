@@ -83,6 +83,10 @@ export async function connectBackend(): Promise<Backend> {
   // page load, so this is where signing in again keeps an account that asked
   // to be deleted. A failure is dropped: the next page load tries again.
   const cancelledDeletion = await account.resume().catch(() => null)
+  // Signing in to an account that already exists comes back here too: the
+  // guest this browser was left a code for it to take the guest's gardens.
+  // A failure keeps the code, so the next page load tries again.
+  const handedOver = await account.takeOver().catch(() => null)
 
   /** Calls one of the Worker's routes as the signed-in visitor. */
   async function workerRoute<T>(
@@ -120,6 +124,7 @@ export async function connectBackend(): Promise<Backend> {
       },
     },
     cancelledDeletion,
+    handedOver,
     weather: (lat, lon) => workerRoute("/api/weather", at(lat, lon), WeatherNowSchema),
     forecast: (lat, lon) => workerRoute("/api/forecast", at(lat, lon), ForecastSchema),
     places: (query, language) =>

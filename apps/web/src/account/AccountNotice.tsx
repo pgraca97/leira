@@ -4,12 +4,12 @@ import { buttonClass } from "../components/ui"
 import { currentLanguage } from "../i18n"
 import { useBackend } from "../lib/backend"
 
-/** What to tell the visitor about their account's deletion, until they close it. */
-export interface AccountNotice {
+/** What to tell the visitor about their account, until they close it. */
+export type AccountNotice =
   /** `requested`: it will go on `deleteOn`. `cancelled`: signing in again kept it. */
-  kind: "requested" | "cancelled"
-  deleteOn: Date
-}
+  | { kind: "requested" | "cancelled"; deleteOn: Date }
+  /** Signing in brought along what the guest this browser was had made. */
+  | { kind: "handedOver"; gardens: number; templates: number }
 
 interface AccountNoticeState {
   notice: AccountNotice | null
@@ -25,9 +25,13 @@ const AccountNoticeContext = createContext<AccountNoticeState | null>(null)
  */
 export function AccountNoticeProvider({ children }: { children: ReactNode }) {
   const backend = useBackend()
-  const [notice, setNotice] = useState<AccountNotice | null>(() =>
-    backend.cancelledDeletion ? { kind: "cancelled", deleteOn: backend.cancelledDeletion } : null
-  )
+  const [notice, setNotice] = useState<AccountNotice | null>(() => {
+    if (backend.cancelledDeletion) return { kind: "cancelled", deleteOn: backend.cancelledDeletion }
+    const brought = backend.handedOver
+    return brought && brought.gardens + brought.templates > 0
+      ? { kind: "handedOver", ...brought }
+      : null
+  })
   const value = useMemo(() => ({ notice, setNotice }), [notice])
   return <AccountNoticeContext value={value}>{children}</AccountNoticeContext>
 }
@@ -49,17 +53,30 @@ export function AccountNoticeBanner() {
   const { notice, setNotice } = useAccountNotice()
   if (!notice) return null
 
-  const date = deletionDate(notice.deleteOn)
   return (
     <div className="flex flex-wrap items-center gap-3 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900">
       <p role="status" className="min-w-48 flex-1">
-        {notice.kind === "requested"
-          ? t("account.deletionRequested", { date })
-          : t("account.deletionCancelled", { date })}
+        <NoticeText notice={notice} />
       </p>
       <button type="button" className={buttonClass} onClick={() => setNotice(null)}>
         {t("account.deletionDismiss")}
       </button>
     </div>
   )
+}
+
+function NoticeText({ notice }: { notice: AccountNotice }) {
+  const { t } = useTranslation()
+  if (notice.kind === "handedOver") {
+    const gardens = t("gardens.importGardens", { count: notice.gardens })
+    const templates = t("gardens.importTemplates", { count: notice.templates })
+    if (notice.gardens > 0 && notice.templates > 0) {
+      return t("account.handedOverBoth", { gardens, templates })
+    }
+    return t("account.handedOver", { items: notice.gardens > 0 ? gardens : templates })
+  }
+  const date = deletionDate(notice.deleteOn)
+  return notice.kind === "requested"
+    ? t("account.deletionRequested", { date })
+    : t("account.deletionCancelled", { date })
 }

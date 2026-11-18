@@ -1,7 +1,7 @@
 import type { Forecast, Place, WeatherNow } from "@leira/core"
 import { createContext, useContext } from "react"
 import type { Language } from "../i18n/languages"
-import type { AccountApi } from "./account"
+import type { AccountApi, HandedOver } from "./account"
 import type { GardensApi, SharedGarden } from "./gardens"
 import type { StatsApi } from "./stats"
 import type { TemplatesApi } from "./templates"
@@ -28,6 +28,11 @@ export interface Backend {
    * to it cancelled a deletion it had asked for. Null on any other visit.
    */
   cancelledDeletion: Date | null
+  /**
+   * What came into the account from the guest this browser was before
+   * signing in to it, on the visit that brought it. Null on any other visit.
+   */
+  handedOver: HandedOver | null
 }
 
 export const BackendContext = createContext<Backend | null>(null)

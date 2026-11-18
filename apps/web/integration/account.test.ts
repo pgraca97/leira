@@ -120,6 +120,50 @@ describe("coming back on another device", () => {
     // The first device still sees its garden.
     expect((await gardensApi(first.client).get(garden.id)).name).toBe("At home")
   })
+
+  it("brings along what the guest made on this device", async () => {
+    // First device: an account under an address.
+    const first = await signInVisitor(settings)
+    const address = freshAddress()
+    await accountApi(first.client, APP_URL).requestEmailLink(address)
+    await followEmailedLink(await emailedLink(address))
+
+    // Second device: a guest plants something, then signs in to that account.
+    const second = await signInVisitor(settings)
+    const garden = await gardensApi(second.client).create("On the phone", emptyPlan())
+    let kept: string | null = null
+    const handover = {
+      read: () => kept,
+      write: (code: string) => {
+        kept = code
+      },
+      clear: () => {
+        kept = null
+      },
+    }
+    await accountApi(second.client, APP_URL, { captcha: testCaptcha, handover }).requestEmailLink(
+      address
+    )
+    expect(kept).not.toBeNull()
+    const opened = await followEmailedLink(await emailedLink(address))
+
+    // The browser lands back with the account's session, as the app keeps it.
+    const signedIn = newClient(settings)
+    const { error } = await signedIn.auth.setSession({
+      access_token: opened.accessToken ?? "",
+      refresh_token: opened.refreshToken ?? "",
+    })
+    expect(error).toBeNull()
+    const account = accountApi(signedIn, APP_URL, { handover })
+    expect(await account.takeOver()).toEqual({ gardens: 1, templates: 0 })
+    expect(kept).toBeNull()
+
+    const names = (await gardensApi(signedIn).list()).map((listed) => listed.name)
+    expect(names).toContain("On the phone")
+    expect((await gardensApi(signedIn).get(garden.id)).name).toBe("On the phone")
+    // The guest it came from is gone.
+    expect((await second.client.auth.getUser()).error).not.toBeNull()
+  })
 })
 
 describe("signing out", () => {

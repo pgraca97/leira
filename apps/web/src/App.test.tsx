@@ -788,6 +788,29 @@ describe("the account", () => {
     expect(screen.queryByText(/was going to be deleted/)).toBeNull()
   })
 
+  it("tells an account what came along from the guest it was in this browser", async () => {
+    backend.email = "ana@example.com"
+    backend.handedOver = { gardens: 2, templates: 1 }
+    open("/gardens", () => backend.connect())
+
+    expect(
+      await screen.findByText(
+        "Added 2 gardens and 1 template you had in this browser as a guest to your account."
+      )
+    ).toBeVisible()
+    await userEvent.click(screen.getByRole("button", { name: "Close" }))
+    expect(screen.queryByText(/as a guest to your account/)).toBeNull()
+  })
+
+  it("says nothing of a guest who had nothing to bring along", async () => {
+    backend.email = "ana@example.com"
+    backend.handedOver = { gardens: 0, templates: 0 }
+    open("/gardens", () => backend.connect())
+
+    expect(await screen.findAllByRole("link", { name: /Tomato patch|Herb spiral/ })).toHaveLength(2)
+    expect(screen.queryByText(/as a guest to your account/)).toBeNull()
+  })
+
   it("says so when an account could not ask to be deleted, and keeps everything", async () => {
     backend.email = "ana@example.com"
     backend.failNextDelete()

@@ -50,6 +50,9 @@ export const pt: Translation = {
     deletionRequested:
       "A tua conta será apagada a {{date}}. Para a manteres, volta a entrar antes disso.",
     deletionCancelled: "A tua conta ia ser apagada a {{date}}. Como voltaste a entrar, fica.",
+    handedOver: "Juntámos à tua conta {{items}} que tinhas neste browser como convidado.",
+    handedOverBoth:
+      "Juntámos à tua conta {{gardens}} e {{templates}} que tinhas neste browser como convidado.",
     deletionDismiss: "Fechar",
     privacy: "Privacidade",
   },

@@ -529,6 +529,44 @@ test("a guest keeps their gardens with an emailed link, then signs out", async (
   await expect(page.getByText(/You have no gardens yet/)).toBeVisible()
 })
 
+test("a guest who signs in to an account made elsewhere brings their garden along", async ({
+  browser,
+}) => {
+  const address = `gardener-${crypto.randomUUID()}@example.com`
+
+  /** Makes a garden, then asks for a sign-in link to the address. */
+  async function plantAndAskForLink(page: Page, gardenName: string) {
+    await page.goto("/gardens")
+    await page.getByRole("button", { name: "New garden" }).click()
+    await page.getByRole("textbox", { name: "Garden name" }).fill(gardenName)
+    await expect(page.getByText("Saved", { exact: true })).toBeVisible()
+    await page.getByRole("button", { name: "Keep your gardens" }).click()
+    await page.getByRole("textbox", { name: "Email" }).fill(address)
+    await page.getByRole("button", { name: "Send link" }).click()
+    await expect(page.getByText(`We sent a link to ${address}`)).toBeVisible()
+    await page.goto(await emailedLink(address))
+    await expect(page.getByRole("button", { name: address })).toBeVisible()
+  }
+
+  // One browser makes the account, the way a laptop at home would.
+  const home = await browser.newPage()
+  await plantAndAskForLink(home, "At home")
+
+  // Another one starts as a guest, then signs in to that same account.
+  const phone = await browser.newPage()
+  await plantAndAskForLink(phone, "On the phone")
+  await expect(
+    phone.getByText("Added 1 garden you had in this browser as a guest to your account.")
+  ).toBeVisible()
+  await expect(phone.getByRole("link", { name: "On the phone" })).toBeVisible()
+  await expect(phone.getByRole("link", { name: "At home" })).toBeVisible()
+
+  await home.reload()
+  await expect(home.getByRole("link", { name: "On the phone" })).toBeVisible()
+  await home.close()
+  await phone.close()
+})
+
 test("the privacy page opens on its own without making a guest, and from the account panel", async ({
   page,
 }) => {
