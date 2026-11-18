@@ -373,6 +373,8 @@ export const pt: Translation = {
     previousMonth: "Mês anterior",
     nextMonth: "Mês seguinte",
     showAll: "Mostrar tudo",
+    emptyDay: "Nada na terra neste dia.",
+    showDay: "Mostrar {{date}}",
   },
   companions: {
     title: "Consociação",

@@ -237,7 +237,8 @@ export const editorStore = createStore<EditorState>()(
         pasteRefused: false,
         tool: { kind: "select" },
         locale: "en",
-        viewDate: null,
+        // A plan holds several seasons: it opens on today, not on all of them at once.
+        viewDate: toIsoDate(new Date()),
         view: { canZoomIn: true, canZoomOut: true, fitted: true },
         viewRequest: null,
 
@@ -250,7 +251,7 @@ export const editorStore = createStore<EditorState>()(
             selectingMany: false,
             pasteRefused: false,
             tool: { kind: "select" },
-            viewDate: null,
+            viewDate: toIsoDate(new Date()),
           })
           history.resume()
           history.clear()

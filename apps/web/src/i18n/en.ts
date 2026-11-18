@@ -373,6 +373,8 @@ export const en = {
     previousMonth: "Previous month",
     nextMonth: "Next month",
     showAll: "Show everything",
+    emptyDay: "Nothing is in the ground on this day.",
+    showDay: "Show {{date}}",
   },
   companions: {
     title: "Companion planting",

@@ -58,6 +58,7 @@ describe("selecting everything", () => {
       inGround: { from: "2026-03-01", to: "2026-05-15" },
     }
     editorStore.getState().loadPlan({ ...emptyPlan(), beds: [BED], plantings: [crop] })
+    editorStore.getState().setViewDate("2026-04-01")
     await userEvent.keyboard("{Control>}a{/Control}")
     expect(editorStore.getState().selection).toEqual([
       { kind: "bed", id: "b1" },

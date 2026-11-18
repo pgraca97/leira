@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next"
 import { buttonClass } from "../components/ui"
 import { currentLanguage } from "../i18n"
 import { GardenCanvas } from "./canvas/GardenCanvas"
-import { DateFilter } from "./DateFilter"
+import { EditorDateFilter } from "./DateFilter"
 import { Inspector } from "./Inspector"
 import { Palette } from "./Palette"
 import { editorStore, redo, undo } from "./store"
@@ -69,7 +69,7 @@ export function Editor({ aside }: { aside?: ReactNode }) {
               <span className="hidden sm:inline">{t("editor.redo")}</span>
             </button>
           </div>
-          <DateFilter />
+          <EditorDateFilter />
         </div>
         <div className="relative min-h-0 flex-1">
           <GardenCanvas />

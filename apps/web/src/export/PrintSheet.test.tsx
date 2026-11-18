@@ -30,6 +30,7 @@ const twoYears: GardenPlan = {
 
 beforeEach(() => {
   editorStore.getState().loadPlan(twoYears)
+  editorStore.getState().setViewDate(null)
   render(<PrintSheet gardenName="Allotment 12" />)
 })
 

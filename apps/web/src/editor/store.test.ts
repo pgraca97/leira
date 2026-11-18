@@ -413,8 +413,15 @@ describe("the view date", () => {
     vi.useRealTimers()
   })
 
-  it("starts unset, showing the whole plan", () => {
-    expect(state().viewDate).toBeNull()
+  it("opens a plan on today, so other seasons are not drawn on top", () => {
+    vi.useFakeTimers({ now: new Date(2026, 5, 1, 10, 0), toFake: ["Date"] })
+    state().loadPlan(state().plan)
+    expect(state().viewDate).toBe("2026-06-01")
+    expect(shownPlan(state()).plantings).toEqual([TOMATO])
+  })
+
+  it("shows the whole plan once asked to", () => {
+    state().setViewDate(null)
     expect(shownPlan(state())).toBe(state().plan)
   })
 
@@ -444,10 +451,11 @@ describe("the view date", () => {
     expect(editorStore.temporal.getState().pastStates).toHaveLength(0)
   })
 
-  it("is forgotten when another plan is loaded", () => {
+  it("goes back to today when another plan is loaded", () => {
+    vi.useFakeTimers({ now: new Date(2026, 10, 18, 10, 0), toFake: ["Date"] })
     state().setViewDate("2026-06-01")
     state().loadPlan(emptyPlan())
-    expect(state().viewDate).toBeNull()
+    expect(state().viewDate).toBe("2026-11-18")
   })
 
   it("is the day a new planting goes in the ground", () => {
@@ -462,6 +470,7 @@ describe("the view date", () => {
 
   it("leaves a new planting starting today when no date is set", () => {
     vi.useFakeTimers({ now: new Date(2026, 10, 11, 9, 0) })
+    state().setViewDate(null)
     state().addPlanting("lettuce", { x: 300, y: 0, w: 100, h: 100 }, "row")
     expect(state().plan.plantings.at(-1)?.inGround.from).toBe("2026-11-11")
   })
@@ -615,6 +624,7 @@ describe("copy and paste", () => {
   })
 
   it("leaves the whole plan in view when it was", () => {
+    state().setViewDate(null)
     state().selectItems([TOMATO_REF])
     state().copySelection()
     state().paste({ nextYear: true })

@@ -1049,6 +1049,7 @@ describe("taking the plan out of the app", () => {
 
   it("saves a picture of the plan, named after the garden", async () => {
     open(`/gardens/${TOMATOES.id}`)
+    await userEvent.click(await screen.findByRole("button", { name: "Show everything" }))
     await userEvent.click(await screen.findByRole("button", { name: "Save image" }))
 
     expect(downloadPng).toHaveBeenCalledOnce()
@@ -1102,6 +1103,7 @@ describe("taking the plan out of the app", () => {
     const print = vi.fn()
     vi.stubGlobal("print", print)
     open(`/gardens/${TOMATOES.id}`)
+    await userEvent.click(await screen.findByRole("button", { name: "Show everything" }))
     await userEvent.click(await screen.findByRole("button", { name: "Print" }))
     expect(print).toHaveBeenCalledOnce()
 

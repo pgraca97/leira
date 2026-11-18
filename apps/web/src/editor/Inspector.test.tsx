@@ -23,6 +23,8 @@ function planting(id: string, plantId: string, from: string, to: string, x = 0):
 
 function show(plantings: Planting[], selectedId?: string, beds: Bed[] = []) {
   editorStore.getState().loadPlan({ ...emptyPlan(), beds, plantings })
+  // Every season at once, unless a test picks a day.
+  editorStore.getState().setViewDate(null)
   if (selectedId) editorStore.getState().select({ kind: "planting", id: selectedId })
   render(<Inspector />)
 }
