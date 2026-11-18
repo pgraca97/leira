@@ -130,6 +130,65 @@ describe("the year's plantings", () => {
   })
 })
 
+describe("the crops being picked", () => {
+  // Sown on 20 January, so picking began on 31 March; 1.5 kg recorded so far.
+  const PICKING: Planting = {
+    ...planting("picking", "carrot", "2026-01-20", "2026-07-03"),
+    planted: true,
+    harvests: [{ date: "2026-04-10", quantity: 1.5, unit: "kg" }],
+  }
+  const picking = () => screen.getByRole("region", { name: "Picking now" })
+
+  it("lists each one with what it gave so far", () => {
+    show([PICKING, TOMATOES])
+    const rows = within(picking()).getAllByRole("listitem")
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toHaveTextContent("Carrot × 400")
+    expect(rows[0]).toHaveTextContent("1.5 kg")
+  })
+
+  it("records another harvest in a few taps, picked today", async () => {
+    show([PICKING])
+    await userEvent.click(
+      within(picking()).getByRole("button", { name: "Record harvest: Carrot × 400" })
+    )
+    await userEvent.type(within(picking()).getByLabelText("Amount"), "2")
+    await userEvent.click(within(picking()).getByRole("button", { name: "Record harvest" }))
+
+    expect(editorStore.getState().plan.plantings[0]?.harvests).toEqual([
+      { date: "2026-04-10", quantity: 1.5, unit: "kg" },
+      { date: "2026-04-20", quantity: 2, unit: "kg" },
+    ])
+    // The form closes, and the total counts the new one.
+    expect(within(picking()).queryByLabelText("Amount")).toBeNull()
+    expect(picking()).toHaveTextContent("3.5 kg")
+  })
+
+  it("closes the form without recording anything", async () => {
+    show([PICKING])
+    await userEvent.click(within(picking()).getByRole("button", { name: /^Record harvest:/ }))
+    await userEvent.click(within(picking()).getByRole("button", { name: "Cancel" }))
+    expect(within(picking()).queryByLabelText("Amount")).toBeNull()
+    expect(editorStore.getState().plan.plantings[0]?.harvests).toHaveLength(1)
+  })
+
+  it("is left out when nothing is being picked", () => {
+    show([TOMATOES])
+    expect(screen.queryByRole("region", { name: "Picking now" })).toBeNull()
+  })
+
+  it("is left out where the plan cannot change", () => {
+    render(
+      <PlanCalendar
+        plan={{ ...emptyPlan(), plantings: [PICKING] }}
+        day={null}
+        onDayChange={() => {}}
+      />
+    )
+    expect(screen.queryByRole("region", { name: "Picking now" })).toBeNull()
+  })
+})
+
 describe("the jobs", () => {
   const jobs = () =>
     within(screen.getByRole("list", { name: "Jobs" }))

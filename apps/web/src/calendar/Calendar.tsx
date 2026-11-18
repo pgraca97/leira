@@ -13,6 +13,8 @@ import {
   type GardenTaskKind,
   gardenTasks,
   getPlant,
+  type Harvest,
+  harvestingOn,
   type IsoDate,
   icsCalendar,
   nearestPlantedDay,
@@ -31,6 +33,7 @@ import { type ReactNode, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { buttonClass, inputClass, viewLinkClass } from "../components/ui"
 import { cropName } from "../editor/cropName"
+import { HarvestForm, useHarvestWords } from "../editor/HarvestForm"
 import { editorStore } from "../editor/store"
 import { useEditor } from "../editor/useEditor"
 import { downloadText } from "../export/downloadFile"
@@ -69,6 +72,7 @@ export function Calendar({
 }) {
   const plan = useEditor((state) => state.plan)
   const recordTask = useEditor((state) => state.recordTask)
+  const addHarvest = useEditor((state) => state.addHarvest)
   const viewDate = useEditor((state) => state.viewDate)
   return (
     <PlanCalendar
@@ -78,6 +82,7 @@ export function Calendar({
       gardenName={gardenName}
       onOpenPlanting={onOpenPlanting}
       onRecordTask={recordTask}
+      onAddHarvest={addHarvest}
     />
   )
 }
@@ -99,6 +104,8 @@ interface PlanCalendarProps {
    * Without it the jobs only show what was done.
    */
   onRecordTask?(plantingId: string, kind: GardenTaskKind, date: IsoDate | null): boolean
+  /** Records a harvest. Without it the crops being picked are not listed to record one. */
+  onAddHarvest?(plantingId: string, harvest: Harvest): boolean
 }
 
 /**
@@ -113,6 +120,7 @@ export function PlanCalendar({
   gardenName,
   onOpenPlanting,
   onRecordTask,
+  onAddHarvest,
 }: PlanCalendarProps) {
   const { t } = useTranslation()
   const language = currentLanguage()
@@ -171,6 +179,16 @@ export function PlanCalendar({
     return planting ? [{ task, planting }] : []
   })
   const todayMark = yearSpan({ from: today, to: today }, year)
+  const picking = harvestingOn(plan, getPlant, today)
+  const plantingName = (planting: Planting) => {
+    const plant = getPlant(planting.plantId)
+    return plant
+      ? t("inspector.plantingSummary", {
+          name: cropName(planting, plant, language),
+          count: plantingFill(planting, plant).count,
+        })
+      : planting.plantId
+  }
 
   const taskText = (task: { kind: GardenTaskKind; plantId: string; plantingId: string }) =>
     t(`calendar.task.${task.kind}`, {
@@ -382,6 +400,24 @@ export function PlanCalendar({
         )}
       </section>
 
+      {onAddHarvest && picking.length > 0 && (
+        <section aria-labelledby="calendar-picking" className="flex flex-col gap-2">
+          <h2 id="calendar-picking" className={headingClass}>
+            {t("calendar.picking")}
+          </h2>
+          <ul aria-labelledby="calendar-picking" className="flex flex-col gap-1">
+            {picking.map((planting) => (
+              <PickingRow
+                key={planting.id}
+                planting={planting}
+                name={plantingName(planting)}
+                onAdd={(harvest) => onAddHarvest(planting.id, harvest)}
+              />
+            ))}
+          </ul>
+        </section>
+      )}
+
       <section aria-labelledby="calendar-tasks" className="flex flex-col gap-2">
         <div className="flex items-center gap-3">
           <h2 id="calendar-tasks" className={headingClass}>
@@ -442,6 +478,54 @@ export function PlanCalendar({
         </section>
       )}
     </main>
+  )
+}
+
+/**
+ * A crop being picked: what it gave so far, and a form to record another
+ * harvest, opened on demand so a phone shows one at a time.
+ */
+function PickingRow({
+  planting,
+  name,
+  onAdd,
+}: {
+  planting: Planting
+  name: string
+  onAdd(harvest: Harvest): boolean
+}) {
+  const { t } = useTranslation()
+  const { totalOf } = useHarvestWords()
+  const [open, setOpen] = useState(false)
+  const total = totalOf(planting)
+  return (
+    <li className="flex flex-col gap-2 rounded-md border border-stone-200 bg-white px-3 py-2 text-sm">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <span className="text-stone-900">{name}</span>
+        {total && <span className="text-stone-600">{total}</span>}
+        {!open && (
+          <button
+            type="button"
+            className={`${buttonClass} ml-auto`}
+            aria-label={t("record.addFor", { name })}
+            onClick={() => setOpen(true)}
+          >
+            {t("record.add")}
+          </button>
+        )}
+      </div>
+      {open && (
+        <HarvestForm
+          planting={planting}
+          onAdd={(harvest) => {
+            const taken = onAdd(harvest)
+            if (taken) setOpen(false)
+            return taken
+          }}
+          onCancel={() => setOpen(false)}
+        />
+      )}
+    </li>
   )
 }
 
