@@ -14,16 +14,20 @@ concurrency:
 permissions:
   contents: read
 
+# Every job runs on `ubuntu-latest`, which GitHub moves to Ubuntu 26 from
+# 19 October 2026. Nothing here should mind (Node, pnpm and Docker only).
+# If a run breaks after the move, pin `runs-on: ubuntu-24.04` in each job.
+
 jobs:
   check:
     name: Lint, typecheck, unit tests, build
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       # Reads the pnpm version from `packageManager` in package.json.
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: pnpm
@@ -37,9 +41,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: pnpm
@@ -69,7 +73,7 @@ jobs:
 
       - name: Keep the traces of failed browser tests
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-traces
           path: apps/web/test-results
@@ -87,9 +91,9 @@ jobs:
       SUPABASE_PROJECT_REF: auqrvaqgomlblbcuyjlr
       APP_URL: https://leira.paulodcgraca.workers.dev
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: pnpm
