@@ -1,6 +1,5 @@
 import { type GardenLocation, gardenFile } from "@leira/core"
 import { useState } from "react"
-import { renderToStaticMarkup } from "react-dom/server"
 import { useTranslation } from "react-i18next"
 import { buttonClass } from "../components/ui"
 import { editorStore, shownPlan } from "../editor/store"
@@ -29,10 +28,13 @@ export function ExportControls({
     // Read at the moment of the click, so the picture shows the plan as it is now,
     // and only what is in the ground on the day shown, as on the screen.
     const plan = shownPlan(editorStore.getState())
-    const markup = renderToStaticMarkup(
-      <PlanSvg plan={plan} locale={currentLanguage()} title={gardenName} />
-    )
     try {
+      // The server renderer is only needed here, so it loads on the first save
+      // instead of making every visit download it.
+      const { renderToStaticMarkup } = await import("react-dom/server")
+      const markup = renderToStaticMarkup(
+        <PlanSvg plan={plan} locale={currentLanguage()} title={gardenName} />
+      )
       await downloadPng(markup, imageSize(plan), fileNameFor(gardenName, "png"))
       setFailed(false)
     } catch {
