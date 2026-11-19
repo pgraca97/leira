@@ -1880,6 +1880,78 @@ describe("sharing a garden", () => {
   })
 })
 
+describe("subscribing to a garden's calendar", () => {
+  const TOKEN = "cccccccc-cccc-4ccc-8ccc-000000000001"
+  const FEED = `${window.location.origin}/api/calendar/${TOKEN}.ics?lang=en`
+  const WEBCAL = FEED.replace(/^https?:/, "webcal:")
+
+  async function openFeedPanel() {
+    open(`/gardens/${TOMATOES.id}?view=calendar`)
+    await userEvent.click(await screen.findByRole("button", { name: "Subscribe" }))
+    return screen.findByRole("dialog", { name: "Subscribe to this garden's jobs" })
+  }
+
+  it("turns on a link for calendar apps, in the app's language, with ways to add it", async () => {
+    const panel = await openFeedPanel()
+    expect(within(panel).getByText(/phone's calendar/)).toBeVisible()
+    expect(within(panel).getByText(/up to a day/)).toBeVisible()
+
+    await userEvent.click(await within(panel).findByRole("button", { name: "Turn on" }))
+    const link = await within(panel).findByRole("textbox", { name: "Calendar link" })
+    expect(link).toHaveValue(FEED)
+    expect(link).toHaveAttribute("readonly")
+    expect(within(panel).getByRole("link", { name: "Open in my calendar app" })).toHaveAttribute(
+      "href",
+      WEBCAL
+    )
+    expect(within(panel).getByRole("link", { name: "Add to Google Calendar" })).toHaveAttribute(
+      "href",
+      `https://calendar.google.com/calendar/r?cid=${encodeURIComponent(WEBCAL)}`
+    )
+    expect(within(panel).getByText(/keep it to yourself/)).toBeVisible()
+    expect(backend.calendars.get(TOMATOES.id)).toBe(TOKEN)
+    // A link is not a save: the editor's copy of the garden is still current.
+    expect(backend.rows.get(TOMATOES.id)?.version).toBe(1)
+  })
+
+  it("copies the link", async () => {
+    const writeText = vi.fn(async (_text: string) => {})
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true })
+    backend.calendars.set(TOMATOES.id, TOKEN)
+
+    const panel = await openFeedPanel()
+    await userEvent.click(await within(panel).findByRole("button", { name: "Copy link" }))
+    expect(writeText).toHaveBeenCalledExactlyOnceWith(FEED)
+    expect(await within(panel).findByText("Copied")).toBeVisible()
+  })
+
+  it("turns the link off, and offers to turn on a new one", async () => {
+    backend.calendars.set(TOMATOES.id, TOKEN)
+    const panel = await openFeedPanel()
+
+    await userEvent.click(await within(panel).findByRole("button", { name: "Turn off" }))
+    expect(await within(panel).findByRole("button", { name: "Turn on" })).toBeVisible()
+    expect(within(panel).queryByRole("textbox", { name: "Calendar link" })).not.toBeInTheDocument()
+    expect(backend.calendars.size).toBe(0)
+  })
+
+  it("says when the link could not be turned on", async () => {
+    backend.failNextShare()
+    const panel = await openFeedPanel()
+    await userEvent.click(await within(panel).findByRole("button", { name: "Turn on" }))
+    expect(await within(panel).findByRole("alert")).toHaveTextContent(/did not work/)
+    expect(backend.calendars.size).toBe(0)
+  })
+
+  it("closes with Escape, back on its button", async () => {
+    await openFeedPanel()
+    await userEvent.keyboard("{Escape}")
+    expect(
+      screen.queryByRole("dialog", { name: "Subscribe to this garden's jobs" })
+    ).not.toBeInTheDocument()
+  })
+})
+
 describe("a shared garden", () => {
   const TOKEN = "bbbbbbbb-bbbb-4bbb-8bbb-000000000001"
   // The page opens on today, so the planting is in the ground all this year.
@@ -1960,6 +2032,8 @@ describe("a shared garden", () => {
     const rows = await screen.findByRole("list", { name: /Plantings in/ })
     expect(within(rows).getByText(/Tomato.*in the ground/)).toBeInTheDocument()
     expect(within(rows).queryByRole("button")).not.toBeInTheDocument()
+    // Its jobs are the owner's to subscribe to, not the visitor's.
+    expect(screen.queryByRole("button", { name: "Subscribe" })).not.toBeInTheDocument()
     expect(noSession).not.toHaveBeenCalled()
   })
 

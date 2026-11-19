@@ -308,6 +308,27 @@ export const en = {
     done: "done",
     doneOn: "{{task}}: done on",
     exportJobs: "Add to my calendar (.ics)",
+    feed: {
+      button: "Subscribe",
+      panel: "Subscribe to this garden's jobs",
+      explain:
+        "Put this garden's jobs in your phone's calendar. They follow your plan on their own, and a job you tick off leaves the calendar. Each one reminds you at 9 in the morning.",
+      delay:
+        "Calendars look again every few hours, and Google Calendar can take up to a day. Whether reminders show depends on the calendar app.",
+      create: "Turn on",
+      link: "Calendar link",
+      copy: "Copy link",
+      copied: "Copied",
+      openApp: "Open in my calendar app",
+      google: "Add to Google Calendar",
+      secret: "Anyone with this link can see the garden's jobs, so keep it to yourself.",
+      stop: "Turn off",
+      stopHint:
+        "The link stops working at once, and the jobs leave the calendar the next time it looks. Turning it on again makes a different link.",
+      loading: "Loading…",
+      loadFailed: "The calendar link could not be loaded.",
+      failed: "That did not work. Try again.",
+    },
     seeds: "To get for {{year}}",
     seedPlants_one: "{{count}} plant",
     seedPlants_other: "{{count}} plants",
@@ -589,10 +610,14 @@ export const en = {
       heading: "Share links",
       body: "If you share a garden, anyone with its link can see its name, plan and calendar, without an account. Its location shows only if you allow it, and your notes and harvest amounts never do. Turning the link off ends it.",
     },
+    calendarLink: {
+      heading: "Calendar links",
+      body: "If you subscribe to a garden's jobs, your calendar app reads them from a link of their own every few hours. Anyone with that link sees the garden's name, its crops and the days of its jobs, never your notes, harvests or location. Turning the link off ends it.",
+    },
     retention: {
       heading: "How long it is kept",
       account:
-        "An account, its gardens and its sign-in log: until you delete the account. An account goes 30 days from the day you ask. Until then nobody can use it, its share links show nothing, and signing in again keeps it.",
+        "An account, its gardens and its sign-in log: until you delete the account. An account goes 30 days from the day you ask. Until then nobody can use it, its share and calendar links show nothing, and signing in again keeps it.",
       guests:
         "A guest who kept nothing is deleted 30 days after they were last seen, and a guest with a garden or a template after a year (seen means opening the app, signing in or saving a garden). A guest has no email address, so there is no warning first: sign in to keep your gardens for longer.",
       logs: "Logs: 1 day at Supabase, 3 days at Cloudflare. Open-Meteo keeps its own server logs, which may hold the garden's area, for 90 days.",

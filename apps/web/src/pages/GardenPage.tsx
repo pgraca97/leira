@@ -3,6 +3,7 @@ import { Link, useNavigate } from "@tanstack/react-router"
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Calendar } from "../calendar/Calendar"
+import { CalendarFeed } from "../calendar/CalendarFeed"
 import { AppHeader } from "../components/AppHeader"
 import { Notice } from "../components/Notice"
 import { inputClass, viewLinkClass } from "../components/ui"
@@ -118,6 +119,7 @@ function LoadedGarden({ garden, view, onReload }: LoadedGardenProps) {
         {view === "calendar" ? (
           <Calendar
             gardenName={name}
+            jobsActions={<CalendarFeed gardenId={garden.id} />}
             onOpenPlanting={(id) => {
               editorStore.getState().select({ kind: "planting", id })
               void navigate({ to: "/gardens/$gardenId", params: { gardenId: garden.id } })

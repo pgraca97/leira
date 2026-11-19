@@ -143,6 +143,10 @@ export function PrivacyPage() {
             <p>{t("privacy.shared.body")}</p>
           </Section>
 
+          <Section heading={t("privacy.calendarLink.heading")}>
+            <p>{t("privacy.calendarLink.body")}</p>
+          </Section>
+
           <Section heading={t("privacy.retention.heading")}>
             <ul className="flex list-disc flex-col gap-1 pl-5">
               <li>{t("privacy.retention.account")}</li>

@@ -309,6 +309,27 @@ export const pt: Translation = {
     done: "feita",
     doneOn: "{{task}}: feita a",
     exportJobs: "Pôr no meu calendário (.ics)",
+    feed: {
+      button: "Subscrever",
+      panel: "Subscrever as tarefas desta horta",
+      explain:
+        "Põe as tarefas desta horta no calendário do telemóvel. Acompanham o teu plano sozinhas, e uma tarefa que marcas como feita sai do calendário. Cada uma lembra-te às 9 da manhã.",
+      delay:
+        "Os calendários voltam a ver de poucas em poucas horas, e o Google Calendar pode levar até um dia. Se os lembretes aparecem depende da app de calendário.",
+      create: "Ligar",
+      link: "Link do calendário",
+      copy: "Copiar link",
+      copied: "Copiado",
+      openApp: "Abrir na app de calendário",
+      google: "Juntar ao Google Calendar",
+      secret: "Quem tiver este link vê as tarefas da horta, por isso guarda-o para ti.",
+      stop: "Desligar",
+      stopHint:
+        "O link deixa de funcionar de imediato, e as tarefas saem do calendário da próxima vez que ele vir. Voltar a ligar cria um link diferente.",
+      loading: "A carregar…",
+      loadFailed: "Não foi possível carregar o link do calendário.",
+      failed: "Não resultou. Tenta de novo.",
+    },
     seeds: "A arranjar para {{year}}",
     seedPlants_one: "{{count}} planta",
     seedPlants_other: "{{count}} plantas",
@@ -592,10 +613,14 @@ export const pt: Translation = {
       heading: "Links partilhados",
       body: "Se partilhares uma horta, quem tiver o link vê o nome, o plano e o calendário, sem conta. A localização só aparece se o permitires, e as tuas notas e as quantidades colhidas nunca aparecem. Desligar o link acaba com ele.",
     },
+    calendarLink: {
+      heading: "Links de calendário",
+      body: "Se subscreveres as tarefas de uma horta, a tua app de calendário lê-as de um link próprio de poucas em poucas horas. Quem tiver esse link vê o nome da horta, as culturas e os dias das tarefas, nunca as tuas notas, colheitas ou localização. Desligar o link acaba com ele.",
+    },
     retention: {
       heading: "Durante quanto tempo",
       account:
-        "Uma conta, as suas hortas e o registo das entradas: até apagares a conta. Uma conta desaparece 30 dias depois do dia em que o pedes. Até lá ninguém a pode usar, os links de partilha não mostram nada, e voltar a entrar mantém-na.",
+        "Uma conta, as suas hortas e o registo das entradas: até apagares a conta. Uma conta desaparece 30 dias depois do dia em que o pedes. Até lá ninguém a pode usar, os links de partilha e de calendário não mostram nada, e voltar a entrar mantém-na.",
       guests:
         "Um convidado que não guardou nada é apagado 30 dias depois da última vez que foi visto, e um convidado com uma horta ou um modelo ao fim de um ano (visto quer dizer que abriu a app, entrou na conta ou guardou uma horta). Um convidado não tem email, por isso não há aviso antes: entra numa conta para guardar as hortas por mais tempo.",
       logs: "Registos: 1 dia no Supabase, 3 dias na Cloudflare. O Open-Meteo guarda os registos do seu próprio servidor, que podem ter a zona da horta, durante 90 dias.",

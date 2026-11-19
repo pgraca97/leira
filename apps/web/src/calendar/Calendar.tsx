@@ -72,9 +72,12 @@ interface Row {
 export function Calendar({
   gardenName,
   onOpenPlanting,
+  jobsActions,
 }: {
   gardenName: string
   onOpenPlanting(plantingId: string): void
+  /** More controls beside the jobs' heading. */
+  jobsActions?: ReactNode
 }) {
   const plan = useEditor((state) => state.plan)
   const recordTask = useEditor((state) => state.recordTask)
@@ -89,6 +92,7 @@ export function Calendar({
       onOpenPlanting={onOpenPlanting}
       onRecordTask={recordTask}
       onAddHarvest={addHarvest}
+      jobsActions={jobsActions}
     />
   )
 }
@@ -112,6 +116,8 @@ interface PlanCalendarProps {
   onRecordTask?(plantingId: string, kind: GardenTaskKind, date: IsoDate | null): boolean
   /** Records a harvest. Without it the crops being picked are not listed to record one. */
   onAddHarvest?(plantingId: string, harvest: Harvest): boolean
+  /** More controls beside the jobs' heading, for the garden's owner. */
+  jobsActions?: ReactNode
 }
 
 /**
@@ -127,6 +133,7 @@ export function PlanCalendar({
   onOpenPlanting,
   onRecordTask,
   onAddHarvest,
+  jobsActions,
 }: PlanCalendarProps) {
   const { t } = useTranslation()
   const language = currentLanguage()
@@ -437,19 +444,18 @@ export function PlanCalendar({
       )}
 
       <section aria-labelledby="calendar-tasks" className="flex flex-col gap-2">
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <h2 id="calendar-tasks" className={headingClass}>
             {t("calendar.tasks")}
           </h2>
-          {gardenName && toExport.length > 0 && (
-            <button
-              type="button"
-              className={`${buttonClass} ml-auto`}
-              onClick={() => saveJobs(gardenName)}
-            >
-              {t("calendar.exportJobs")}
-            </button>
-          )}
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            {gardenName && toExport.length > 0 && (
+              <button type="button" className={buttonClass} onClick={() => saveJobs(gardenName)}>
+                {t("calendar.exportJobs")}
+              </button>
+            )}
+            {jobsActions}
+          </div>
         </div>
         {tasks.length === 0 ? (
           <p className="text-sm text-stone-600">

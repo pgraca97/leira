@@ -525,6 +525,37 @@ test("a garden opens from its share link with no account, until sharing stops", 
   await visitor.close()
 })
 
+test("a garden's jobs reach a calendar app through their link, until it is turned off", async ({
+  page,
+}) => {
+  await page.goto("/gardens")
+  await newGarden(page)
+  await page.getByRole("textbox", { name: "Garden name" }).fill("Calendar allotment")
+  await pickCrop(page, "Fruits", "Tomato")
+  await dragOnCanvas(page, [0.4, 0.4], [0.6, 0.6])
+  await expect(page.getByText("Saved", { exact: true })).toBeVisible()
+
+  await page.getByRole("link", { name: "Calendar" }).click()
+  await page.getByRole("button", { name: "Subscribe" }).click()
+  const panel = page.getByRole("dialog", { name: "Subscribe to this garden's jobs" })
+  await panel.getByRole("button", { name: "Turn on" }).click()
+  const link = await panel.getByRole("textbox", { name: "Calendar link" }).inputValue()
+  expect(link).toMatch(/\/api\/calendar\/[0-9a-f-]{36}\.ics\?lang=en$/)
+
+  // A calendar app asks with no session: a plain request from outside the page.
+  const feed = await page.request.get(link)
+  expect(feed.status()).toBe(200)
+  expect(feed.headers()["content-type"]).toBe("text/calendar; charset=utf-8")
+  const body = await feed.text()
+  expect(body).toContain("X-WR-CALNAME:Leira · Calendar allotment")
+  expect(body).toMatch(/SUMMARY:[^\r]*Tomato/)
+  expect(body).toContain("TRIGGER:PT9H")
+
+  await panel.getByRole("button", { name: "Turn off" }).click()
+  await expect(panel.getByRole("button", { name: "Turn on" })).toBeVisible()
+  expect((await page.request.get(link)).status()).toBe(404)
+})
+
 /** The local stack catches every email it sends in Mailpit. Returns the link in the newest one. */
 async function emailedLink(address: string): Promise<string> {
   const mailpit = "http://127.0.0.1:54324/api/v1"
