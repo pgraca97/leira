@@ -2111,6 +2111,7 @@ describe("the usage stats", () => {
         editedLast7Days: 40,
         editedLast30Days: 90,
         shared: 29,
+        withCalendar: 7,
         withLocation: 12,
         withPlantings: 120,
         withRecords: 33,
@@ -2141,6 +2142,7 @@ describe("the usage stats", () => {
     expect(figure("Gardens", "Edited in the last 7 days")).toBe("40")
     expect(figure("Gardens", "Edited in the last 30 days")).toBe("90")
     expect(figure("Gardens", "Shared")).toBe("29")
+    expect(figure("Gardens", "With a calendar link")).toBe("7")
     expect(figure("Gardens", "With a location")).toBe("12")
   })
 

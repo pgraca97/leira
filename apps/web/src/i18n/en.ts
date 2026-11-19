@@ -516,6 +516,7 @@ export const en = {
     editedLast7Days: "Edited in the last 7 days",
     editedLast30Days: "Edited in the last 30 days",
     shared: "Shared",
+    withCalendar: "With a calendar link",
     withLocation: "With a location",
     use: "What is done in them",
     useHint:

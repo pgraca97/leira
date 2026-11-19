@@ -517,6 +517,7 @@ export const pt: Translation = {
     editedLast7Days: "Editadas nos últimos 7 dias",
     editedLast30Days: "Editadas nos últimos 30 dias",
     shared: "Partilhadas",
+    withCalendar: "Com link de calendário",
     withLocation: "Com localização",
     use: "O que se faz nelas",
     useHint:

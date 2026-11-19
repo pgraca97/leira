@@ -9,6 +9,7 @@ const STATS: UsageStats = {
     editedLast7Days: 40,
     editedLast30Days: 90,
     shared: 29,
+    withCalendar: 7,
     withLocation: 12,
     withPlantings: 120,
     withRecords: 33,

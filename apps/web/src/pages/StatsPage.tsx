@@ -113,6 +113,7 @@ export function StatsPage() {
                   [t("stats.editedLast7Days"), stats.data.gardens.editedLast7Days],
                   [t("stats.editedLast30Days"), stats.data.gardens.editedLast30Days],
                   [t("stats.shared"), stats.data.gardens.shared],
+                  [t("stats.withCalendar"), stats.data.gardens.withCalendar],
                   [t("stats.withLocation"), stats.data.gardens.withLocation],
                 ]}
                 format={numbers.format}

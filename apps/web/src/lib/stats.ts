@@ -17,6 +17,7 @@ export const UsageStatsSchema = z.object({
     editedLast7Days: count,
     editedLast30Days: count,
     shared: count,
+    withCalendar: count,
     withLocation: count,
     /** Records are marks (in the ground, out, sown) and harvests; their days are the ones they name. */
     withPlantings: count,
