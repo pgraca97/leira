@@ -1,25 +1,12 @@
-import { en } from "../src/i18n/en"
 import type { Language } from "../src/i18n/languages"
-import { pt } from "../src/i18n/pt"
 import type { MailMessage } from "./mail"
-
-/**
- * The app's own strings. They are plain objects with no i18next behind them,
- * so the Worker reads them directly and a missing key fails the typecheck.
- */
-const STRINGS = { en, pt }
+import { fill, STRINGS, TIME_ZONE } from "./strings"
 
 /** Dates the way the privacy page writes them: "17 December 2026", "17 de dezembro de 2026". */
 const DATE_LOCALE: Record<Language, string> = { en: "en-GB", pt: "pt-PT" }
 
 /** The language as an HTML `lang` attribute names it. The Portuguese is Portugal's. */
 const LANGUAGE_TAG: Record<Language, string> = { en: "en", pt: "pt-PT" }
-
-/**
- * The Worker runs in UTC, and nearly everyone using the app is in Portugal:
- * near midnight the two can fall on different days.
- */
-const TIME_ZONE = "Europe/Lisbon"
 
 /**
  * The confirmation of a request to delete an account: when it goes, how to
@@ -58,13 +45,6 @@ export function deletionEmail(options: {
       "</html>",
     ].join("\n"),
   }
-}
-
-/** Fills `{{name}}` placeholders the way i18next does, so the strings read the same in the app. */
-function fill(template: string, values: Record<string, string>): string {
-  return template.replace(/\{\{(\w+)\}\}/g, (placeholder, name: string) => {
-    return values[name] ?? placeholder
-  })
 }
 
 function escapeHtml(text: string): string {
