@@ -53,6 +53,10 @@ export function Document({
         <title>{title}</title>
         <meta name="description" content={description} />
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+        {/* Added to a phone's home screen, it opens the app on the gardens. */}
+        <link rel="manifest" href="/manifest.webmanifest" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+        <meta name="theme-color" content="#3f6212" />
         {url ? (
           <>
             <link rel="canonical" href={url} />

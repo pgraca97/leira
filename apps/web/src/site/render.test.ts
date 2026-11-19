@@ -83,6 +83,19 @@ describe.each([
     })
   })
 
+  it("can be added to a phone's home screen", () => {
+    for (const path of ["index.html", "en/index.html"]) {
+      const doc = page(path)
+      expect(doc.querySelector('link[rel="manifest"]')?.getAttribute("href")).toBe(
+        "/manifest.webmanifest"
+      )
+      expect(doc.querySelector('link[rel="apple-touch-icon"]')?.getAttribute("href")).toBe(
+        "/apple-touch-icon.png"
+      )
+      expect(meta(doc, 'name="theme-color"')).toBe("#3f6212")
+    }
+  })
+
   it("gives a link preview its title, text and picture", () => {
     expect(meta(doc, 'property="og:title"')).toBe(strings.landing.meta.title)
     expect(meta(doc, 'property="og:description"')).toBe(strings.landing.meta.description)

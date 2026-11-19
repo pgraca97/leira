@@ -71,3 +71,14 @@ test("the app's pages stay out of search results", async ({ request }) => {
   // An unknown address gets the 404 page only once built: the dev server
   // hands it to the Worker. The renderer's tests cover that page.
 })
+
+test("a phone can add the app to its home screen", async ({ request }) => {
+  const manifest = await request.get("/manifest.webmanifest")
+  expect(manifest.ok()).toBe(true)
+  const { start_url, icons } = await manifest.json()
+  expect(start_url).toBe("/gardens")
+  for (const { src } of [...icons, { src: "/apple-touch-icon.png" }]) {
+    const icon = await request.get(src)
+    expect(icon.headers()["content-type"], src).toBe("image/png")
+  }
+})
