@@ -79,6 +79,7 @@ let forecast: ReturnType<typeof vi.fn<WeatherProvider["forecast"]>>
 let places: ReturnType<typeof vi.fn<PlaceProvider["places"]>>
 let soilTemperature: ReturnType<typeof vi.fn<SoilProvider["soilTemperature"]>>
 let sharedGarden: ReturnType<typeof vi.fn<AppDeps["sharedGarden"]>>
+let gardenCalendar: ReturnType<typeof vi.fn<AppDeps["gardenCalendar"]>>
 let requestDeletion: ReturnType<typeof vi.fn<AppDeps["requestDeletion"]>>
 let sendMail: ReturnType<typeof vi.fn<Mailer["send"]>>
 let deps: AppDeps
@@ -104,6 +105,7 @@ beforeEach(() => {
   places = vi.fn<PlaceProvider["places"]>(async () => PLACES)
   soilTemperature = vi.fn<SoilProvider["soilTemperature"]>(async () => SOIL)
   sharedGarden = vi.fn<AppDeps["sharedGarden"]>(async () => null)
+  gardenCalendar = vi.fn<AppDeps["gardenCalendar"]>(async () => null)
   requestDeletion = vi.fn<AppDeps["requestDeletion"]>(async () => DELETE_ON)
   sendMail = vi.fn<Mailer["send"]>(async () => {})
   deps = {
@@ -112,6 +114,7 @@ beforeEach(() => {
     soilProvider: () => ({ soilTemperature }),
     placeProvider: () => ({ places }),
     sharedGarden,
+    gardenCalendar,
     requestDeletion,
     mailer: () => ({ send: sendMail }),
   }
@@ -703,6 +706,105 @@ describe("GET /api/shared/:token", () => {
     expect(response.status).toBe(429)
     expect(apiLimit.limit).toHaveBeenCalledExactlyOnceWith({ key: "203.0.113.7" })
     expect(sharedGarden).not.toHaveBeenCalled()
+  })
+})
+
+describe("GET /api/calendar/:token.ics", () => {
+  const TOKEN = "44444444-4444-4444-8444-444444444444"
+  const ROW = {
+    name: "Allotment 12",
+    plan: {
+      schemaVersion: 1,
+      widthCm: 600,
+      heightCm: 400,
+      cellCm: 10,
+      beds: [],
+      plantings: [
+        {
+          id: "55555555-5555-4555-8555-555555555555",
+          plantId: "garlic",
+          rect: { x: 0, y: 0, w: 100, h: 100 },
+          layout: "block",
+          // Far enough ahead that its jobs are always in the year the feed covers.
+          inGround: { from: "2099-10-15", to: "2100-06-30" },
+        },
+      ],
+    },
+  }
+
+  it("serves the garden's jobs as a calendar, for a calendar app with no session", async () => {
+    gardenCalendar.mockResolvedValue(ROW)
+    vi.useFakeTimers({ now: new Date("2099-10-01T12:00Z"), toFake: ["Date"] })
+    try {
+      const response = await request(`/api/calendar/${TOKEN}.ics?lang=pt`, {})
+      expect(response.status).toBe(200)
+      expect(response.headers.get("Content-Type")).toBe("text/calendar; charset=utf-8")
+      // Turning the link off must end it: no copy should outlive that.
+      expect(response.headers.get("Cache-Control")).toBe("no-store")
+      expect(response.headers.get("Content-Disposition")).toBe(
+        'inline; filename="allotment-12.ics"'
+      )
+      const body = await response.text()
+      expect(body).toContain("X-WR-CALNAME:Leira · Allotment 12\r\n")
+      expect(body).toContain("SUMMARY:Semear Alho\r\n")
+      expect(gardenCalendar).toHaveBeenCalledExactlyOnceWith(expect.anything(), TOKEN)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it("writes in English when the link names no language", async () => {
+    gardenCalendar.mockResolvedValue(ROW)
+    vi.useFakeTimers({ now: new Date("2099-10-01T12:00Z"), toFake: ["Date"] })
+    try {
+      const response = await request(`/api/calendar/${TOKEN}.ics`, {})
+      expect(await response.text()).toContain("SUMMARY:Sow Garlic\r\n")
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it("answers 404 for a link nobody made, or one turned off", async () => {
+    const response = await request(`/api/calendar/${TOKEN}.ics`, {})
+    expect(response.status).toBe(404)
+  })
+
+  it.each([
+    ["no .ics ending", TOKEN],
+    ["a word", "allotment.ics"],
+    ["a token cut short", `${TOKEN.slice(0, -1)}.ics`],
+  ])("answers 404 for %s without asking the database", async (_case, file) => {
+    const response = await request(`/api/calendar/${file}`, {})
+    expect(response.status).toBe(404)
+    expect(gardenCalendar).not.toHaveBeenCalled()
+  })
+
+  it("answers 404 for a language the app does not have", async () => {
+    const response = await request(`/api/calendar/${TOKEN}.ics?lang=fr`, {})
+    expect(response.status).toBe(404)
+    expect(gardenCalendar).not.toHaveBeenCalled()
+  })
+
+  it("answers 502 when the database cannot be asked", async () => {
+    gardenCalendar.mockRejectedValue(new Error("connection refused"))
+    const response = await request(`/api/calendar/${TOKEN}.ics`, {})
+    expect(response.status).toBe(502)
+    expect(await response.text()).not.toContain("connection refused")
+  })
+
+  it("answers 502 when the plan cannot be read", async () => {
+    gardenCalendar.mockResolvedValue({ name: "Allotment 12", plan: { beds: "none" } })
+    const response = await request(`/api/calendar/${TOKEN}.ics`, {})
+    expect(response.status).toBe(502)
+  })
+
+  it("refuses a caller who asks too often, before asking the database", async () => {
+    apiLimit.limit.mockResolvedValue({ success: false })
+    const response = await request(`/api/calendar/${TOKEN}.ics`, {
+      "CF-Connecting-IP": "203.0.113.7",
+    })
+    expect(response.status).toBe(429)
+    expect(gardenCalendar).not.toHaveBeenCalled()
   })
 })
 

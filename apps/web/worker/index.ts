@@ -1,6 +1,7 @@
 import { requestAccountDeletion } from "./account"
 import { createApp } from "./app"
 import { verifySupabaseToken } from "./auth"
+import { fetchGardenCalendar } from "./calendarFeed"
 import { keepAwake } from "./keepAwake"
 import { smtpMailer } from "./mail"
 import { fetchSharedGarden } from "./shared"
@@ -11,6 +12,7 @@ import { openWeather } from "./weather/openweather"
 const app = createApp({
   verifyToken: verifySupabaseToken,
   sharedGarden: fetchSharedGarden,
+  gardenCalendar: fetchGardenCalendar,
   requestDeletion: requestAccountDeletion,
   mailer: smtpMailer,
   weatherProvider: (env) => (env.OPENWEATHER_API_KEY ? openWeather(env.OPENWEATHER_API_KEY) : null),

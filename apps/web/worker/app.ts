@@ -3,13 +3,16 @@ import {
   ForecastSchema,
   PlacesSchema,
   roundCoordinate,
+  StoredPlanSchema,
   WeatherNowSchema,
 } from "@leira/core"
 import type { Context } from "hono"
 import { Hono } from "hono"
 import { createMiddleware } from "hono/factory"
 import { z } from "zod"
+import { fileNameFor } from "../src/export/fileName"
 import { LANGUAGES, type Language } from "../src/i18n/languages"
+import { calendarFeed } from "./calendarFeed"
 import { deletionEmail } from "./deletionEmail"
 import type { Mailer } from "./mail"
 import type { PlaceProvider, SoilDay, SoilProvider, WeatherProvider } from "./weather/provider"
@@ -37,6 +40,11 @@ export interface AppDeps {
    * when no link has that token. Throws when the database cannot be asked.
    */
   sharedGarden(env: Env, token: string): Promise<unknown>
+  /**
+   * The garden a calendar link reads, as the database hands it over, or null
+   * when no link has that token. Throws when the database cannot be asked.
+   */
+  gardenCalendar(env: Env, token: string): Promise<unknown>
   /**
    * Asks the database, as the owner of the access token, to delete their
    * account after the grace period, and resolves to when it will be. Throws
@@ -110,6 +118,19 @@ const SharedGardenRowSchema = z.object({
   location: z.unknown(),
   updated_at: z.string(),
 })
+
+/** A calendar link's file: its token and `.ics`, which some calendar apps look for. */
+const CalendarFileSchema = z
+  .string()
+  .regex(/\.ics$/)
+  .transform((file) => file.slice(0, -".ics".length))
+  .pipe(z.uuid())
+
+/** The language a calendar link writes its jobs in. English, the app's own fallback, when it says none. */
+const CalendarQuerySchema = z.object({ lang: z.enum(LANGUAGES).default("en") })
+
+/** A garden behind a calendar link as the database hands it over. */
+const GardenCalendarRowSchema = z.object({ name: z.string(), plan: StoredPlanSchema })
 
 export function createApp(deps: AppDeps) {
   const app = new Hono<AppEnv>()
@@ -325,6 +346,43 @@ export function createApp(deps: AppDeps) {
     // Not kept anywhere: the owner may stop sharing at any moment.
     return c.json({ name, plan, location: location ?? null, updatedAt: updated_at }, 200, {
       "Cache-Control": "no-store",
+    })
+  })
+
+  /**
+   * A garden's jobs as a calendar file, for the calendar apps that subscribe
+   * to its link and read it again every few hours. They have no session: the
+   * token is the permission, and a wrong one looks the same as none. Answers
+   * are plain text, since a calendar app shows no JSON to anybody.
+   */
+  app.get("/api/calendar/:file", limitVisitor, async (c) => {
+    const token = CalendarFileSchema.safeParse(c.req.param("file"))
+    const query = CalendarQuerySchema.safeParse(c.req.query())
+    if (!token.success || !query.success) return c.text("Not found", 404)
+
+    let row: unknown
+    try {
+      row = await deps.gardenCalendar(c.env, token.data)
+    } catch (error) {
+      console.error(
+        "Garden calendar lookup failed:",
+        error instanceof Error ? error.message : "unknown"
+      )
+      return c.text("Calendar unavailable", 502)
+    }
+    if (row === null) return c.text("Not found", 404)
+
+    const garden = GardenCalendarRowSchema.safeParse(row)
+    if (!garden.success) {
+      console.error("Garden calendar lookup returned an unexpected row")
+      return c.text("Calendar unavailable", 502)
+    }
+    const feed = calendarFeed(garden.data, { language: query.data.lang, now: new Date() })
+    return c.body(feed, 200, {
+      "Content-Type": "text/calendar; charset=utf-8",
+      // Not kept anywhere: turning the link off must end it.
+      "Cache-Control": "no-store",
+      "Content-Disposition": `inline; filename="${fileNameFor(garden.data.name, "ics")}"`,
     })
   })
 
