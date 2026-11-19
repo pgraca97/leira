@@ -508,6 +508,134 @@ describe("a shared garden", () => {
   })
 })
 
+describe("garden calendars", () => {
+  async function turnOn(garden = gardenId): Promise<string> {
+    const created = await db.query<{ token: string }>(
+      "insert into public.garden_calendars (garden_id) values ($1) returning token",
+      [garden]
+    )
+    return created.rows[0]!.token
+  }
+
+  const read = (token: string) =>
+    db.query<Record<string, unknown>>("select * from public.garden_calendar($1)", [token])
+
+  it("give a garden a link token that nobody could guess", async () => {
+    expect(await turnOn()).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-/)
+  })
+
+  // A failed statement ends the test's transaction, so each refusal has its own test.
+  it("cannot have their token chosen by the client", async () => {
+    await expect(
+      db.query(
+        "insert into public.garden_calendars (garden_id, token) values ($1, gen_random_uuid())",
+        [gardenId]
+      )
+    ).rejects.toThrow(/permission denied/)
+  })
+
+  it("cannot be changed once made", async () => {
+    await turnOn()
+    await expect(
+      db.query("update public.garden_calendars set token = gen_random_uuid()")
+    ).rejects.toThrow(/permission denied/)
+  })
+
+  it("are one to a garden", async () => {
+    await turnOn()
+    await expect(turnOn()).rejects.toThrow(/garden_calendars_pkey/)
+  })
+
+  it("cannot be made for someone else's garden", async () => {
+    await signInAs(bob)
+    await expect(turnOn()).rejects.toThrow(/row-level security/)
+  })
+
+  it("cannot be read or turned off by other users", async () => {
+    await turnOn()
+    await signInAs(bob)
+    expect((await db.query("select token from public.garden_calendars")).rows).toEqual([])
+    expect((await db.query("delete from public.garden_calendars returning token")).rows).toEqual([])
+
+    await signInAs(alice)
+    expect((await db.query("select token from public.garden_calendars")).rows).toHaveLength(1)
+  })
+
+  it("are closed to visitors who are not signed in", async () => {
+    await turnOn()
+    await signOut()
+    await expect(db.query("select token from public.garden_calendars")).rejects.toThrow(
+      /permission denied/
+    )
+  })
+
+  it("read the garden's name and plan for a caller with no session", async () => {
+    const token = await turnOn()
+    await signOut()
+    expect((await read(token)).rows).toEqual([{ name: "Alice's garden", plan: JSON.parse(PLAN) }])
+  })
+
+  it("keep the owner's notes and harvest amounts out", async () => {
+    const token = await turnOn()
+    await db.query("update public.gardens set plan = $1 where id = $2", [
+      JSON.stringify({
+        ...JSON.parse(PLAN),
+        notes: "The well ran dry in July.",
+        plantings: [
+          {
+            id: "a",
+            plantId: "tomato",
+            notes: "Blight in August.",
+            harvests: [{ date: "2026-07-12", quantity: 1.2, unit: "kg" }],
+          },
+        ],
+      }),
+      gardenId,
+    ])
+    await signOut()
+    expect((await read(token)).rows[0]?.plan).toEqual({
+      ...JSON.parse(PLAN),
+      plantings: [{ id: "a", plantId: "tomato", harvests: [{ date: "2026-07-12" }] }],
+    })
+  })
+
+  it("read nothing with a token nobody made", async () => {
+    await turnOn()
+    await signOut()
+    expect((await read("11111111-1111-4111-8111-111111111111")).rows).toEqual([])
+  })
+
+  it("read nothing once turned off, and a new link is a different one", async () => {
+    const token = await turnOn()
+    await db.query("delete from public.garden_calendars where garden_id = $1", [gardenId])
+    expect(await turnOn()).not.toBe(token)
+    await signOut()
+    expect((await read(token)).rows).toEqual([])
+  })
+
+  it("are read through the Worker only, not by signed-in users directly", async () => {
+    const token = await turnOn()
+    await signInAs(bob)
+    await expect(read(token)).rejects.toThrow(/permission denied/)
+  })
+
+  it("are removed together with their garden", async () => {
+    await turnOn()
+    await db.query("delete from public.gardens where id = $1", [gardenId])
+    await db.exec("reset role")
+    expect((await db.query("select token from public.garden_calendars")).rows).toEqual([])
+  })
+
+  it("do not move the garden's version on", async () => {
+    await turnOn()
+    const garden = await db.query<{ version: number }>(
+      "select version from public.gardens where id = $1",
+      [gardenId]
+    )
+    expect(garden.rows).toEqual([{ version: 1 }])
+  })
+})
+
 describe("profiles", () => {
   it("are created for every new user", async () => {
     await db.exec("reset role")
@@ -621,6 +749,7 @@ describe("usage stats", () => {
       editedLast7Days: number
       editedLast30Days: number
       shared: number
+      withCalendar: number
       withLocation: number
       withPlantings: number
       withRecords: number
@@ -669,6 +798,9 @@ describe("usage stats", () => {
       [bob, PLAN]
     )
     await db.query("insert into public.garden_shares (garden_id) values ($1)", [bobs.rows[0]!.id])
+    await db.query("insert into public.garden_calendars (garden_id) values ($1)", [
+      bobs.rows[1]!.id,
+    ])
 
     await signInAs(alice)
     const stats = await usageStats()
@@ -678,6 +810,7 @@ describe("usage stats", () => {
       editedLast7Days: 1,
       editedLast30Days: 2,
       shared: 1,
+      withCalendar: 1,
       withLocation: 1,
     })
   })
@@ -880,6 +1013,7 @@ describe("a user's own data", () => {
       createdAt: string
       updatedAt: string
       share: { token: string; showLocation: boolean } | null
+      calendar: { token: string } | null
     }[]
     activityDays: string[]
   }
@@ -901,6 +1035,10 @@ describe("a user's own data", () => {
       "insert into public.garden_shares (garden_id) values ($1) returning token",
       [gardenId]
     )
+    const feed = await db.query<{ token: string }>(
+      "insert into public.garden_calendars (garden_id) values ($1) returning token",
+      [gardenId]
+    )
     await db.query("select public.record_visit()")
 
     const data = await exportMine()
@@ -916,6 +1054,7 @@ describe("a user's own data", () => {
         createdAt: expect.any(String),
         updatedAt: expect.any(String),
         share: { token: shared.rows[0]!.token, showLocation: false },
+        calendar: { token: feed.rows[0]!.token },
       },
     ])
     expect(data.activityDays).toHaveLength(1)
@@ -1494,6 +1633,25 @@ describe("a deletion that waits 30 days", () => {
     expect((await open()).rows).toHaveLength(1)
   })
 
+  it("hides the account's calendar links while it waits, and shows them again once kept", async () => {
+    const created = await db.query<{ token: string }>(
+      "insert into public.garden_calendars (garden_id) values ($1) returning token",
+      [gardenId]
+    )
+    const token = created.rows[0]!.token
+    const read = () => db.query("select * from public.garden_calendar($1)", [token])
+
+    await aliceOnSession()
+    await requestDeletion()
+    await signOut()
+    expect((await read()).rows).toEqual([])
+
+    await signInAs(alice, await sessionOf(alice, 1))
+    await resume()
+    await signOut()
+    expect((await read()).rows).toHaveLength(1)
+  })
+
   it("is in the account's data, with the day it was asked for", async () => {
     const exported = async () => {
       const result = await db.query<{ data: { account: { deletionRequestedAt: string | null } } }>(
@@ -1632,6 +1790,10 @@ describe("a guest's gardens handed over to an account", () => {
       "insert into public.garden_shares (garden_id) values ($1) returning token",
       [garden]
     )
+    const feed = await db.query<{ token: string }>(
+      "insert into public.garden_calendars (garden_id) values ($1) returning token",
+      [garden]
+    )
     const code = await offer()
 
     await signInAs(alice)
@@ -1646,6 +1808,10 @@ describe("a guest's gardens handed over to an account", () => {
       shared.rows[0]!.token,
     ])
     expect(opened.rows).toEqual([{ name: "On the phone" }])
+    const read = await db.query<{ name: string }>("select name from public.garden_calendar($1)", [
+      feed.rows[0]!.token,
+    ])
+    expect(read.rows).toEqual([{ name: "On the phone" }])
   })
 
   it("works once: the code is spent", async () => {
