@@ -16,7 +16,7 @@ export interface CalendarEvent {
 function text(value: string): string {
   return value
     .replaceAll("\\", "\\\\")
-    .replaceAll(";", ";")
+    .replaceAll(";", "\\;")
     .replaceAll(",", "\\,")
     .replaceAll(/\r?\n/g, "\\n")
 }

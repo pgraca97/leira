@@ -45,7 +45,7 @@ describe("icsCalendar", () => {
       [{ uid: "a", date: "2026-12-04", summary: "Sow peas, beans; and more\\less\nnext" }],
       { name: "A, B", stamp: STAMP }
     )
-    expect(escaped).toContain("SUMMARY:Sow peas\\, beans; and more\\\\less\\nnext\r\n")
+    expect(escaped).toContain("SUMMARY:Sow peas\\, beans\\; and more\\\\less\\nnext\r\n")
     expect(escaped).toContain("X-WR-CALNAME:A\\, B\r\n")
   })
 
