@@ -62,6 +62,41 @@ describe("icsCalendar", () => {
     expect(folded.replaceAll("\r\n ", "")).toContain(`SUMMARY:${long}\r\n`)
   })
 
+  it("adds no alarm and no refresh hint unless asked", () => {
+    expect(lines).not.toContain("BEGIN:VALARM")
+    expect(lines.some((line) => line.startsWith("REFRESH-INTERVAL"))).toBe(false)
+  })
+
+  it("can ask for an alarm on each event, that long after its day starts", () => {
+    const alarmed = icsCalendar(
+      [
+        { uid: "p1-sow", date: "2026-12-04", summary: "Sow Onion indoors" },
+        { uid: "p2-clear", date: "2026-12-31", summary: "Clear Carrot" },
+      ],
+      { name: "Back garden", stamp: STAMP, alarm: "PT9H" }
+    ).split("\r\n")
+    expect(alarmed.filter((line) => line === "BEGIN:VALARM")).toHaveLength(2)
+    expect(alarmed.filter((line) => line === "TRIGGER:PT9H")).toHaveLength(2)
+    expect(alarmed).toContain("ACTION:DISPLAY")
+    // A display alarm must say something: it says the job.
+    const first = alarmed.indexOf("BEGIN:VALARM")
+    expect(alarmed.slice(first, first + 5)).toEqual([
+      "BEGIN:VALARM",
+      "ACTION:DISPLAY",
+      "DESCRIPTION:Sow Onion indoors",
+      "TRIGGER:PT9H",
+      "END:VALARM",
+    ])
+    // The alarm sits inside its event.
+    expect(alarmed[first + 5]).toBe("END:VEVENT")
+  })
+
+  it("can say how often a subscribed calendar should look again", () => {
+    const hinted = icsCalendar([], { name: "Horta", stamp: STAMP, refresh: "PT6H" }).split("\r\n")
+    expect(hinted).toContain("REFRESH-INTERVAL;VALUE=DURATION:PT6H")
+    expect(hinted).toContain("X-PUBLISHED-TTL:PT6H")
+  })
+
   it("is still a calendar with no events", () => {
     const empty = icsCalendar([], { name: "Horta", stamp: STAMP }).split("\r\n")
     expect(empty[0]).toBe("BEGIN:VCALENDAR")

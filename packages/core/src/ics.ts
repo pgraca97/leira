@@ -58,19 +58,29 @@ const compact = (date: IsoDate) => date.replaceAll("-", "")
  * A calendar file (iCalendar, the `.ics` that phone and desktop calendars
  * import) with one all-day event per entry. `stamp` is the moment the file is
  * made, as an ISO date and time in UTC: it is passed in so this stays pure.
+ *
+ * `alarm` asks for a reminder on each event, that long after its day starts,
+ * as a duration (`PT9H` is 9 in the morning). `refresh` tells a calendar that
+ * subscribes to the file how often to fetch it again (`PT6H`). Both are hints:
+ * each calendar app decides whether to follow them.
  */
 export function icsCalendar(
   events: readonly CalendarEvent[],
-  options: { name: string; stamp: string }
+  options: { name: string; stamp: string; alarm?: string; refresh?: string }
 ): string {
   // 2026-11-16T12:30:45.000Z becomes 20261116T123045Z.
   const stamp = `${options.stamp.slice(0, 19).replaceAll(/[-:]/g, "")}Z`
+  const { alarm, refresh } = options
   const lines = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
     "PRODID:-//Leira//Garden jobs//EN",
     "CALSCALE:GREGORIAN",
     `X-WR-CALNAME:${text(options.name)}`,
+    // The first is the standard one (RFC 7986); the second is what Outlook reads.
+    ...(refresh
+      ? [`REFRESH-INTERVAL;VALUE=DURATION:${refresh}`, `X-PUBLISHED-TTL:${refresh}`]
+      : []),
     ...events.flatMap((event) => [
       "BEGIN:VEVENT",
       `UID:${event.uid}@leira`,
@@ -80,6 +90,16 @@ export function icsCalendar(
       `DTEND;VALUE=DATE:${compact(addDays(event.date, 1))}`,
       `SUMMARY:${text(event.summary)}`,
       ...(event.description ? [`DESCRIPTION:${text(event.description)}`] : []),
+      ...(alarm
+        ? [
+            "BEGIN:VALARM",
+            "ACTION:DISPLAY",
+            // A display alarm must carry a text: the job itself.
+            `DESCRIPTION:${text(event.summary)}`,
+            `TRIGGER:${alarm}`,
+            "END:VALARM",
+          ]
+        : []),
       "END:VEVENT",
     ]),
     "END:VCALENDAR",
