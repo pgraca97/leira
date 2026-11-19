@@ -8,6 +8,7 @@ import {
   gardensApi,
 } from "../src/lib/gardens"
 import { verifySupabaseToken } from "../worker/auth"
+import { fetchGardenCalendar } from "../worker/calendarFeed"
 import { fetchSharedGarden } from "../worker/shared"
 import { signInVisitor, stackSettings } from "./localStack"
 
@@ -224,6 +225,48 @@ describe("sharing a garden", () => {
     const direct = await bob.client.rpc("shared_garden", { share_token: share.token })
     expect(direct.data).toBeNull()
     expect(direct.error).not.toBeNull()
+  })
+})
+
+describe("a garden's calendar link", () => {
+  it("gives a garden a link the Worker can read with no session, without moving its version", async () => {
+    const garden = await aliceGardens.create("Calendar plot", emptyPlan())
+    expect(await aliceGardens.getCalendar(garden.id)).toBeNull()
+
+    const token = await aliceGardens.startCalendar(garden.id)
+    expect(token).toMatch(/^[0-9a-f]{8}-/)
+    expect(await aliceGardens.getCalendar(garden.id)).toBe(token)
+    expect(await fetchGardenCalendar(env, token)).toEqual({
+      name: "Calendar plot",
+      plan: emptyPlan(),
+    })
+    expect((await aliceGardens.get(garden.id)).version).toBe(1)
+  })
+
+  it("keeps the link it has when turned on again", async () => {
+    const garden = await aliceGardens.create("Twice on", emptyPlan())
+    const first = await aliceGardens.startCalendar(garden.id)
+    expect(await aliceGardens.startCalendar(garden.id)).toBe(first)
+  })
+
+  it("reads nothing once turned off, and a new link is a different one", async () => {
+    const garden = await aliceGardens.create("Briefly subscribed", emptyPlan())
+    const first = await aliceGardens.startCalendar(garden.id)
+    await aliceGardens.stopCalendar(garden.id)
+
+    expect(await fetchGardenCalendar(env, first)).toBeNull()
+    expect(await aliceGardens.getCalendar(garden.id)).toBeNull()
+    expect(await aliceGardens.startCalendar(garden.id)).not.toBe(first)
+  })
+
+  it("keeps a garden's link out of other users' hands", async () => {
+    const garden = await aliceGardens.create("Alice's calendar", emptyPlan())
+    const token = await aliceGardens.startCalendar(garden.id)
+
+    expect(await bobGardens.getCalendar(garden.id)).toBeNull()
+    await expect(bobGardens.startCalendar(garden.id)).rejects.toThrow(/row-level security/)
+    await bobGardens.stopCalendar(garden.id)
+    expect(await aliceGardens.getCalendar(garden.id)).toBe(token)
   })
 })
 

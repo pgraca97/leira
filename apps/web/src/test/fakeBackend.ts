@@ -17,8 +17,10 @@ export interface FakeBackend extends Backend {
   rows: Map<string, Garden>
   /** The share links, by garden id, to seed and to inspect. */
   shares: Map<string, GardenShare>
-  /** Makes the next change to a share link fail. */
+  /** Makes the next change to a share link or a calendar link fail. */
   failNextShare(): void
+  /** The calendar links' tokens, by garden id, to seed and to inspect. */
+  calendars: Map<string, string>
   /** What a visitor with no session can reach: the gardens above, through their links. */
   publicBackend: PublicBackend
   /** Makes the next save of this kind fail. */
@@ -79,6 +81,7 @@ export function fakeBackend(seed: Garden[] = []): FakeBackend {
     return new Date(clock).toISOString()
   }
   const shares = new Map<string, GardenShare>()
+  const calendars = new Map<string, string>()
   // When each garden made here was created. A seeded one counts as created
   // when it was last changed.
   const createdAt = new Map<string, string>()
@@ -130,8 +133,9 @@ export function fakeBackend(seed: Garden[] = []): FakeBackend {
     },
     async remove(id) {
       rows.delete(id)
-      // The real share is deleted with its garden.
+      // The real share and calendar link are deleted with their garden.
       shares.delete(id)
+      calendars.delete(id)
     },
     async getShare(id) {
       return shares.get(id) ?? null
@@ -149,6 +153,22 @@ export function fakeBackend(seed: Garden[] = []): FakeBackend {
     async unshare(id) {
       failingShare()
       shares.delete(id)
+    },
+    async getCalendar(id) {
+      return calendars.get(id) ?? null
+    },
+    async startCalendar(id) {
+      failingShare()
+      // The real backend refuses a link for a garden that is not the user's.
+      if (!rows.has(id)) throw new Error("new row violates row-level security policy")
+      const token =
+        calendars.get(id) ?? `cccccccc-cccc-4ccc-8ccc-${String(nextToken++).padStart(12, "0")}`
+      calendars.set(id, token)
+      return token
+    },
+    async stopCalendar(id) {
+      failingShare()
+      calendars.delete(id)
     },
   }
 
@@ -315,6 +335,7 @@ export function fakeBackend(seed: Garden[] = []): FakeBackend {
     rows,
     gardens,
     shares,
+    calendars,
     failNextShare() {
       shareFailure = true
     },

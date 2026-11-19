@@ -79,6 +79,10 @@ const GardenRowSchema = SummaryRowSchema.extend({
 })
 
 const ShareRowSchema = z.object({ token: z.string(), show_location: z.boolean() })
+const CalendarRowSchema = z.object({ token: z.string() })
+
+/** What Postgres answers when a row would repeat a unique key. */
+const UNIQUE_VIOLATION = "23505"
 
 const SharedGardenSchema = z.object({
   name: z.string(),
@@ -154,6 +158,17 @@ export interface SavedGarden {
  * filters by user.
  */
 export function gardensApi(client: SupabaseClient) {
+  /** The token of the garden's calendar link, or null when it has none. */
+  async function getCalendar(id: string): Promise<string | null> {
+    const { data, error } = await client
+      .from("garden_calendars")
+      .select("token")
+      .eq("garden_id", id)
+      .maybeSingle()
+    if (error) throw new Error(error.message)
+    return data ? CalendarRowSchema.parse(data).token : null
+  }
+
   return {
     async list(): Promise<GardenSummary[]> {
       const { data, error } = await client
@@ -256,6 +271,34 @@ export function gardensApi(client: SupabaseClient) {
     /** Turns the garden's link off for good. Sharing again makes a different link. */
     async unshare(id: string): Promise<void> {
       const { error } = await client.from("garden_shares").delete().eq("garden_id", id)
+      if (error) throw new Error(error.message)
+    },
+
+    getCalendar,
+
+    /**
+     * Gives the garden a calendar link and resolves to its token, or to the
+     * token of the one it has already. A row of its own, like a share link,
+     * so it does not move the garden's version on.
+     */
+    async startCalendar(id: string): Promise<string> {
+      const created = await client
+        .from("garden_calendars")
+        .insert({ garden_id: id })
+        .select("token")
+        .single()
+      // Already on, from another tab or device: that link stays.
+      if (created.error?.code === UNIQUE_VIOLATION) {
+        const current = await getCalendar(id)
+        if (current) return current
+      }
+      if (created.error) throw new Error(created.error.message)
+      return CalendarRowSchema.parse(created.data).token
+    },
+
+    /** Turns the garden's calendar link off for good. Turning it on again makes a different one. */
+    async stopCalendar(id: string): Promise<void> {
+      const { error } = await client.from("garden_calendars").delete().eq("garden_id", id)
       if (error) throw new Error(error.message)
     },
   }
