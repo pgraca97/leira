@@ -40,6 +40,7 @@ import { useEditor } from "../editor/useEditor"
 import { downloadText } from "../export/downloadFile"
 import { fileNameFor } from "../export/fileName"
 import { currentLanguage } from "../i18n"
+import { jobEvents } from "./jobEvents"
 import { type YearSpan, yearSpan } from "./layout"
 import { taskWord } from "./taskWord"
 import { YearHarvest } from "./YearHarvest"
@@ -218,27 +219,20 @@ export function PlanCalendar({
         language
       ),
     })
-  // The jobs still to do from today on. One already late has no day to go on a calendar.
-  const toExport = gardenTasks(plan, getPlant, {
-    from: today,
-    to: addDays(today, EXPORT_HORIZON_DAYS),
-  }).filter((task) => !task.done)
+  // The jobs still to do from today on. One already late has no day to go on a calendar file.
+  const toExport = jobEvents(
+    plan,
+    getPlant,
+    { from: today, to: addDays(today, EXPORT_HORIZON_DAYS) },
+    {
+      language,
+      words: (word, crop) => t(`calendar.task.${word}`, { name: crop }),
+      ...(gardenName ? { description: gardenName } : {}),
+    }
+  )
   const saveJobs = (name: string) =>
     downloadText(
-      icsCalendar(
-        toExport.map((task) => ({
-          // The same id every time, so importing the file again moves a job instead of doubling it.
-          // A perennial's picking comes back each year: the year keeps those apart.
-          uid:
-            task.kind === "harvest" && getPlant(task.plantId)?.perennial
-              ? `${task.plantingId}-${task.kind}-${task.date.slice(0, 4)}`
-              : `${task.plantingId}-${task.kind}`,
-          date: task.date,
-          summary: taskText(task),
-          description: name,
-        })),
-        { name, stamp: new Date().toISOString() }
-      ),
+      icsCalendar(toExport, { name, stamp: new Date().toISOString() }),
       "text/calendar",
       fileNameFor(name, "ics")
     )
