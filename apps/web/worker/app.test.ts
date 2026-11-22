@@ -193,11 +193,14 @@ describe("Google's site verification file", () => {
 })
 
 describe("the app's pages", () => {
+  const SHELL =
+    '<!doctype html><html><head><meta name="description" content="Plan your garden." /><title>Leira</title></head><body><div id=root></div></body></html>'
+
   /** The built files, with only the app shell in them. */
   function fakeAssets() {
     const fetch = vi.fn(async (input: RequestInfo | URL) =>
       new URL(input instanceof Request ? input.url : input).pathname === "/app"
-        ? new Response("<!doctype html><div id=root></div>", {
+        ? new Response(SHELL, {
             headers: { "Content-Type": "text/html", ETag: '"shell"' },
           })
         : new Response(null, { status: 404 })
@@ -205,9 +208,10 @@ describe("the app's pages", () => {
     return { fetch, binding: { fetch } as unknown as Fetcher }
   }
 
-  function page(path: string, assets = fakeAssets()) {
-    return createApp(deps).request(`https://leira.test${path}`, {}, {
+  function page(path: string, assets = fakeAssets(), headers: Record<string, string> = {}) {
+    return createApp(deps).request(`https://leira.test${path}`, { headers }, {
       ASSETS: assets.binding,
+      API_LIMIT: apiLimit.binding,
     } as Env)
   }
 
@@ -239,6 +243,78 @@ describe("the app's pages", () => {
   it("keeps the shell's own headers, so the browser can still revalidate it", async () => {
     const response = await page("/gardens")
     expect(response.headers.get("ETag")).toBe('"shell"')
+  })
+
+  describe("a share link", () => {
+    const TOKEN = "33333333-3333-4333-8333-333333333333"
+    const ROW = {
+      name: "Allotment 12",
+      plan: { schemaVersion: 1, widthCm: 600, heightCm: 400, cellCm: 10, beds: [], plantings: [] },
+      location: null,
+      updated_at: "2026-11-16T10:00:00+00:00",
+    }
+
+    it("names the garden in the page a link preview reads", async () => {
+      sharedGarden.mockResolvedValue(ROW)
+      const response = await page(`/shared/${TOKEN}`)
+      expect(response.status).toBe(200)
+      const html = await response.text()
+      expect(html).toContain("<title>Allotment 12 · Leira</title>")
+      expect(html).toContain('<meta property="og:title" content="Allotment 12 · Leira" />')
+      expect(html).toContain(
+        `<meta property="og:url" content="https://leira.test/shared/${TOKEN}" />`
+      )
+      expect(html).toContain("<div id=root>")
+      expect(sharedGarden).toHaveBeenCalledExactlyOnceWith(expect.anything(), TOKEN)
+    })
+
+    // The owner may stop sharing at any moment, and the page no longer matches the shell's tag.
+    it("is never kept, and stays out of search results", async () => {
+      sharedGarden.mockResolvedValue(ROW)
+      const response = await page(`/shared/${TOKEN}`)
+      expect(response.headers.get("Cache-Control")).toBe("no-store")
+      expect(response.headers.get("ETag")).toBeNull()
+      expect(response.headers.get("Content-Length")).toBeNull()
+      expect(response.headers.get("X-Robots-Tag")).toBe("noindex")
+    })
+
+    it("never shows where the garden is, even when its owner shares that", async () => {
+      sharedGarden.mockResolvedValue({
+        ...ROW,
+        location: { lat: 41.55, lon: -8.43, name: "Braga" },
+      })
+      const html = await (await page(`/shared/${TOKEN}`)).text()
+      expect(html).not.toContain("Braga")
+      expect(html).not.toContain("41.55")
+    })
+
+    it.each([
+      ["a link nobody made", () => sharedGarden.mockResolvedValue(null)],
+      ["a database that cannot be asked", () => sharedGarden.mockRejectedValue(new Error("down"))],
+      ["a row of another shape", () => sharedGarden.mockResolvedValue({ title: "Allotment 12" })],
+      ["a visitor who asks too often", () => apiLimit.limit.mockResolvedValue({ success: false })],
+    ])("opens the plain shell for %s", async (_case, arrange) => {
+      arrange()
+      const response = await page(`/shared/${TOKEN}`, fakeAssets(), {
+        "CF-Connecting-IP": "203.0.113.7",
+      })
+      expect(response.status).toBe(200)
+      expect(await response.text()).toBe(SHELL)
+      expect(response.headers.get("X-Robots-Tag")).toBe("noindex")
+    })
+
+    it("does not ask the database when the visitor asks too often", async () => {
+      apiLimit.limit.mockResolvedValue({ success: false })
+      await page(`/shared/${TOKEN}`, fakeAssets(), { "CF-Connecting-IP": "203.0.113.7" })
+      expect(apiLimit.limit).toHaveBeenCalledExactlyOnceWith({ key: "203.0.113.7" })
+      expect(sharedGarden).not.toHaveBeenCalled()
+    })
+
+    it("does not ask the database for a token that cannot be one", async () => {
+      const response = await page("/shared/allotment")
+      expect(await response.text()).toBe(SHELL)
+      expect(sharedGarden).not.toHaveBeenCalled()
+    })
   })
 
   it("still answers an unknown API path with JSON", async () => {

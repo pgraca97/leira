@@ -498,6 +498,9 @@ test("a garden opens from its share link with no account, until sharing stops", 
   const shared = await visitor.newPage()
   await shared.goto(link)
   await expect(shared.getByRole("heading", { name: "Shared allotment" })).toBeVisible()
+  // A chat app's link preview reads the page's HTML and runs none of its script.
+  const preview = await (await visitor.request.get(link)).text()
+  expect(preview).toContain('<meta property="og:title" content="Shared allotment · Leira" />')
   await expect(
     shared.getByRole("img", { name: "Shared allotment" }).locator("[data-kind]")
   ).toHaveCount(1)
@@ -521,6 +524,7 @@ test("a garden opens from its share link with no account, until sharing stops", 
   await expect(panel.getByRole("button", { name: "Create link" })).toBeVisible()
   await shared.reload()
   await expect(shared.getByText(/does not open a garden/)).toBeVisible()
+  expect(await (await visitor.request.get(link)).text()).not.toContain("og:title")
 
   await visitor.close()
 })

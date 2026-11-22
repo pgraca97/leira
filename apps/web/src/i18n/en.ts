@@ -141,6 +141,9 @@ export const en = {
   },
   shared: {
     readOnly: "A shared garden, read-only.",
+    previewTitle: "{{name}} · Leira",
+    previewDescription:
+      "A garden planned in Leira, read-only. Plan your own too: beds, plant spacing, sowing dates and crop rotation.",
     own: "Plan your own garden",
     notFound:
       "This link does not open a garden. Its owner may have stopped sharing it, or the link is incomplete.",

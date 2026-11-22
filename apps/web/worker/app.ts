@@ -15,6 +15,7 @@ import { LANGUAGES, type Language } from "../src/i18n/languages"
 import { calendarFeed } from "./calendarFeed"
 import { deletionEmail } from "./deletionEmail"
 import type { Mailer } from "./mail"
+import { sharePreviewHead } from "./sharePreview"
 import type { PlaceProvider, SoilDay, SoilProvider, WeatherProvider } from "./weather/provider"
 
 /** Who an access token belongs to, as its claims say. */
@@ -467,14 +468,59 @@ export function createApp(deps: AppDeps) {
    * the app's paths here instead. The router then shows the page, or says
    * there is none.
    */
-  app.get("*", async (c, next) => {
-    if (c.req.path.startsWith("/api/")) return next()
+  async function appShell(c: Context<AppEnv>): Promise<Response> {
     // `/app`, not `/app.html`: the static files answer that with a redirect.
     const shell = await c.env.ASSETS.fetch(new URL("/app", c.req.url))
     const response = new Response(shell.body, shell)
     // A garden, a share link or the stats are nobody's search result.
     if (!PUBLIC_APP_PAGES.has(c.req.path)) response.headers.set("X-Robots-Tag", "noindex")
     return response
+  }
+
+  /**
+   * A share link's page: the app shell, with a head that names the garden
+   * for the link previews of chat apps, which run none of its script.
+   * Whatever goes wrong on the way gives the plain shell, since the page
+   * itself must still open and say what it can.
+   */
+  app.get("/shared/:token", async (c) => {
+    const [shell, name] = await Promise.all([appShell(c), sharedGardenName(c)])
+    if (name === null) return shell
+    const html = sharePreviewHead(await shell.text(), { name, url: c.req.url })
+    const response = new Response(html, shell)
+    // The body is no longer the shell the tag and length describe.
+    response.headers.delete("ETag")
+    response.headers.delete("Content-Length")
+    // The owner may stop sharing at any moment: no copy should outlive that.
+    response.headers.set("Cache-Control", "no-store")
+    return response
+  })
+
+  /**
+   * The name of the garden behind a share link, or null when there is none
+   * to show. It counts against the same limit as `/api/shared/:token`, so
+   * the page is not a way round it; a visitor over the limit still gets the
+   * page, only without the name.
+   */
+  async function sharedGardenName(c: Context<AppEnv>): Promise<string | null> {
+    const token = z.uuid().safeParse(c.req.param("token"))
+    if (!token.success) return null
+    if (!(await allowed(c.env.API_LIMIT, visitorKey(c)))) return null
+    try {
+      const row = SharedGardenRowSchema.safeParse(await deps.sharedGarden(c.env, token.data))
+      return row.success ? row.data.name : null
+    } catch (error) {
+      console.error(
+        "Shared garden lookup for a preview failed:",
+        error instanceof Error ? error.message : "unknown"
+      )
+      return null
+    }
+  }
+
+  app.get("*", async (c, next) => {
+    if (c.req.path.startsWith("/api/")) return next()
+    return appShell(c)
   })
 
   app.notFound((c) => c.json({ error: "not_found" }, 404))

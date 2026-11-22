@@ -142,6 +142,9 @@ export const pt: Translation = {
   },
   shared: {
     readOnly: "Uma horta partilhada, só para ver.",
+    previewTitle: "{{name}} · Leira",
+    previewDescription:
+      "Uma horta planeada na Leira, só para ver. Planeia também a tua: canteiros, compassos, datas de sementeira e rotação.",
     own: "Planeia a tua horta",
     notFound:
       "Este link não abre nenhuma horta. Quem a partilhou pode ter deixado de o fazer, ou o link está incompleto.",
