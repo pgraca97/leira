@@ -1,5 +1,6 @@
 import type { ReactNode } from "react"
-import { HOME, LANGUAGE_TAG, OG_LOCALE, SITE_LANGUAGES, type SiteLanguage, siteUrl } from "./site"
+import { OG_LOCALE, PREVIEW_IMAGE } from "./preview"
+import { HOME, LANGUAGE_TAG, SITE_LANGUAGES, type SiteLanguage, siteUrl } from "./site"
 
 /** The built files a page loads, by their hashed names. */
 export interface SiteAssets {
@@ -25,9 +26,6 @@ interface DocumentProps {
   inlineScript?: string
   children: ReactNode
 }
-
-/** The picture a link preview shows, 1200 by 630 as the previews expect. */
-const PREVIEW_IMAGE = { path: "/og.png", width: 1200, height: 630 }
 
 /** A whole HTML page, head and body, for the static pages. */
 export function Document({

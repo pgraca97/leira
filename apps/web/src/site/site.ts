@@ -19,9 +19,6 @@ export const HOME: Record<SiteLanguage, string> = { pt: "/", en: "/en/" }
 /** The language as `lang` and `hreflang` name it. The Portuguese is Portugal's. */
 export const LANGUAGE_TAG: Record<SiteLanguage, string> = { pt: "pt-PT", en: "en" }
 
-/** The language as Open Graph names it. */
-export const OG_LOCALE: Record<SiteLanguage, string> = { pt: "pt_PT", en: "en_GB" }
-
 /** A full address on the site. */
 export function siteUrl(path: string): string {
   return `${SITE_URL}${path}`
