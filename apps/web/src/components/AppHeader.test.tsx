@@ -14,7 +14,7 @@ function showHeader() {
   render(
     <>
       <AppHeader secondary={<button type="button">Save image</button>}>
-        <a href="/">All gardens</a>
+        <a href="/">My gardens</a>
       </AppHeader>
       <main>The page</main>
     </>
@@ -44,7 +44,7 @@ describe("AppHeader", () => {
     const menu = document.getElementById(more.getAttribute("aria-controls") ?? "")
     expect(menu).toContainElement(screen.getByRole("button", { name: "Save image" }))
     expect(menu).toContainElement(languageMenu())
-    expect(menu).not.toContainElement(screen.getByRole("link", { name: "All gardens" }))
+    expect(menu).not.toContainElement(screen.getByRole("link", { name: "My gardens" }))
   })
 
   it("opens and closes the menu with its button", async () => {

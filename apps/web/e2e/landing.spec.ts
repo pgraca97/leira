@@ -50,7 +50,7 @@ test("the privacy page opens in the language of the landing page", async ({ page
   await expect(
     page.getByRole("banner").getByRole("link", { name: "Começar a planear" })
   ).toBeVisible()
-  await expect(page.getByRole("link", { name: "Todas as hortas" })).toHaveCount(0)
+  await expect(page.getByRole("link", { name: "As minhas hortas" })).toHaveCount(0)
 })
 
 test("a language picked on the landing page is the one the app opens in", async ({ page }) => {
@@ -81,7 +81,7 @@ test("someone who used the app goes straight back to it, unless they came from i
   await expect(page).toHaveURL(/\/$/)
   // Its header leads back to the gardens rather than to a start.
   const header = page.getByRole("banner")
-  await expect(header.getByRole("link", { name: /^(All gardens|Todas as hortas)$/ })).toBeVisible()
+  await expect(header.getByRole("link", { name: /^(My gardens|As minhas hortas)$/ })).toBeVisible()
   await expect(
     header.getByRole("link", { name: /^(Start planning|Começar a planear)$/ })
   ).toHaveCount(0)

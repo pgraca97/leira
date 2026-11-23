@@ -116,7 +116,7 @@ export const en = {
     importEmpty: "This file has no gardens or templates that can be read.",
   },
   garden: {
-    back: "All gardens",
+    back: "My gardens",
     nameLabel: "Garden name",
     loading: "Loading the garden…",
     loadFailed: "The garden could not be loaded.",

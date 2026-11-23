@@ -116,7 +116,7 @@ export const pt: Translation = {
     importEmpty: "Este ficheiro não tem hortas nem modelos que se consigam ler.",
   },
   garden: {
-    back: "Todas as hortas",
+    back: "As minhas hortas",
     nameLabel: "Nome da horta",
     loading: "A carregar a horta…",
     loadFailed: "Não foi possível carregar a horta.",

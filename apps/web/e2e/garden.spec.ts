@@ -96,7 +96,7 @@ test("a garden survives a reload", async ({ page }) => {
   await expect(page.getByRole("textbox", { name: "Garden name" })).toHaveValue("Allotment 12")
   await expect(page.getByRole("button", { name: /^Bed 1/ })).toBeVisible()
 
-  await page.getByRole("link", { name: "All gardens" }).click()
+  await page.getByRole("link", { name: "My gardens" }).click()
   await expect(page.getByRole("link", { name: "Allotment 12" })).toBeVisible()
 })
 
@@ -224,7 +224,7 @@ test("a bed saved as a template goes into another garden", async ({ page }) => {
   await expect(templates.getByRole("button", { name: "Insert Raised bed" })).toBeVisible()
   await expect(page.getByText("Saved", { exact: true })).toBeVisible()
 
-  await page.getByRole("link", { name: "All gardens" }).click()
+  await page.getByRole("link", { name: "My gardens" }).click()
   await newGarden(page)
   await expect(page.getByRole("button", { name: /^Bed \d/ })).toHaveCount(0)
   await templates.getByRole("button", { name: "Insert Raised bed" }).click()
@@ -439,7 +439,7 @@ test("a garden saved as a file comes back whole after it is deleted", async ({ p
   expect(data.gardens).toHaveLength(1)
   expect(data.gardens[0].plan.plantings).toHaveLength(1)
 
-  await page.getByRole("link", { name: "All gardens" }).click()
+  await page.getByRole("link", { name: "My gardens" }).click()
   await page.getByRole("button", { name: "Delete Plot to restore" }).click()
   const row = page.getByRole("listitem").filter({ hasText: "Plot to restore" })
   await expect(row).toContainText("With it you lose 1 planting.")
@@ -841,7 +841,7 @@ test("a new visitor opens the example garden and finds the advice at work", asyn
   )
 
   // It is a garden like any other: it is kept, and listed.
-  await page.getByRole("link", { name: "All gardens" }).click()
+  await page.getByRole("link", { name: "My gardens" }).click()
   await expect(page.getByRole("link", { name: "Example garden" })).toBeVisible()
   await expect(page.getByRole("button", { name: "See an example" })).toHaveCount(0)
 })
@@ -850,7 +850,7 @@ test("the list pictures each garden and makes a copy that stands on its own", as
   await page.goto("/gardens")
   await page.getByRole("button", { name: "See an example" }).click()
   await expect(page.getByText("Saved", { exact: true })).toBeVisible()
-  await page.getByRole("link", { name: "All gardens" }).click()
+  await page.getByRole("link", { name: "My gardens" }).click()
 
   // The list of gardens, not the week's jobs above it, which name the gardens too.
   const gardens = page.getByRole("list", { name: "Your gardens" })
@@ -877,7 +877,7 @@ test("the list pictures each garden and makes a copy that stands on its own", as
     .getByRole("button", { name: "Delete" })
     .click()
   await expect(page.getByText("Saved", { exact: true })).toBeVisible()
-  await page.getByRole("link", { name: "All gardens" }).click()
+  await page.getByRole("link", { name: "My gardens" }).click()
   await expect(
     gardens.getByRole("listitem").filter({ hasText: "(copy)" }).locator("svg [data-planting]")
   ).toHaveCount(0)

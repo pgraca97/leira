@@ -566,7 +566,7 @@ describe("a garden's page", () => {
   it("explains that a garden is missing and links back to the list", async () => {
     open("/gardens/99999999-9999-4999-8999-999999999999")
     expect(await screen.findByText(/does not exist/)).toBeVisible()
-    expect(screen.getByRole("link", { name: "All gardens" })).toHaveAttribute("href", "/gardens")
+    expect(screen.getByRole("link", { name: "My gardens" })).toHaveAttribute("href", "/gardens")
   })
 })
 
@@ -2348,14 +2348,14 @@ describe("the privacy page", () => {
     const start = await screen.findByRole("link", { name: "Start planning" })
     expect(start).toHaveAttribute("href", "/gardens")
     expect(start.closest("header")).not.toBeNull()
-    expect(screen.queryByRole("link", { name: "All gardens" })).toBeNull()
+    expect(screen.queryByRole("link", { name: "My gardens" })).toBeNull()
   })
 
   it("leads back to the gardens from the header for someone with a session", async () => {
     localStorage.setItem("sb-test-auth-token", "{}")
     try {
       open("/privacy", noSession)
-      const back = await screen.findByRole("link", { name: "All gardens" })
+      const back = await screen.findByRole("link", { name: "My gardens" })
       expect(back).toHaveAttribute("href", "/gardens")
       expect(back.closest("header")).not.toBeNull()
       expect(screen.getByRole("main")).not.toContainElement(back)
