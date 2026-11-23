@@ -55,7 +55,13 @@ export function LanguageMenu({ current, onChoose, hrefs }: LanguageMenuProps) {
         className={`${buttonClass} cursor-pointer list-none [&::-webkit-details-marker]:hidden`}
       >
         <span className="sr-only">{t("language.label")}: </span>
-        <span lang={current}>{t(`language.${current}`)}</span>
+        {/* A phone's header has no room for the whole name beside the page's action. */}
+        <span lang={current} className="sm:hidden">
+          {current.toUpperCase()}
+        </span>
+        <span lang={current} className="hidden sm:inline">
+          {t(`language.${current}`)}
+        </span>
         <svg viewBox="0 0 12 12" aria-hidden="true" className="size-3 text-stone-500">
           <path d="M3 4.5 6 7.5 9 4.5" fill="none" stroke="currentColor" strokeWidth="1.5" />
         </svg>

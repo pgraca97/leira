@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next"
 import { AccountMenu } from "../account/AccountMenu"
 import { currentLanguage } from "../i18n"
 import { BackendContext } from "../lib/backend"
+import { HeaderBar } from "./HeaderBar"
 import { LanguageMenu } from "./LanguageMenu"
 import { buttonClass } from "./ui"
 import { useDismiss } from "./useDismiss"
@@ -20,7 +21,7 @@ interface AppHeaderProps {
 
 /** The bar across the top of every page. */
 export function AppHeader({ children, secondary }: AppHeaderProps) {
-  const { t, i18n } = useTranslation()
+  const { i18n } = useTranslation()
   // The header also shows while the app is still connecting, with no account to ask about.
   const connected = useContext(BackendContext) !== null
   // The account comes last: its panel opens downwards, and in the narrow
@@ -36,24 +37,18 @@ export function AppHeader({ children, secondary }: AppHeaderProps) {
   )
 
   return (
-    <header className="flex flex-wrap print:hidden items-center gap-x-4 gap-y-2 border-b border-stone-200 bg-white px-4 py-2">
-      {/* A full page load: the landing page is a static file, not a page of the app. */}
-      <a href="/" className="flex items-center gap-2 font-semibold text-emerald-900">
-        <img src="/favicon.svg" alt="" className="size-5" />
-        {t("app.name")}
-      </a>
-      <div className="flex flex-1 flex-wrap items-center justify-end gap-x-4 gap-y-2">
-        {children}
-        {secondary ? (
-          <NarrowScreenMenu>
-            {secondary}
-            {general}
-          </NarrowScreenMenu>
-        ) : (
-          general
-        )}
-      </div>
-    </header>
+    // A full page load: the landing page is a static file, not a page of the app.
+    <HeaderBar home="/">
+      {children}
+      {secondary ? (
+        <NarrowScreenMenu>
+          {secondary}
+          {general}
+        </NarrowScreenMenu>
+      ) : (
+        general
+      )}
+    </HeaderBar>
   )
 }
 

@@ -1,5 +1,7 @@
 import { type GardenPlan, PLANTS, samplePlan, toIsoDate } from "@leira/core"
+import type { ReactNode } from "react"
 import { useTranslation } from "react-i18next"
+import { HeaderBar } from "../components/HeaderBar"
 import { LanguageMenu } from "../components/LanguageMenu"
 import { primaryButtonClass } from "../components/ui"
 import { PlanSvg } from "../export/PlanSvg"
@@ -19,23 +21,13 @@ export function Landing({ language }: { language: SiteLanguage }) {
 
   return (
     <div className="flex min-h-full flex-col">
-      <header className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-4 px-4 py-4">
-        <a
-          href={HOME[language]}
-          className="flex items-center gap-2 text-lg font-semibold text-emerald-900"
-        >
-          <img src="/favicon.svg" alt="" className="size-6" />
-          Leira
+      <SiteHeader language={language}>
+        {/* The page's script marks it `data-session` for someone who already has gardens. */}
+        <a href={APP_PATH} className={`${primaryButtonClass} whitespace-nowrap`} data-app-link>
+          <span className="[[data-session]_&]:hidden">{t("landing.start")}</span>
+          <span className="hidden [[data-session]_&]:inline">{t("garden.back")}</span>
         </a>
-        <nav className="flex items-center gap-4 text-sm text-stone-600">
-          {/* The page's script marks it `data-session` for someone who already has gardens. */}
-          <a href={APP_PATH} className={primaryButtonClass} data-app-link>
-            <span className="[[data-session]_&]:hidden">{t("landing.start")}</span>
-            <span className="hidden [[data-session]_&]:inline">{t("garden.back")}</span>
-          </a>
-          <LanguageMenu current={language} hrefs={HOME} />
-        </nav>
-      </header>
+      </SiteHeader>
 
       <main className="flex-1">
         <section className="mx-auto grid w-full max-w-5xl items-center gap-10 px-4 pt-8 pb-16 md:grid-cols-2">
@@ -103,6 +95,25 @@ export function Landing({ language }: { language: SiteLanguage }) {
 
       <SiteFooter language={language} />
     </div>
+  )
+}
+
+/**
+ * The head of every static page: the app's bar, with the page's own action
+ * before the language, as in the app.
+ */
+export function SiteHeader({
+  language,
+  children,
+}: {
+  language: SiteLanguage
+  children?: ReactNode
+}) {
+  return (
+    <HeaderBar home={HOME[language]}>
+      {children}
+      <LanguageMenu current={language} hrefs={HOME} />
+    </HeaderBar>
   )
 }
 

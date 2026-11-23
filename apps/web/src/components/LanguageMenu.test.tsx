@@ -12,8 +12,16 @@ const menu = () => toggle().closest("details")!
 describe("LanguageMenu", () => {
   it("names the current language, and what the control is for", () => {
     render(<LanguageMenu current="en" onChoose={() => {}} />)
-    expect(toggle()).toHaveTextContent("Language: English")
+    expect(toggle()).toHaveTextContent("Language:")
     expect(menu()).not.toHaveAttribute("open")
+  })
+
+  // A phone's header has no room for the whole name next to the page's action.
+  it("has a short name for a narrow screen", () => {
+    render(<LanguageMenu current="pt" onChoose={() => {}} />)
+    const short = screen.getByText("PT", { selector: "summary span" })
+    expect(short).toHaveClass("sm:hidden")
+    expect(screen.getByText("Português", { selector: "summary span" })).toHaveClass("hidden")
   })
 
   it("changes the language in place in the app, and closes", async () => {

@@ -168,14 +168,14 @@ describe.each([
   })
 
   it("chooses the language with the same menu as the app, after the way in", () => {
-    const header = doc.querySelector("header nav")
+    const header = doc.querySelector("header > div")
     expect(header?.lastElementChild?.matches("details")).toBe(true)
     expect(header?.firstElementChild?.getAttribute("href")).toBe("/gardens")
   })
 
   // The page's script marks the page when the browser holds a session.
   it("offers a start to a newcomer, and the gardens to someone who has them", () => {
-    const way = doc.querySelector("header nav a[href='/gardens']")
+    const way = doc.querySelector("header a[href='/gardens']")
     const labels = [...(way?.children ?? [])].map((label) => label.textContent)
     expect(labels).toEqual([strings.landing.start, strings.garden.back])
   })
@@ -263,6 +263,13 @@ describe.each([
   it("stays out of search results", () => {
     expect(meta(doc, 'name="robots"')).toBe("noindex")
     expect(doc.querySelector('link[rel="canonical"]')).toBeNull()
+  })
+
+  it("has the header of every page, with the language but no way into the app", () => {
+    const header = doc.querySelector("body header")
+    expect(header?.querySelector(`a[href="${home}"]`)?.textContent).toContain("Leira")
+    expect(header?.querySelector("details summary")).not.toBeNull()
+    expect(header?.querySelector('a[href="/gardens"]')).toBeNull()
   })
 
   it("says the page does not exist and leads back home", () => {

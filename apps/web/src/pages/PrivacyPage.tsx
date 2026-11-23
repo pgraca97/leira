@@ -69,7 +69,7 @@ export function PrivacyPage() {
   return (
     <div className="flex h-full flex-col">
       <AppHeader>
-        <Link to="/gardens" className={primaryButtonClass}>
+        <Link to="/gardens" className={`${primaryButtonClass} whitespace-nowrap`}>
           {signedIn ? t("garden.back") : t("landing.start")}
         </Link>
       </AppHeader>
