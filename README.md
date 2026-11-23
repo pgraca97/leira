@@ -276,3 +276,9 @@ Five steps are by hand, once:
   Google gives, saved in `apps/web/public`, and submit `/sitemap.xml`. Bing Webmaster Tools can
   import the site from there. The address the pages give as their own is `SITE_URL` in
   `apps/web/src/site/site.ts`.
+
+## License
+
+Leira is free software under the [GNU Affero General Public License v3.0 or later](LICENSE).
+You may use, study, change and share it. If you run a changed copy as a service that other
+people use over a network, you must offer them its source code under the same license.
