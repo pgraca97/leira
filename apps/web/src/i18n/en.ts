@@ -687,6 +687,7 @@ export const en = {
       body: "A leira is what a plot of cultivated land is called in Minho, in the north of Portugal. That is what you draw here.",
     },
     privacy: "Privacy",
+    source: "Source code",
     notFound: {
       title: "Page not found",
       body: "There is nothing at this address.",

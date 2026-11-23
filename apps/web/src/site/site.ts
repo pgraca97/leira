@@ -9,6 +9,9 @@ import { pt } from "../i18n/pt"
  */
 export const SITE_URL = "https://leira.paulodcgraca.workers.dev"
 
+/** Where the code lives. The AGPL asks that people using the app can reach it. */
+export const SOURCE_URL = "https://github.com/pgraca97/leira"
+
 /** The languages the static pages are written in. Portuguese first: the crops are Portugal's. */
 export const SITE_LANGUAGES = ["pt", "en"] as const
 export type SiteLanguage = (typeof SITE_LANGUAGES)[number]

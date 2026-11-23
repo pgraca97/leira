@@ -5,7 +5,7 @@ import { HeaderBar } from "../components/HeaderBar"
 import { LanguageMenu } from "../components/LanguageMenu"
 import { primaryButtonClass } from "../components/ui"
 import { PlanSvg } from "../export/PlanSvg"
-import { HOME, type SiteLanguage } from "./site"
+import { HOME, type SiteLanguage, SOURCE_URL } from "./site"
 
 /** Where the app starts. Not a router link: these pages are not part of the app. */
 export const APP_PATH = "/gardens"
@@ -126,6 +126,9 @@ export function SiteFooter({ language }: { language: SiteLanguage }) {
         <span>Leira</span>
         <a href="/privacy" className={linkClass} data-app-link>
           {t("landing.privacy")}
+        </a>
+        <a href={SOURCE_URL} className={linkClass}>
+          {t("landing.source")}
         </a>
         <OtherLanguage language={language === "pt" ? "en" : "pt"} />
       </div>

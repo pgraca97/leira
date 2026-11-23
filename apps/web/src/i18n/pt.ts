@@ -690,6 +690,7 @@ export const pt: Translation = {
       body: "No Minho, no norte de Portugal, uma leira é um pedaço de terra cultivada. É isso que aqui desenhas.",
     },
     privacy: "Privacidade",
+    source: "Código-fonte",
     notFound: {
       title: "Página não encontrada",
       body: "Não há nada neste endereço.",

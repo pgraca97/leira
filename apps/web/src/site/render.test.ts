@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest"
 import { en } from "../i18n/en"
 import { pt } from "../i18n/pt"
 import { renderSite } from "./render"
-import { SITE_URL } from "./site"
+import { SITE_URL, SOURCE_URL } from "./site"
 
 const ASSETS = { css: ["/assets/app-abc.css"], script: "/assets/site-def.js" }
 const files = renderSite(ASSETS)
@@ -185,6 +185,14 @@ describe.each([
     expect(foot?.querySelector("details")).toBeNull()
     const other = foot?.querySelector("a[data-language]")
     expect(other?.getAttribute("href")).toBe(path === "index.html" ? "/en/" : "/")
+  })
+
+  // The AGPL asks that people using the app can reach its source.
+  it("links to the source code from the foot", () => {
+    expect(SOURCE_URL).toBe("https://github.com/pgraca97/leira")
+    const source = doc.querySelector(`footer a[href="${SOURCE_URL}"]`)
+    expect(source).not.toBeNull()
+    expect(source?.textContent).toBe(strings.landing.source)
   })
 
   it("has one main heading", () => {
