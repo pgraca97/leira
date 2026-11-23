@@ -1,7 +1,8 @@
 import { Link } from "@tanstack/react-router"
-import { type ReactNode, useEffect } from "react"
+import { type ReactNode, useEffect, useState } from "react"
 import { Trans, useTranslation } from "react-i18next"
 import { AppHeader } from "../components/AppHeader"
+import { hasStoredSession } from "../site/openApp"
 
 const CONTACT = "leiragarden@gmail.com"
 
@@ -56,20 +57,27 @@ function Section({ heading, children }: { heading: string; children: ReactNode }
 export function PrivacyPage() {
   const { t } = useTranslation()
 
+  // Only someone who already has gardens is offered the way to them: for a
+  // reader from the landing page, opening the app would make a guest.
+  const [signedIn] = useState(storedSession)
+
   useEffect(() => {
     document.title = t("privacy.title")
   }, [t])
 
   return (
     <div className="flex h-full flex-col">
-      <AppHeader />
+      <AppHeader>
+        {signedIn && (
+          <Link to="/gardens" className="text-sm font-medium text-emerald-800 underline">
+            {t("garden.back")}
+          </Link>
+        )}
+      </AppHeader>
       {/* The scrolling box is the full width, so its scroll bar sits at the window's edge. */}
       <div className="flex-1 overflow-y-auto">
-        <main className="mx-auto flex w-full max-w-prose flex-col gap-6 px-4 py-6 text-sm leading-relaxed text-stone-700">
+        <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 py-8 text-base leading-relaxed text-stone-700">
           <header className="flex flex-col gap-2">
-            <Link to="/gardens" className={`${linkClass} self-start`}>
-              {t("garden.back")}
-            </Link>
             <h1 className="text-2xl font-semibold text-stone-900">{t("privacy.title")}</h1>
             <p className="text-stone-500">{t("privacy.updated")}</p>
             <p>{t("privacy.intro")}</p>
@@ -176,4 +184,13 @@ export function PrivacyPage() {
       </div>
     </div>
   )
+}
+
+function storedSession(): boolean {
+  try {
+    return hasStoredSession(Object.keys(localStorage))
+  } catch {
+    // Storage can be blocked, and then there is no session to go back to.
+    return false
+  }
 }

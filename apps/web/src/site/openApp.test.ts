@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { OPEN_APP_SCRIPT, openAppTarget } from "./openApp"
+import { hasStoredSession, OPEN_APP_SCRIPT, openAppTarget } from "./openApp"
 
 const ORIGIN = "https://leira.test"
 const SESSION = "sb-auqrvaqgomlblbcuyjlr-auth-token"
@@ -86,5 +86,19 @@ describe("the script in the landing page", () => {
       }
     )
     expect(run(blocked)).toEqual([])
+  })
+})
+
+describe("whether this browser holds a session", () => {
+  it("is told by the key supabase-js stores it under", () => {
+    expect(hasStoredSession([SESSION])).toBe(true)
+    expect(hasStoredSession(["garden.language"])).toBe(false)
+  })
+
+  // The landing page's script cannot import it, so it has its own copy.
+  it("agrees with who the landing page sends on to the app", () => {
+    for (const keys of [[SESSION], [], ["garden.language"], ["sb-x-auth-token-code-verifier"]]) {
+      expect(hasStoredSession(keys)).toBe(visit({ storageKeys: keys }) !== null)
+    }
   })
 })

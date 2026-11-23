@@ -46,6 +46,8 @@ test("the privacy page opens in the language of the landing page", async ({ page
   await page.getByRole("link", { name: "Privacidade" }).click()
   await expect(page).toHaveURL(/\/privacy$/)
   await expect(page.getByRole("heading", { level: 1, name: "Privacidade" })).toBeVisible()
+  // No session to go back to, so no way into the gardens either.
+  await expect(page.getByRole("link", { name: "Todas as hortas" })).toHaveCount(0)
 })
 
 test("a language picked on the landing page is the one the app opens in", async ({ page }) => {

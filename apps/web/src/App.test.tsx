@@ -2342,6 +2342,26 @@ describe("the privacy page", () => {
     }
   })
 
+  // Following it would make a reader from the landing page a guest.
+  it("does not lead into the app for someone with no session", async () => {
+    open("/privacy", noSession)
+    await screen.findByRole("heading", { level: 1, name: "Privacy" })
+    expect(screen.queryByRole("link", { name: "All gardens" })).toBeNull()
+  })
+
+  it("leads back to the gardens from the header for someone with a session", async () => {
+    localStorage.setItem("sb-test-auth-token", "{}")
+    try {
+      open("/privacy", noSession)
+      const back = await screen.findByRole("link", { name: "All gardens" })
+      expect(back).toHaveAttribute("href", "/gardens")
+      expect(back.closest("header")).not.toBeNull()
+      expect(screen.getByRole("main")).not.toContainElement(back)
+    } finally {
+      localStorage.removeItem("sb-test-auth-token")
+    }
+  })
+
   it("is reached from the account panel", async () => {
     open("/gardens")
     await userEvent.click(await screen.findByRole("button", { name: "Keep your gardens" }))

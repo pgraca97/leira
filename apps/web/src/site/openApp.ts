@@ -10,6 +10,15 @@ export interface Arrival {
 }
 
 /**
+ * Whether this browser holds a session, by the name supabase-js stores it
+ * under, `sb-<project>-auth-token`. `openAppTarget` keeps its own copy of the
+ * test: it runs as its own source text and cannot call this.
+ */
+export function hasStoredSession(storageKeys: string[]): boolean {
+  return storageKeys.some((key) => /^sb-.+-auth-token$/.test(key))
+}
+
+/**
  * Where to send a visitor who has used the app in this browser, or null to
  * show them the page. Someone with a session came for their gardens, not for
  * the pitch. Every visitor of the app has one, guests too, so it tells them
