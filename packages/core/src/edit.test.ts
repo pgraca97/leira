@@ -2,12 +2,14 @@ import { describe, expect, it } from "vitest"
 import {
   duplicateItem,
   duplicateItems,
+  gardenHandleAt,
   handleAt,
   itemRect,
   itemsWithin,
   moveItem,
   moveItems,
   removeItems,
+  resizeGarden,
   resizeItem,
   resizePlan,
   visibleHandles,
@@ -219,6 +221,107 @@ describe("resizePlan", () => {
 
   it("returns the same plan when the size is unchanged", () => {
     expect(resizePlan(plan, 600, 400)).toBe(plan)
+  })
+})
+
+describe("resizeGarden", () => {
+  it("drags the east and south edges, keeping the items where they are", () => {
+    const resized = resizeGarden(plan, "se", { x: 812, y: 547 })
+    expect(resized).toMatchObject({ widthCm: 810, heightCm: 550 })
+    expect(resized.beds).toBe(plan.beds)
+    expect(resized.plantings).toBe(plan.plantings)
+  })
+
+  it("drags the west and north edges, moving every item so it stays put on the ground", () => {
+    const resized = resizeGarden(plan, "nw", { x: -48, y: -102 })
+    expect(resized).toMatchObject({ widthCm: 650, heightCm: 500 })
+    expect(itemRect(resized, BED)).toEqual({ x: 150, y: 200, w: 200, h: 100 })
+    expect(itemRect(resized, ON_BED)).toEqual({ x: 160, y: 210, w: 80, h: 60 })
+    expect(itemRect(resized, BESIDE)).toEqual({ x: 450, y: 200, w: 100, h: 100 })
+  })
+
+  it("moves crops of every year, not only those in view", () => {
+    const older = {
+      ...planting("older", 0, 0, 50, 50),
+      inGround: { from: "2024-03-01", to: "2024-05-15" },
+    }
+    const resized = resizeGarden({ ...plan, plantings: [...plan.plantings, older] }, "w", {
+      x: -100,
+      y: 0,
+    })
+    expect(itemRect(resized, { kind: "planting", id: "older" })).toEqual({
+      x: 100,
+      y: 0,
+      w: 50,
+      h: 50,
+    })
+  })
+
+  it("changes one side only when an edge is dragged", () => {
+    expect(resizeGarden(plan, "e", { x: 700, y: 999 })).toMatchObject({
+      widthCm: 700,
+      heightCm: 400,
+    })
+    expect(resizeGarden(plan, "s", { x: -999, y: 300 })).toMatchObject({
+      widthCm: 600,
+      heightCm: 300,
+    })
+  })
+
+  it("stops shrinking at the nearest item", () => {
+    expect(resizeGarden(plan, "e", { x: 120, y: 0 })).toMatchObject({ widthCm: 500 })
+    const fromWest = resizeGarden(plan, "w", { x: 380, y: 0 })
+    expect(fromWest.widthCm).toBe(500)
+    expect(itemRect(fromWest, BED)).toEqual({ x: 0, y: 100, w: 200, h: 100 })
+  })
+
+  it("keeps an empty garden within the sizes a plan may have", () => {
+    const empty = emptyPlan()
+    expect(resizeGarden(empty, "se", { x: 10, y: -50 })).toMatchObject({
+      widthCm: 100,
+      heightCm: 100,
+    })
+    expect(resizeGarden(empty, "nw", { x: 590, y: 390 })).toMatchObject({
+      widthCm: 100,
+      heightCm: 100,
+    })
+    expect(resizeGarden(empty, "e", { x: 20_000, y: 0 })).toMatchObject({ widthCm: 10_000 })
+    expect(resizeGarden(empty, "w", { x: -20_000, y: 0 })).toMatchObject({ widthCm: 10_000 })
+  })
+
+  it("returns the same plan when the size is unchanged", () => {
+    expect(resizeGarden(plan, "se", { x: 602, y: 398 })).toBe(plan)
+  })
+})
+
+describe("gardenHandleAt", () => {
+  const REACH = 5
+
+  it("finds a corner within reach outside the garden, or right on its border", () => {
+    expect(gardenHandleAt(plan, { x: 603, y: 404 }, REACH)).toBe("se")
+    expect(gardenHandleAt(plan, { x: -4, y: -4 }, REACH)).toBe("nw")
+    expect(gardenHandleAt(plan, { x: 601, y: 1 }, REACH)).toBe("ne")
+    expect(gardenHandleAt(plan, { x: 0, y: 400 }, REACH)).toBe("sw")
+  })
+
+  it("finds an edge anywhere along it", () => {
+    expect(gardenHandleAt(plan, { x: 300, y: 403 }, REACH)).toBe("s")
+    expect(gardenHandleAt(plan, { x: -2, y: 150 }, REACH)).toBe("w")
+    expect(gardenHandleAt(plan, { x: 604, y: 50 }, REACH)).toBe("e")
+    expect(gardenHandleAt(plan, { x: 450, y: -3 }, REACH)).toBe("n")
+  })
+
+  it("leaves the ground just inside the border to whatever a press there starts", () => {
+    expect(gardenHandleAt(plan, { x: 1, y: 150 }, REACH)).toBe("w")
+    expect(gardenHandleAt(plan, { x: 3, y: 150 }, REACH)).toBeNull()
+    expect(gardenHandleAt(plan, { x: 3, y: 3 }, REACH)).toBeNull()
+    expect(gardenHandleAt(plan, { x: 300, y: 397 }, REACH)).toBeNull()
+  })
+
+  it("finds nothing away from the border", () => {
+    expect(gardenHandleAt(plan, { x: 300, y: 200 }, REACH)).toBeNull()
+    expect(gardenHandleAt(plan, { x: 300, y: 410 }, REACH)).toBeNull()
+    expect(gardenHandleAt(plan, { x: 620, y: 200 }, REACH)).toBeNull()
   })
 })
 

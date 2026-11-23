@@ -224,6 +224,91 @@ export function handleAt(rect: Rect, point: Point, reach: number): ResizeHandle 
 }
 
 /**
+ * Resizes the garden by dragging one of its handles to `point`, given in the
+ * garden's current coordinates. The dragged edges follow the pointer on the
+ * grid and the opposite ones stay where they are. The garden keeps a size a
+ * plan may have, and shrinking stops at the nearest item, crops of every year
+ * included, rather than leaving one outside. The garden's top-left corner is
+ * always (0, 0), so dragging the west or north edge moves every item by the
+ * same distance: on the ground, they stay where they were.
+ */
+export function resizeGarden(plan: GardenPlan, handle: ResizeHandle, point: Point): GardenPlan {
+  const { minSideCm: min, maxSideCm: max } = PLAN_LIMITS
+  const cell = plan.cellCm
+  const rects = [...plan.beds, ...plan.plantings].map((item) => item.rect)
+  const items = rects.length > 0 ? boundsOf(rects) : null
+  let left = 0
+  let right = plan.widthCm
+  let top = 0
+  let bottom = plan.heightCm
+
+  if (handle.includes("w")) {
+    left = clamp(snap(point.x, cell), right - max, Math.min(right - min, items?.x ?? right))
+  }
+  if (handle.includes("e")) {
+    const itemsRight = items ? items.x + items.w : left
+    right = clamp(snap(point.x, cell), Math.max(left + min, itemsRight), left + max)
+  }
+  if (handle.includes("n")) {
+    top = clamp(snap(point.y, cell), bottom - max, Math.min(bottom - min, items?.y ?? bottom))
+  }
+  if (handle.includes("s")) {
+    const itemsBottom = items ? items.y + items.h : top
+    bottom = clamp(snap(point.y, cell), Math.max(top + min, itemsBottom), top + max)
+  }
+
+  const widthCm = right - left
+  const heightCm = bottom - top
+  if (left === 0 && top === 0 && widthCm === plan.widthCm && heightCm === plan.heightCm) {
+    return plan
+  }
+  if (left === 0 && top === 0) return { ...plan, widthCm, heightCm }
+  return {
+    ...plan,
+    widthCm,
+    heightCm,
+    beds: plan.beds.map((bed) => shifted(bed, -left, -top)),
+    plantings: plan.plantings.map((planting) => shifted(planting, -left, -top)),
+  }
+}
+
+/** Checked first to last: a corner wins over the two edges that meet there. */
+const GARDEN_HIT_ORDER: readonly ResizeHandle[] = ["se", "ne", "sw", "nw", "s", "e", "n", "w"]
+
+/** How far inside the garden its border can still be grabbed, as a share of the reach outside. */
+const GARDEN_INNER_REACH = 0.25
+
+/**
+ * The garden handle within `reach` of a point, or null. An edge can be grabbed
+ * anywhere along it, since a garden's sides are long and its middle handle is
+ * often off screen, and a corner where two edges meet. The reach lies mostly
+ * outside the garden: just inside the border, a press is left to start a pan
+ * or an area there, which on a small screen would otherwise lose a band of
+ * ground the width of a finger.
+ */
+export function gardenHandleAt(plan: GardenPlan, point: Point, reach: number): ResizeHandle | null {
+  const inner = reach * GARDEN_INNER_REACH
+  const along = (value: number, side: number) => value >= -reach && value <= side + reach
+  const atWest = point.x >= -reach && point.x <= inner
+  const atEast = point.x >= plan.widthCm - inner && point.x <= plan.widthCm + reach
+  const atNorth = point.y >= -reach && point.y <= inner
+  const atSouth = point.y >= plan.heightCm - inner && point.y <= plan.heightCm + reach
+  const onX = along(point.x, plan.widthCm)
+  const onY = along(point.y, plan.heightCm)
+  const hits: Record<ResizeHandle, boolean> = {
+    se: atSouth && atEast,
+    ne: atNorth && atEast,
+    sw: atSouth && atWest,
+    nw: atNorth && atWest,
+    s: atSouth && onX,
+    e: atEast && onY,
+    n: atNorth && onX,
+    w: atWest && onY,
+  }
+  return GARDEN_HIT_ORDER.find((handle) => hits[handle]) ?? null
+}
+
+/**
  * Changes the size of the garden, keeping its top-left corner. Returns null
  * for a size a plan may not have, or one that would leave an item outside.
  */

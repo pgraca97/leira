@@ -17,6 +17,7 @@ export { addDays, addMonths, daysBetween, type IsoDate, toIsoDate, yearOf } from
 export {
   duplicateItem,
   duplicateItems,
+  gardenHandleAt,
   handleAt,
   handlePoints,
   itemRect,
@@ -26,6 +27,7 @@ export {
   RESIZE_HANDLES,
   type ResizeHandle,
   removeItems,
+  resizeGarden,
   resizeItem,
   resizePlan,
   visibleHandles,
