@@ -1,24 +1,14 @@
 import { isLanguage, LANGUAGE_STORAGE_KEY } from "../i18n/languages"
 
 /**
- * Makes the app open in the language of the page the visitor was reading,
- * unless they already chose one there. Otherwise someone reading the English
- * page in a Portuguese browser would land in a Portuguese app.
- */
-export function rememberPageLanguage(
-  storage: Pick<Storage, "getItem" | "setItem">,
-  pageLanguage: string
-): void {
-  // `pt-PT` on the page is the app's `pt`.
-  const language = pageLanguage.split("-")[0]
-  if (!isLanguage(language) || storage.getItem(LANGUAGE_STORAGE_KEY) !== null) return
-  storage.setItem(LANGUAGE_STORAGE_KEY, language)
-}
-
-/**
- * Keeps a language picked from the static pages' menu. It is the same
- * choice as the app's menu makes, so it replaces any earlier one.
+ * Keeps the language of a static page for the app: the page the visitor was
+ * reading when they went into the app, or the one they picked in its menu.
+ * Either is the language they want now, so it replaces an older choice made
+ * in the app. Otherwise someone who chose English months ago, reading the
+ * Portuguese page, would follow "Privacidade" to an English page.
  */
 export function chooseLanguage(storage: Pick<Storage, "setItem">, language: string): void {
-  if (isLanguage(language)) storage.setItem(LANGUAGE_STORAGE_KEY, language)
+  // `pt-PT` on the page is the app's `pt`.
+  const base = language.split("-")[0]
+  if (isLanguage(base)) storage.setItem(LANGUAGE_STORAGE_KEY, base)
 }

@@ -1,6 +1,6 @@
 import { startAnalytics } from "../analytics"
 import { loadAnalyticsToken } from "./analyticsToken"
-import { chooseLanguage, rememberPageLanguage } from "./language"
+import { chooseLanguage } from "./language"
 
 /**
  * The only script the static pages load, after they are drawn. The pages
@@ -13,7 +13,7 @@ void startAnalytics(loadAnalyticsToken)
 for (const link of document.querySelectorAll("[data-app-link]")) {
   link.addEventListener("click", () => {
     try {
-      rememberPageLanguage(localStorage, document.documentElement.lang)
+      chooseLanguage(localStorage, document.documentElement.lang)
     } catch {
       // Storage can be blocked: the app then follows the browser's language.
     }

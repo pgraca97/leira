@@ -43,6 +43,8 @@ test("the landing page is in English at /en/", async ({ page }) => {
 test("the privacy page opens in the language of the landing page", async ({ page }) => {
   // This browser asks for English, and the page is in Portuguese: the page wins.
   await page.goto("/")
+  // Even over an older choice made in the app.
+  await page.evaluate(() => localStorage.setItem("garden.language", "en"))
   await page.getByRole("link", { name: "Privacidade" }).click()
   await expect(page).toHaveURL(/\/privacy$/)
   await expect(page.getByRole("heading", { level: 1, name: "Privacidade" })).toBeVisible()
