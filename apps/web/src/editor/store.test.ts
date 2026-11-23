@@ -396,6 +396,20 @@ describe("setPlantingLayout", () => {
   })
 })
 
+describe("resizeGarden", () => {
+  it("drags a garden edge, moving the items so they stay put", () => {
+    state().select({ kind: "bed", id: "b1" })
+    expect(state().resizeGarden("w", { x: -100, y: 0 })).toBe(true)
+    expect(state().plan.widthCm).toBe(700)
+    expect(bed()?.rect).toEqual({ x: 300, y: 200, w: 200, h: 100 })
+    expect(state().selection).toEqual([{ kind: "bed", id: "b1" }])
+  })
+
+  it("reports when the size did not change", () => {
+    expect(state().resizeGarden("se", { x: 601, y: 399 })).toBe(false)
+  })
+})
+
 describe("setPlanSize", () => {
   it("resizes the garden", () => {
     expect(state().setPlanSize(1000, 500)).toBe(true)

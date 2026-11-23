@@ -30,6 +30,7 @@ import {
   recordTask,
   removeHarvest,
   removeItems,
+  resizeGarden,
   resizeItem,
   resizePlan,
   toIsoDate,
@@ -111,6 +112,11 @@ export interface EditorState {
   /** Renames a bed or changes its kind. Returns false when nothing changes or the name is too long. */
   updateBed(id: string, changes: Partial<Pick<Bed, "name" | "kind">>): boolean
   setPlantingLayout(id: string, layout: PlantingLayout): boolean
+  /**
+   * Drags one of the garden's handles to a point, moving the items when the
+   * west or north edge moves. Returns false when the size is unchanged.
+   */
+  resizeGarden(handle: ResizeHandle, point: Point): boolean
   /** Resizes the garden. Returns false for a size that is not allowed or leaves an item outside. */
   setPlanSize(widthCm: number, heightCm: number): boolean
   /**
@@ -341,6 +347,8 @@ export const editorStore = createStore<EditorState>()(
             plantings: plan.plantings.map((item) => (item.id === id ? { ...item, layout } : item)),
           })
         },
+
+        resizeGarden: (handle, point) => replacePlan(resizeGarden(get().plan, handle, point)),
 
         setPlanSize: (widthCm, heightCm) => {
           const resized = resizePlan(get().plan, widthCm, heightCm)

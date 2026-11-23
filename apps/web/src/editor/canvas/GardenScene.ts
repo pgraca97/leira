@@ -15,10 +15,12 @@ import {
   type PlanItemRef,
   type Planting,
   type Point,
+  planBounds,
   plantingFill,
   type Rect,
   type ResizeHandle,
   rectFromPoints,
+  resizeGarden,
   resizeItem,
 } from "@leira/core"
 import Phaser from "phaser"
@@ -83,6 +85,8 @@ type Gesture =
   /** Draws an area whose items join the selection. */
   | (Press & { kind: "area"; start: Point; end: Point })
   | (Press & { kind: "resize"; ref: PlanItemRef; handle: ResizeHandle; end: Point })
+  /** Drags the garden's border. */
+  | (Press & { kind: "resize-garden"; handle: ResizeHandle; end: Point })
   /** Two fingers: `anchor` is the garden point that started between them and stays there. */
   | { kind: "pinch"; startDistance: number; startZoom: number; anchor: Point }
 
@@ -129,6 +133,12 @@ export class GardenScene extends Phaser.Scene {
   private viewCenter: Point = { x: 0, y: 0 }
   /** Set once the user pans or zooms; until then the view keeps fitting the garden. */
   private viewTouched = false
+  /**
+   * How far the items are about to move because the garden's border was
+   * dragged, set just before the drag is stored. The view follows them by the
+   * same distance instead of fitting the new size, so nothing jumps on screen.
+   */
+  private gardenDragShift: Point | null = null
 
   constructor() {
     super("garden")
@@ -180,7 +190,10 @@ export class GardenScene extends Phaser.Scene {
       const resized =
         next.plan.widthCm !== previous.plan.widthCm || next.plan.heightCm !== previous.plan.heightCm
       this.syncPlan(next)
-      if (resized) this.fitToView()
+      const shift = this.gardenDragShift
+      this.gardenDragShift = null
+      if (resized && shift) this.followGardenDrag(shift)
+      else if (resized) this.fitToView()
     } else if (next.selection !== previous.selection || next.tool !== previous.tool) {
       // The tool matters too: resize handles only show with the select tool.
       this.drawOutlines(next)
@@ -327,13 +340,19 @@ export class GardenScene extends Phaser.Scene {
     this.outlines.lineStyle(3 * pixel, COLOR.selection, 1)
     for (const rect of rects) strokeRect(this.outlines, grow(rect, 1.5 * pixel))
 
-    // Handles are an offer to resize, which only the select tool can take up,
-    // and only for an item selected on its own.
+    // Handles are an offer to resize, which only the select tool can take up.
+    // The garden's are always there, since it needs no selecting; an item's
+    // only when it is selected on its own, drawn last so they sit on top.
+    if (state.tool.kind !== "select") return
+    this.drawHandles(planBounds(state.plan))
     const [rect] = rects
-    if (!rect || rects.length !== 1 || state.tool.kind !== "select") return
-    const half = HANDLE_HALF_PX * pixel
+    if (rect && rects.length === 1) this.drawHandles(rect)
+  }
+
+  private drawHandles(rect: Rect): void {
+    const half = HANDLE_HALF_PX * this.worldPerPixel()
     this.outlines.fillStyle(COLOR.handle, 1)
-    this.outlines.lineStyle(1.5 * pixel, COLOR.selection, 1)
+    this.outlines.lineStyle(1.5 * this.worldPerPixel(), COLOR.selection, 1)
     for (const { point } of handlePoints(rect, this.handleReach())) {
       this.outlines.fillRect(point.x - half, point.y - half, 2 * half, 2 * half)
       this.outlines.strokeRect(point.x - half, point.y - half, 2 * half, 2 * half)
@@ -422,7 +441,9 @@ export class GardenScene extends Phaser.Scene {
       const target = pointerTarget(editorStore.getState(), point, this.handleReach(), {
         adding: this.isAdding(pointer),
       })
-      if (target.kind === "resize") {
+      if (target.kind === "resize-garden") {
+        this.gesture = { kind: "resize-garden", ...press, handle: target.handle, end: point }
+      } else if (target.kind === "resize") {
         this.gesture = {
           kind: "resize",
           ...press,
@@ -475,6 +496,9 @@ export class GardenScene extends Phaser.Scene {
     } else if (gesture.kind === "area") {
       gesture.end = this.worldPoint(pointer)
       this.drawArea(gesture)
+    } else if (gesture.kind === "resize-garden") {
+      gesture.end = this.worldPoint(pointer)
+      this.drawGardenPreview(gesture)
     } else {
       gesture.end = this.worldPoint(pointer)
       this.drawEditPreview(gesture)
@@ -517,6 +541,23 @@ export class GardenScene extends Phaser.Scene {
       else {
         const found = itemsWithin(shownPlan(state), rectFromPoints(gesture.start, gesture.end))
         state.selectItems([...state.selection, ...found])
+      }
+      this.showHoverCursor(pointer)
+      return
+    }
+    if (gesture.kind === "resize-garden") {
+      if (!gesture.moved) state.pickItem(this.hit(pointer), { adding: this.isAdding(pointer) })
+      else {
+        // Stored once, on release, as other drags are. The items move only when
+        // the west or north edge does, by what that side grew.
+        const { plan } = state
+        const resized = resizeGarden(plan, gesture.handle, gesture.end)
+        this.gardenDragShift = {
+          x: gesture.handle.includes("w") ? resized.widthCm - plan.widthCm : 0,
+          y: gesture.handle.includes("n") ? resized.heightCm - plan.heightCm : 0,
+        }
+        state.resizeGarden(gesture.handle, gesture.end)
+        this.gardenDragShift = null
       }
       this.showHoverCursor(pointer)
       return
@@ -668,6 +709,33 @@ export class GardenScene extends Phaser.Scene {
       .setVisible(true)
   }
 
+  /** Shows where the garden's border would be if the drag ended now, and its size. */
+  private drawGardenPreview(gesture: Extract<Gesture, { kind: "resize-garden" }>): void {
+    const { plan, locale } = editorStore.getState()
+    const resized = resizeGarden(plan, gesture.handle, gesture.end)
+    // In the current coordinates, where the items have not moved yet.
+    const border: Rect = {
+      x: gesture.handle.includes("w") ? plan.widthCm - resized.widthCm : 0,
+      y: gesture.handle.includes("n") ? plan.heightCm - resized.heightCm : 0,
+      w: resized.widthCm,
+      h: resized.heightCm,
+    }
+    const pixel = this.worldPerPixel()
+    this.overlay.clear()
+    // An outline only: a fill would hide the beds underneath.
+    this.overlay.lineStyle(2 * pixel, COLOR.selection, 1)
+    strokeRect(this.overlay, border)
+    // Inside the corner: outside it, the fitted view leaves too little room and cuts the size off.
+    this.draftLabel
+      .setText(sizeLabel(border, locale))
+      .setScale(1 / this.cameras.main.zoom)
+      .setVisible(true)
+    this.draftLabel.setPosition(
+      border.x + border.w - this.draftLabel.displayWidth - 6 * pixel,
+      border.y + border.h - this.draftLabel.displayHeight - 6 * pixel
+    )
+  }
+
   private clearDraft(): void {
     this.overlay.clear()
     this.draftLabel.setVisible(false)
@@ -698,6 +766,16 @@ export class GardenScene extends Phaser.Scene {
     } else {
       this.fitToView()
     }
+  }
+
+  /** Moves the view with the items after a drag of the garden's west or north edge. */
+  private followGardenDrag(shift: Point): void {
+    this.updateFitZoom()
+    this.cameras.main.scrollX += shift.x
+    this.cameras.main.scrollY += shift.y
+    // The user chose this view by dragging in it: a window resize keeps it.
+    this.viewTouched = true
+    this.onViewChanged()
   }
 
   /** Zooms and centres so the whole garden is visible. */
@@ -739,6 +817,7 @@ export class GardenScene extends Phaser.Scene {
     if (!gesture || gesture.kind === "pinch" || !gesture.moved) return
     if (gesture.kind === "draw") this.drawDraft(gesture)
     else if (gesture.kind === "area") this.drawArea(gesture)
+    else if (gesture.kind === "resize-garden") this.drawGardenPreview(gesture)
     else if (gesture.kind !== "pan") this.drawEditPreview(gesture)
   }
 

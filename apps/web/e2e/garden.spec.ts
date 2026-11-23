@@ -139,6 +139,39 @@ test("a bed can be moved and resized, and stays that way", async ({ page }) => {
   await expect(size).toHaveText(sizeResized ?? "")
 })
 
+test("the garden is resized by its edges, and its beds stay where they are on the ground", async ({
+  page,
+}) => {
+  await page.goto("/gardens")
+  await newGarden(page)
+  await page.getByRole("button", { name: "Bed", exact: true }).click()
+  await dragOnGarden(page, [100, 100], [200, 200])
+  const position = page.getByRole("region", { name: "Selected" }).getByText(/cm from the left/)
+  const positionBefore = await position.textContent()
+  await page.getByRole("button", { name: "Select", exact: true }).click()
+
+  const width = page.getByRole("textbox", { name: "Width (m)" })
+  const length = page.getByRole("textbox", { name: "Length (m)" })
+
+  // The east edge, grabbed halfway down, where there is no handle drawn. The
+  // drags shrink the garden: the fitted view leaves little room outside it.
+  await dragOnGarden(page, [600, 300], [500, 300])
+  await expect(width).toHaveValue("5")
+  await expect(position).toHaveText(positionBefore ?? "")
+
+  // The view stays put after a drag, so the same fitted mapping still holds.
+  // The north-west corner moves the bed along: it is nearer the new edges.
+  await dragOnGarden(page, [0, 0], [50, 50])
+  await expect(width).toHaveValue("4.5")
+  await expect(length).toHaveValue("3.5")
+  await expect(position).not.toHaveText(positionBefore ?? "")
+
+  await page.getByRole("button", { name: "Undo" }).click()
+  await expect(width).toHaveValue("5")
+  await expect(length).toHaveValue("4")
+  await expect(position).toHaveText(positionBefore ?? "")
+})
+
 test("beds picked with Shift move together, in one undo, and go together", async ({ page }) => {
   await page.goto("/gardens")
   await newGarden(page)

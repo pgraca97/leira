@@ -1,5 +1,6 @@
 import {
   containsPoint,
+  gardenHandleAt,
   handleAt,
   itemRect,
   type PlanItemRef,
@@ -11,6 +12,8 @@ import { type EditorState, selectedItems } from "../store"
 /** What a press with the select tool starts. */
 export type PointerTarget =
   | { kind: "resize"; ref: PlanItemRef; handle: ResizeHandle }
+  /** Drags the garden's border, which needs no selection: there is only one garden. */
+  | { kind: "resize-garden"; handle: ResizeHandle }
   /** Moves every selected item together. */
   | { kind: "move" }
   /** Draws an area whose items join the selection. */
@@ -19,9 +22,10 @@ export type PointerTarget =
 
 /**
  * Decides what pressing at `point` with the select tool does. Only selected
- * items can be moved, and resized only when one is selected on its own:
- * everywhere else a drag pans the view, so scrolling around a full garden
- * never shifts a bed by accident.
+ * items can be moved, and resized only when one is selected on its own. The
+ * garden's border can always be dragged, unless a selected item claims the
+ * press. Everywhere else a drag pans the view, so scrolling around a full
+ * garden never shifts a bed by accident.
  *
  * While `adding` to the selection (Shift held, or selecting several by touch),
  * a drag that would pan draws an area to select instead.
@@ -44,6 +48,8 @@ export function pointerTarget(
     if (handle) return { kind: "resize", ref: only.ref, handle }
   }
   if (rects.some(({ rect }) => containsPoint(rect, point))) return { kind: "move" }
+  const gardenHandle = gardenHandleAt(state.plan, point, reach)
+  if (gardenHandle) return { kind: "resize-garden", handle: gardenHandle }
   return adding ? { kind: "area" } : { kind: "pan" }
 }
 
@@ -60,7 +66,9 @@ const RESIZE_CURSOR: Record<ResizeHandle, string> = {
 
 /** The mouse cursor that tells the user what a press would do. */
 export function cursorFor(target: PointerTarget): string {
-  if (target.kind === "resize") return RESIZE_CURSOR[target.handle]
+  if (target.kind === "resize" || target.kind === "resize-garden") {
+    return RESIZE_CURSOR[target.handle]
+  }
   if (target.kind === "area") return "crosshair"
   return target.kind === "move" ? "move" : "grab"
 }

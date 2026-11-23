@@ -76,6 +76,34 @@ describe("pointerTarget", () => {
     })
   })
 
+  it("resizes the garden from anywhere along its border, with nothing selected", () => {
+    expect(pointerTarget({ plan, selection: [] }, { x: 603, y: 200 }, REACH)).toEqual({
+      kind: "resize-garden",
+      handle: "e",
+    })
+    expect(pointerTarget({ plan, selection: [BED] }, { x: -3, y: 403 }, REACH)).toEqual({
+      kind: "resize-garden",
+      handle: "sw",
+    })
+  })
+
+  it("lets a selected item's handle win over the garden's border beneath it", () => {
+    const atEdge: GardenPlan = {
+      ...plan,
+      beds: [{ id: "bed", name: "", kind: "bed", rect: { x: 400, y: 100, w: 200, h: 100 } }],
+    }
+    expect(pointerTarget({ plan: atEdge, selection: [BED] }, { x: 600, y: 200 }, REACH)).toEqual({
+      kind: "resize",
+      ref: BED,
+      handle: "se",
+    })
+    expect(pointerTarget({ plan: atEdge, selection: [BED] }, { x: 598, y: 150 }, REACH)).toEqual({
+      kind: "resize",
+      ref: BED,
+      handle: "e",
+    })
+  })
+
   it("pans when the selected item no longer exists", () => {
     const gone = { kind: "bed", id: "deleted" } as const
     expect(pointerTarget({ plan, selection: [gone] }, { x: 250, y: 150 }, REACH)).toEqual({
@@ -92,6 +120,11 @@ describe("cursorFor", () => {
     expect(cursor("e")).toBe("ew-resize")
     expect(cursor("se")).toBe("nwse-resize")
     expect(cursor("sw")).toBe("nesw-resize")
+  })
+
+  it("shows which way the garden resizes", () => {
+    expect(cursorFor({ kind: "resize-garden", handle: "w" })).toBe("ew-resize")
+    expect(cursorFor({ kind: "resize-garden", handle: "ne" })).toBe("nesw-resize")
   })
 
   it("shows that an item can be moved and the view can be panned", () => {
