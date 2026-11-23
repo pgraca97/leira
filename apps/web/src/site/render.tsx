@@ -4,6 +4,7 @@ import { I18nextProvider } from "react-i18next"
 import { Document, type SiteAssets } from "./Document"
 import { Landing } from "./Landing"
 import { NotFound } from "./NotFound"
+import { NOT_FOUND_LANGUAGE_SCRIPT } from "./notFoundLanguage"
 import { OPEN_APP_SCRIPT } from "./openApp"
 import { HOME, LANGUAGE_TAG, SITE_LANGUAGES, type SiteLanguage, siteStrings, siteUrl } from "./site"
 
@@ -107,6 +108,7 @@ function pages(assets: SiteAssets): SiteFile[] {
             title={`${t("landing.notFound.title")} | Leira`}
             description={t("landing.notFound.body")}
             assets={assets}
+            inlineScript={NOT_FOUND_LANGUAGE_SCRIPT}
           >
             <NotFound language={language} />
           </Document>

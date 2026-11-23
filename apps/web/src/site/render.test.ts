@@ -265,7 +265,18 @@ describe.each([
 
   // A mistyped address is not a way into the app.
   it("lets anyone read it", () => {
-    expect(doc.querySelector("script:not([src]):not([type])")).toBeNull()
+    for (const script of doc.querySelectorAll("script:not([src]):not([type])")) {
+      expect(script.textContent).not.toContain("auth-token")
+    }
+  })
+
+  it("switches to the language the visitor chose before anything is drawn", () => {
+    const head = [...doc.head.children]
+    const first = head.find((element) => element.tagName === "SCRIPT")
+    expect(first?.getAttribute("src")).toBeNull()
+    expect(first?.textContent).toContain('"garden.language"')
+    const styles = head.findIndex((element) => element.matches('link[rel="stylesheet"]'))
+    expect(head.indexOf(first as Element)).toBeLessThan(styles)
   })
 
   it("stays out of search results", () => {
