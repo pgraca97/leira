@@ -1019,7 +1019,7 @@ test.describe("on a phone", () => {
     await page.getByRole("button", { name: "Keep your gardens" }).click()
 
     const panel = await page.getByRole("dialog", { name: "Account" }).boundingBox()
-    const language = page.getByRole("combobox", { name: "Language" })
+    const language = page.locator("summary", { hasText: "Language:" })
     const select = await language.boundingBox()
     if (!panel || !select) throw new Error("The panel or the language is not on the page")
     expect(select.y + select.height).toBeLessThanOrEqual(panel.y)
@@ -1106,12 +1106,13 @@ test.describe("on a phone", () => {
     await expect(page.getByText("Saved", { exact: true })).toBeVisible()
 
     const print = page.getByRole("button", { name: "Print" })
-    const language = page.getByRole("combobox", { name: "Language" })
+    const language = page.locator("summary", { hasText: "Language:" })
     await expect(print).toBeHidden()
     await expect(language).toBeHidden()
     await page.getByRole("button", { name: "More" }).click()
     await expect(print).toBeVisible()
-    await language.selectOption("pt")
+    await language.click()
+    await page.getByRole("button", { name: "Português" }).click()
     await expect(page.getByRole("button", { name: "Mais" })).toBeVisible()
   })
 })
@@ -1172,6 +1173,7 @@ for (const width of [640, 700, 767, 900, 1023]) {
 
 test("the interface switches to Portuguese", async ({ page }) => {
   await page.goto("/gardens")
-  await page.getByRole("combobox", { name: "Language" }).selectOption("pt")
+  await page.locator("summary", { hasText: "Language:" }).click()
+  await page.getByRole("button", { name: "Português" }).click()
   await expect(page.getByRole("heading", { name: "As tuas hortas" })).toBeVisible()
 })

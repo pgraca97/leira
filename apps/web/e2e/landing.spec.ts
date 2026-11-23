@@ -32,11 +32,31 @@ test("the landing page is in English at /en/", async ({ page }) => {
   await expect(
     page.getByRole("heading", { level: 1, name: "Plan your vegetable garden, bed by bed" })
   ).toBeVisible()
-  await page.getByRole("link", { name: "Português" }).first().click()
+  await page.locator("header summary").click()
+  await page.getByRole("link", { name: "Português" }).click()
   await expect(page).toHaveURL(/\/$/)
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
     "Planeia a tua horta, canteiro a canteiro"
   )
+})
+
+test("the privacy page opens in the language of the landing page", async ({ page }) => {
+  // This browser asks for English, and the page is in Portuguese: the page wins.
+  await page.goto("/")
+  await page.getByRole("link", { name: "Privacidade" }).click()
+  await expect(page).toHaveURL(/\/privacy$/)
+  await expect(page.getByRole("heading", { level: 1, name: "Privacidade" })).toBeVisible()
+})
+
+test("a language picked on the landing page is the one the app opens in", async ({ page }) => {
+  await page.goto("/en/")
+  // An earlier choice, from the app's own menu.
+  await page.evaluate(() => localStorage.setItem("garden.language", "en"))
+  await page.locator("header summary").click()
+  await page.getByRole("link", { name: "Português" }).click()
+  await expect(page).toHaveURL(/\/$/)
+  await page.getByRole("link", { name: "Começar a planear" }).first().click()
+  await expect(page.getByRole("button", { name: "Nova horta" })).toBeVisible()
 })
 
 test("someone who used the app goes straight back to it, unless they came from it", async ({

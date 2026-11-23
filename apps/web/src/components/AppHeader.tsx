@@ -1,8 +1,9 @@
 import { type ReactNode, useCallback, useContext, useId, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { AccountMenu } from "../account/AccountMenu"
+import { currentLanguage } from "../i18n"
 import { BackendContext } from "../lib/backend"
-import { LanguageSwitcher } from "./LanguageSwitcher"
+import { LanguageMenu } from "./LanguageMenu"
 import { buttonClass } from "./ui"
 import { useDismiss } from "./useDismiss"
 
@@ -19,14 +20,17 @@ interface AppHeaderProps {
 
 /** The bar across the top of every page. */
 export function AppHeader({ children, secondary }: AppHeaderProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   // The header also shows while the app is still connecting, with no account to ask about.
   const connected = useContext(BackendContext) !== null
   // The account comes last: its panel opens downwards, and in the narrow
   // screen's menu anything below the button would sit under the panel.
   const general = (
     <>
-      <LanguageSwitcher />
+      <LanguageMenu
+        current={currentLanguage()}
+        onChoose={(language) => void i18n.changeLanguage(language)}
+      />
       {connected && <AccountMenu />}
     </>
   )

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { rememberPageLanguage } from "./language"
+import { chooseLanguage, rememberPageLanguage } from "./language"
 
 function storage(entries: Record<string, string> = {}) {
   const map = new Map(Object.entries(entries))
@@ -33,5 +33,19 @@ describe("the language the app opens in, from the landing page", () => {
     const saved = storage()
     rememberPageLanguage(saved, "fr")
     expect(saved.map.has("garden.language")).toBe(false)
+  })
+})
+
+describe("a language chosen on the landing page", () => {
+  it("is kept, over any earlier choice: the menu is the same as the app's", () => {
+    const saved = storage({ "garden.language": "en" })
+    chooseLanguage(saved, "pt")
+    expect(saved.map.get("garden.language")).toBe("pt")
+  })
+
+  it("is ignored when the app does not have it", () => {
+    const saved = storage({ "garden.language": "en" })
+    chooseLanguage(saved, "fr")
+    expect(saved.map.get("garden.language")).toBe("en")
   })
 })

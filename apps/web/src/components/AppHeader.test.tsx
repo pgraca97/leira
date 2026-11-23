@@ -6,6 +6,10 @@ import userEvent from "@testing-library/user-event"
 import { describe, expect, it } from "vitest"
 import { AppHeader } from "./AppHeader"
 
+/** The language menu's button, named by the language it shows. */
+const languageMenu = () =>
+  screen.getByText("English", { selector: "summary span" }).closest("summary") as HTMLElement
+
 function showHeader() {
   render(
     <>
@@ -28,7 +32,7 @@ describe("AppHeader", () => {
   it("has no menu when the page has nothing to put in it", () => {
     render(<AppHeader />)
     expect(screen.queryByRole("button", { name: "More" })).toBeNull()
-    expect(screen.getByRole("combobox", { name: "Language" })).toBeVisible()
+    expect(languageMenu()).toBeVisible()
   })
 
   it("starts with the menu of secondary controls closed", () => {
@@ -39,7 +43,7 @@ describe("AppHeader", () => {
     const more = showHeader()
     const menu = document.getElementById(more.getAttribute("aria-controls") ?? "")
     expect(menu).toContainElement(screen.getByRole("button", { name: "Save image" }))
-    expect(menu).toContainElement(screen.getByRole("combobox", { name: "Language" }))
+    expect(menu).toContainElement(languageMenu())
     expect(menu).not.toContainElement(screen.getByRole("link", { name: "All gardens" }))
   })
 
@@ -54,7 +58,7 @@ describe("AppHeader", () => {
   it("closes the menu on Escape and gives the button the focus back", async () => {
     const more = showHeader()
     await userEvent.click(more)
-    await userEvent.click(screen.getByRole("combobox", { name: "Language" }))
+    await userEvent.click(screen.getByRole("button", { name: "Save image" }))
     await userEvent.keyboard("{Escape}")
     expect(more).toHaveAttribute("aria-expanded", "false")
     expect(more).toHaveFocus()

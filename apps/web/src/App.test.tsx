@@ -913,7 +913,7 @@ describe("the account", () => {
     // The garden's own header, not the one shown while it loads.
     await screen.findByRole("textbox", { name: "Garden name" })
     const account = await screen.findByRole("button", { name: "Keep your gardens" })
-    const language = screen.getByRole("combobox", { name: "Language" })
+    const language = screen.getByText("English", { selector: "summary span" })
     expect(language.compareDocumentPosition(account)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
   })
 
@@ -2333,7 +2333,8 @@ describe("the privacy page", () => {
   it("reads in Portuguese too", async () => {
     open("/privacy", noSession)
     try {
-      await userEvent.selectOptions(await screen.findByRole("combobox", { name: "Language" }), "pt")
+      await userEvent.click(await screen.findByText("English", { selector: "summary span" }))
+      await userEvent.click(screen.getByRole("button", { name: "Português" }))
       expect(await screen.findByRole("heading", { level: 1, name: "Privacidade" })).toBeVisible()
       expect(screen.getByRole("link", { name: "CNPD" })).toBeVisible()
     } finally {

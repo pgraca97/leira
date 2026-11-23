@@ -156,6 +156,21 @@ describe.each([
     expect(hrefs).toContain(path === "index.html" ? "/en/" : "/")
   })
 
+  // The script then hands the page's language, or the one picked, to the app.
+  it("marks every way into the app, and every language link", () => {
+    for (const link of doc.querySelectorAll('a[href="/gardens"], a[href="/privacy"]')) {
+      expect(link.hasAttribute("data-app-link"), link.outerHTML).toBe(true)
+    }
+    const languages = [...doc.querySelectorAll("a[data-language]")]
+    expect(languages.map((link) => link.getAttribute("hreflang"))).toEqual(
+      expect.arrayContaining(["pt", "en"])
+    )
+  })
+
+  it("chooses the language with the same menu as the app", () => {
+    expect(doc.querySelector("header details summary")).not.toBeNull()
+  })
+
   it("has one main heading", () => {
     expect(doc.querySelectorAll("h1")).toHaveLength(1)
     expect(doc.querySelector("h1")?.textContent).toBe(strings.landing.hero.title)

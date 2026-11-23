@@ -14,3 +14,11 @@ export function rememberPageLanguage(
   if (!isLanguage(language) || storage.getItem(LANGUAGE_STORAGE_KEY) !== null) return
   storage.setItem(LANGUAGE_STORAGE_KEY, language)
 }
+
+/**
+ * Keeps a language picked from the static pages' menu. It is the same
+ * choice as the app's menu makes, so it replaces any earlier one.
+ */
+export function chooseLanguage(storage: Pick<Storage, "setItem">, language: string): void {
+  if (isLanguage(language)) storage.setItem(LANGUAGE_STORAGE_KEY, language)
+}

@@ -1,5 +1,6 @@
 import { type GardenPlan, PLANTS, samplePlan, toIsoDate } from "@leira/core"
 import { useTranslation } from "react-i18next"
+import { LanguageMenu } from "../components/LanguageMenu"
 import { primaryButtonClass } from "../components/ui"
 import { PlanSvg } from "../export/PlanSvg"
 import { HOME, type SiteLanguage } from "./site"
@@ -15,7 +16,6 @@ const linkClass =
 /** The page a newcomer, or a search engine, sees first. */
 export function Landing({ language }: { language: SiteLanguage }) {
   const { t } = useTranslation()
-  const other: SiteLanguage = language === "pt" ? "en" : "pt"
 
   return (
     <div className="flex min-h-full flex-col">
@@ -28,8 +28,8 @@ export function Landing({ language }: { language: SiteLanguage }) {
           Leira
         </a>
         <nav className="flex items-center gap-4 text-sm text-stone-600">
-          <OtherLanguage language={other} />
-          <a href={APP_PATH} className={primaryButtonClass} data-start>
+          <LanguageMenu current={language} hrefs={HOME} />
+          <a href={APP_PATH} className={primaryButtonClass} data-app-link>
             {t("landing.start")}
           </a>
         </nav>
@@ -46,7 +46,7 @@ export function Landing({ language }: { language: SiteLanguage }) {
               <a
                 href={APP_PATH}
                 className="inline-flex items-center rounded-md bg-emerald-700 px-6 py-3 text-base font-semibold text-white hover:bg-emerald-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
-                data-start
+                data-app-link
               >
                 {t("landing.start")}
               </a>
@@ -92,7 +92,7 @@ export function Landing({ language }: { language: SiteLanguage }) {
           <div className="flex max-w-prose flex-col gap-3">
             <h2 className="text-2xl font-semibold text-stone-900">{t("landing.name.title")}</h2>
             <p className="text-stone-600">{t("landing.name.body")}</p>
-            <a href={APP_PATH} className={`${primaryButtonClass} self-start`} data-start>
+            <a href={APP_PATH} className={`${primaryButtonClass} self-start`} data-app-link>
               {t("landing.start")}
             </a>
           </div>
@@ -111,22 +111,12 @@ export function SiteFooter({ language }: { language: SiteLanguage }) {
     <footer className="border-t border-stone-200">
       <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-6 text-sm text-stone-500">
         <span>Leira</span>
-        <a href="/privacy" className={linkClass}>
+        <a href="/privacy" className={linkClass} data-app-link>
           {t("landing.privacy")}
         </a>
-        <OtherLanguage language={language === "pt" ? "en" : "pt"} />
+        <LanguageMenu current={language} hrefs={HOME} placement="above" />
       </div>
     </footer>
-  )
-}
-
-/** A link to the same page in the other language, named in that language. */
-function OtherLanguage({ language }: { language: SiteLanguage }) {
-  const { t } = useTranslation()
-  return (
-    <a href={HOME[language]} hrefLang={language} lang={language} className={linkClass}>
-      {t(`language.${language}`)}
-    </a>
   )
 }
 
