@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next"
 import { AccountMenu } from "../account/AccountMenu"
 import { currentLanguage } from "../i18n"
 import { BackendContext } from "../lib/backend"
+import { HOME } from "../site/site"
 import { HeaderBar } from "./HeaderBar"
 import { LanguageMenu } from "./LanguageMenu"
 import { buttonClass } from "./ui"
@@ -38,7 +39,8 @@ export function AppHeader({ children, secondary }: AppHeaderProps) {
 
   return (
     // A full page load: the landing page is a static file, not a page of the app.
-    <HeaderBar home="/">
+    // The one in the app's language, or switching here would be undone there.
+    <HeaderBar home={HOME[currentLanguage()]}>
       {children}
       {secondary ? (
         <NarrowScreenMenu>

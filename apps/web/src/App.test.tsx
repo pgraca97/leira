@@ -2075,7 +2075,10 @@ describe("a shared garden", () => {
     backend.shares.clear()
     open(`/shared/${TOKEN}`, noSession)
     expect(await screen.findByText(/does not open a garden/)).toBeVisible()
-    expect(screen.getByRole("link", { name: "Plan your own garden" })).toHaveAttribute("href", "/")
+    expect(screen.getByRole("link", { name: "Plan your own garden" })).toHaveAttribute(
+      "href",
+      "/en/"
+    )
     expect(noSession).not.toHaveBeenCalled()
   })
 
@@ -2083,9 +2086,10 @@ describe("a shared garden", () => {
   it("leads on to the landing page, still with no session", async () => {
     const connect = vi.fn(async () => backend)
     open(`/shared/${TOKEN}`, connect)
+    // In the language the visitor reads the garden in.
     expect(await screen.findByRole("link", { name: "Plan your own garden" })).toHaveAttribute(
       "href",
-      "/"
+      "/en/"
     )
     expect(connect).not.toHaveBeenCalled()
   })

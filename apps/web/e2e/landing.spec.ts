@@ -78,13 +78,23 @@ test("someone who used the app goes straight back to it, unless they came from i
   // The app's own name leads to the landing page, and it stays there.
   await page.getByRole("link", { name: "Leira" }).click()
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible()
-  await expect(page).toHaveURL(/\/$/)
+  // The page in the app's language, English here, as the browser asks.
+  await expect(page).toHaveURL(/\/en\/$/)
   // Its header leads back to the gardens rather than to a start.
   const header = page.getByRole("banner")
-  await expect(header.getByRole("link", { name: /^(My gardens|As minhas hortas)$/ })).toBeVisible()
-  await expect(
-    header.getByRole("link", { name: /^(Start planning|Começar a planear)$/ })
-  ).toHaveCount(0)
+  await expect(header.getByRole("link", { name: "My gardens" })).toBeVisible()
+  await expect(header.getByRole("link", { name: "Start planning" })).toHaveCount(0)
+})
+
+test("the app leads to the landing page in the language picked in it", async ({ page }) => {
+  await page.goto("/gardens")
+  await page.locator("summary", { hasText: "Language:" }).click()
+  await page.getByRole("button", { name: "Português" }).click()
+  await page.getByRole("link", { name: "Leira" }).click()
+  await expect(page).toHaveURL(/\/$/)
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    "Planeia a tua horta, canteiro a canteiro"
+  )
 })
 
 test("the app's pages stay out of search results", async ({ request }) => {

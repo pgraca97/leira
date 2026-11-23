@@ -13,6 +13,7 @@ import { currentLanguage } from "../i18n"
 import { usePublicBackend } from "../lib/backend"
 import { GardenFormatError, GardenNotFoundError, type SharedGarden } from "../lib/gardens"
 import type { GardenView } from "../router"
+import { HOME } from "../site/site"
 
 /**
  * A garden opened from its share link: its plan and calendar, to look at and
@@ -58,12 +59,13 @@ export function SharedGardenPage({ token, view }: { token: string; view: GardenV
 /**
  * The way from someone else's garden to the visitor's own. It leads to the
  * landing page, which says what Leira is to someone who only saw a link. That
- * page is not part of the app, so this is a plain link that loads it.
+ * page is not part of the app, so this is a plain link that loads it, in
+ * the language the visitor reads the garden in.
  */
 function OwnGardenLink() {
   const { t } = useTranslation()
   return (
-    <a href="/" className="text-sm font-medium text-emerald-800 underline">
+    <a href={HOME[currentLanguage()]} className="text-sm font-medium text-emerald-800 underline">
       {t("shared.own")}
     </a>
   )

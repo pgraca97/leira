@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 import "../test/setup"
-import "../i18n"
-import { render, screen } from "@testing-library/react"
+import { act, render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, expect, it } from "vitest"
+import { i18n } from "../i18n"
 import { AppHeader } from "./AppHeader"
 
 /** The language menu's button, named by the language it shows. */
@@ -26,7 +26,18 @@ describe("AppHeader", () => {
   // A full page load, not a route: the landing page is a static file, not part of the app.
   it("leads to the landing page from the name", () => {
     render(<AppHeader />)
-    expect(screen.getByRole("link", { name: "Leira" })).toHaveAttribute("href", "/")
+    expect(screen.getByRole("link", { name: "Leira" })).toHaveAttribute("href", "/en/")
+  })
+
+  // Otherwise someone reading the app in English lands on the Portuguese page.
+  it("leads to the landing page in the language the app is in", async () => {
+    render(<AppHeader />)
+    try {
+      await act(() => i18n.changeLanguage("pt"))
+      expect(screen.getByRole("link", { name: "Leira" })).toHaveAttribute("href", "/")
+    } finally {
+      await act(() => i18n.changeLanguage("en"))
+    }
   })
 
   it("has no menu when the page has nothing to put in it", () => {
