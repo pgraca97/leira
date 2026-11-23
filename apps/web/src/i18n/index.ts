@@ -46,6 +46,14 @@ i18n.on("languageChanged", (language) => {
   }
 })
 
+// A choice made in another tab of the app, or on a static page, applies to
+// this tab too. The browser tells only the other tabs, and only of a change,
+// so saving it again here sends nothing back.
+window.addEventListener("storage", (event) => {
+  if (event.key !== STORAGE_KEY || !isLanguage(event.newValue)) return
+  if (event.newValue !== i18n.language) void i18n.changeLanguage(event.newValue)
+})
+
 /** The active language, narrowed to the ones the app ships. */
 export function currentLanguage(): Language {
   return isLanguage(i18n.language) ? i18n.language : "en"

@@ -1177,3 +1177,13 @@ test("the interface switches to Portuguese", async ({ page }) => {
   await page.getByRole("button", { name: "Português" }).click()
   await expect(page.getByRole("heading", { name: "As tuas hortas" })).toBeVisible()
 })
+
+test("a language picked in one tab reaches the app's other tabs", async ({ page, context }) => {
+  await page.goto("/gardens")
+  const other = await context.newPage()
+  await other.goto("/gardens")
+  await expect(other.getByRole("heading", { name: "Your gardens" })).toBeVisible()
+  await page.locator("summary", { hasText: "Language:" }).click()
+  await page.getByRole("button", { name: "Português" }).click()
+  await expect(other.getByRole("heading", { name: "As tuas hortas" })).toBeVisible()
+})
