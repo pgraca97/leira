@@ -33,7 +33,7 @@ test("the landing page is in English at /en/", async ({ page }) => {
     page.getByRole("heading", { level: 1, name: "Plan your vegetable garden, bed by bed" })
   ).toBeVisible()
   await page.locator("header summary").click()
-  await page.getByRole("link", { name: "Português" }).click()
+  await page.getByRole("banner").getByRole("link", { name: "Português" }).click()
   await expect(page).toHaveURL(/\/$/)
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
     "Planeia a tua horta, canteiro a canteiro"
@@ -46,7 +46,10 @@ test("the privacy page opens in the language of the landing page", async ({ page
   await page.getByRole("link", { name: "Privacidade" }).click()
   await expect(page).toHaveURL(/\/privacy$/)
   await expect(page.getByRole("heading", { level: 1, name: "Privacidade" })).toBeVisible()
-  // No session to go back to, so no way into the gardens either.
+  // No gardens here yet: the header offers the same start as the landing page.
+  await expect(
+    page.getByRole("banner").getByRole("link", { name: "Começar a planear" })
+  ).toBeVisible()
   await expect(page.getByRole("link", { name: "Todas as hortas" })).toHaveCount(0)
 })
 
@@ -55,7 +58,7 @@ test("a language picked on the landing page is the one the app opens in", async 
   // An earlier choice, from the app's own menu.
   await page.evaluate(() => localStorage.setItem("garden.language", "en"))
   await page.locator("header summary").click()
-  await page.getByRole("link", { name: "Português" }).click()
+  await page.getByRole("banner").getByRole("link", { name: "Português" }).click()
   await expect(page).toHaveURL(/\/$/)
   await page.getByRole("link", { name: "Começar a planear" }).first().click()
   await expect(page.getByRole("button", { name: "Nova horta" })).toBeVisible()
@@ -76,6 +79,12 @@ test("someone who used the app goes straight back to it, unless they came from i
   await page.getByRole("link", { name: "Leira" }).click()
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible()
   await expect(page).toHaveURL(/\/$/)
+  // Its header leads back to the gardens rather than to a start.
+  const header = page.getByRole("banner")
+  await expect(header.getByRole("link", { name: /^(All gardens|Todas as hortas)$/ })).toBeVisible()
+  await expect(
+    header.getByRole("link", { name: /^(Start planning|Começar a planear)$/ })
+  ).toHaveCount(0)
 })
 
 test("the app's pages stay out of search results", async ({ request }) => {

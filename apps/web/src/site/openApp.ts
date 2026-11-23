@@ -46,18 +46,23 @@ export function openAppTarget(arrival: Arrival): string | null {
 
 /**
  * The landing page's first script: it reads the browser and leaves for the
- * app when `openAppTarget` says so. Storage can be blocked, and then the
- * page simply shows.
+ * app when `openAppTarget` says so. Someone with a session who stays gets
+ * the page marked `data-session`, so its header offers the way back to the
+ * gardens rather than a start. It runs before anything is drawn, so the
+ * wrong one never shows. Storage can be blocked, and then the page simply
+ * shows.
  */
-export const OPEN_APP_SCRIPT = `(function (target) {
+export const OPEN_APP_SCRIPT = `(function (target, hasSession) {
   try {
+    var keys = Object.keys(localStorage);
     var to = target({
-      storageKeys: Object.keys(localStorage),
+      storageKeys: keys,
       referrer: document.referrer,
       origin: location.origin,
       search: location.search,
       hash: location.hash
     });
     if (to) location.replace(to);
+    else if (hasSession(keys)) document.documentElement.setAttribute("data-session", "");
   } catch (error) {}
-})(${openAppTarget.toString()})`
+})(${openAppTarget.toString()}, ${hasStoredSession.toString()})`

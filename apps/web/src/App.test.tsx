@@ -2342,10 +2342,12 @@ describe("the privacy page", () => {
     }
   })
 
-  // Following it would make a reader from the landing page a guest.
-  it("does not lead into the app for someone with no session", async () => {
+  // The same way in as the landing page offers a newcomer.
+  it("offers someone with no session a start, from the header", async () => {
     open("/privacy", noSession)
-    await screen.findByRole("heading", { level: 1, name: "Privacy" })
+    const start = await screen.findByRole("link", { name: "Start planning" })
+    expect(start).toHaveAttribute("href", "/gardens")
+    expect(start.closest("header")).not.toBeNull()
     expect(screen.queryByRole("link", { name: "All gardens" })).toBeNull()
   })
 
@@ -2357,6 +2359,7 @@ describe("the privacy page", () => {
       expect(back).toHaveAttribute("href", "/gardens")
       expect(back.closest("header")).not.toBeNull()
       expect(screen.getByRole("main")).not.toContainElement(back)
+      expect(screen.queryByRole("link", { name: "Start planning" })).toBeNull()
     } finally {
       localStorage.removeItem("sb-test-auth-token")
     }

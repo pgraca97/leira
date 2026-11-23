@@ -167,8 +167,24 @@ describe.each([
     )
   })
 
-  it("chooses the language with the same menu as the app", () => {
-    expect(doc.querySelector("header details summary")).not.toBeNull()
+  it("chooses the language with the same menu as the app, after the way in", () => {
+    const header = doc.querySelector("header nav")
+    expect(header?.lastElementChild?.matches("details")).toBe(true)
+    expect(header?.firstElementChild?.getAttribute("href")).toBe("/gardens")
+  })
+
+  // The page's script marks the page when the browser holds a session.
+  it("offers a start to a newcomer, and the gardens to someone who has them", () => {
+    const way = doc.querySelector("header nav a[href='/gardens']")
+    const labels = [...(way?.children ?? [])].map((label) => label.textContent)
+    expect(labels).toEqual([strings.landing.start, strings.garden.back])
+  })
+
+  it("switches language from the foot with a plain link, like its other links", () => {
+    const foot = doc.querySelector("footer")
+    expect(foot?.querySelector("details")).toBeNull()
+    const other = foot?.querySelector("a[data-language]")
+    expect(other?.getAttribute("href")).toBe(path === "index.html" ? "/en/" : "/")
   })
 
   it("has one main heading", () => {

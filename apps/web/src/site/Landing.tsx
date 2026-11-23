@@ -28,10 +28,12 @@ export function Landing({ language }: { language: SiteLanguage }) {
           Leira
         </a>
         <nav className="flex items-center gap-4 text-sm text-stone-600">
-          <LanguageMenu current={language} hrefs={HOME} />
+          {/* The page's script marks it `data-session` for someone who already has gardens. */}
           <a href={APP_PATH} className={primaryButtonClass} data-app-link>
-            {t("landing.start")}
+            <span className="[[data-session]_&]:hidden">{t("landing.start")}</span>
+            <span className="hidden [[data-session]_&]:inline">{t("garden.back")}</span>
           </a>
+          <LanguageMenu current={language} hrefs={HOME} />
         </nav>
       </header>
 
@@ -114,9 +116,28 @@ export function SiteFooter({ language }: { language: SiteLanguage }) {
         <a href="/privacy" className={linkClass} data-app-link>
           {t("landing.privacy")}
         </a>
-        <LanguageMenu current={language} hrefs={HOME} placement="above" />
+        <OtherLanguage language={language === "pt" ? "en" : "pt"} />
       </div>
     </footer>
+  )
+}
+
+/**
+ * A link to the same page in the other language, named in that language. In
+ * the foot a plain link, like the others there; the header has the menu.
+ */
+function OtherLanguage({ language }: { language: SiteLanguage }) {
+  const { t } = useTranslation()
+  return (
+    <a
+      href={HOME[language]}
+      hrefLang={language}
+      lang={language}
+      data-language={language}
+      className={linkClass}
+    >
+      {t(`language.${language}`)}
+    </a>
   )
 }
 

@@ -6,8 +6,6 @@ import { useDismiss } from "./useDismiss"
 
 type LanguageMenuProps = {
   current: Language
-  /** Where the panel opens: above suits a control at the foot of a page. */
-  placement?: "below" | "above"
 } & (
   | {
       /** The app: the language changes in place. */
@@ -28,7 +26,7 @@ const itemClass =
  * The one way to change language, in the app and on the static pages alike.
  * A `<details>` opens with no script, which the static pages need.
  */
-export function LanguageMenu({ current, placement = "below", onChoose, hrefs }: LanguageMenuProps) {
+export function LanguageMenu({ current, onChoose, hrefs }: LanguageMenuProps) {
   const { t } = useTranslation()
   const details = useRef<HTMLDetailsElement>(null)
   const summary = useRef<HTMLElement>(null)
@@ -62,11 +60,7 @@ export function LanguageMenu({ current, placement = "below", onChoose, hrefs }: 
           <path d="M3 4.5 6 7.5 9 4.5" fill="none" stroke="currentColor" strokeWidth="1.5" />
         </svg>
       </summary>
-      <ul
-        className={`absolute right-0 z-30 flex min-w-full flex-col rounded-md border border-stone-200 bg-white p-1 shadow-lg ${
-          placement === "above" ? "bottom-full mb-1" : "top-full mt-1"
-        }`}
-      >
+      <ul className="absolute top-full right-0 z-30 mt-1 flex min-w-full flex-col rounded-md border border-stone-200 bg-white p-1 shadow-lg">
         {LANGUAGES.map((language) => {
           const name = t(`language.${language}`)
           return (

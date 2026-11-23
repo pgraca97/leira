@@ -54,7 +54,7 @@ describe("who the landing page sends straight to the app", () => {
 
 describe("the script in the landing page", () => {
   /** Runs the script's text on its own, as the browser does, with a stand-in browser. */
-  function run(storage: object, referrer = "") {
+  function run(storage: object, referrer = "", marked: string[] = []) {
     const replaced: string[] = []
     const location = {
       origin: ORIGIN,
@@ -64,7 +64,7 @@ describe("the script in the landing page", () => {
     }
     new Function("localStorage", "document", "location", OPEN_APP_SCRIPT)(
       storage,
-      { referrer },
+      { referrer, documentElement: { setAttribute: (name: string) => marked.push(name) } },
       location
     )
     return replaced
@@ -74,6 +74,19 @@ describe("the script in the landing page", () => {
     expect(run({ [SESSION]: "{}" })).toEqual(["/gardens?a=1"])
     expect(run({})).toEqual([])
     expect(run({ [SESSION]: "{}" }, `${ORIGIN}/gardens`)).toEqual([])
+  })
+
+  // The header then offers the way back to the gardens instead of a start.
+  it("marks the page for someone with a session who stays to read it", () => {
+    const marked: string[] = []
+    run({ [SESSION]: "{}" }, `${ORIGIN}/gardens`, marked)
+    expect(marked).toEqual(["data-session"])
+  })
+
+  it("leaves the page unmarked for a newcomer", () => {
+    const marked: string[] = []
+    run({}, "", marked)
+    expect(marked).toEqual([])
   })
 
   it("lets the page show when storage is blocked", () => {

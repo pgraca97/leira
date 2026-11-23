@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router"
 import { type ReactNode, useEffect, useState } from "react"
 import { Trans, useTranslation } from "react-i18next"
 import { AppHeader } from "../components/AppHeader"
+import { primaryButtonClass } from "../components/ui"
 import { hasStoredSession } from "../site/openApp"
 
 const CONTACT = "leiragarden@gmail.com"
@@ -57,8 +58,8 @@ function Section({ heading, children }: { heading: string; children: ReactNode }
 export function PrivacyPage() {
   const { t } = useTranslation()
 
-  // Only someone who already has gardens is offered the way to them: for a
-  // reader from the landing page, opening the app would make a guest.
+  // The landing page's rule: a start for a newcomer, the way back for
+  // someone who already has gardens in this browser.
   const [signedIn] = useState(storedSession)
 
   useEffect(() => {
@@ -68,11 +69,9 @@ export function PrivacyPage() {
   return (
     <div className="flex h-full flex-col">
       <AppHeader>
-        {signedIn && (
-          <Link to="/gardens" className="text-sm font-medium text-emerald-800 underline">
-            {t("garden.back")}
-          </Link>
-        )}
+        <Link to="/gardens" className={primaryButtonClass}>
+          {signedIn ? t("garden.back") : t("landing.start")}
+        </Link>
       </AppHeader>
       {/* The scrolling box is the full width, so its scroll bar sits at the window's edge. */}
       <div className="flex-1 overflow-y-auto">
